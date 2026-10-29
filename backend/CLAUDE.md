@@ -85,13 +85,23 @@ interface/controller → application ← infrastructure/
 
 ## Testing
 
+### Table-driven tests (always)
+
+Write every test, integration and unit alike, as a table-driven test:
+
+- **One table per test function:** a slice of the layer's case struct, one element per case. Even a function with a single case uses a one-element table, so the next case is a new element, not a rewrite.
+- **Run the table with the layer's runner** (`runIntegrationTestCases`, `runUseCaseTestCases`, `runControllerTestCases`, `runRepositoryTestCases`). Don't write the `for _, tt := range tests { t.Run(...) }` loop by hand, and don't write standalone `t.Run` blocks or a separate top-level function for one more case.
+- **Keep the logic in the runner and the fields.** A case states its input, setup, and expected result as data. Put per-case behavior in the case's `setupMocks`, `setupFunc`, `env`, or `assertFunc` fields, not in `if tt.name == ...` branches.
+- **If the case struct can't express what a test needs,** add a field to the layer's case struct and handle it in its runner in `helpers_test.go`, rather than writing that test outside the table. If code outside these layers needs tests (e.g. `internal/infrastructure/router`), give its package the same pattern: a `helpers_test.go` with a case struct and a runner.
+
 ### What to test where
 
 1. **Integration tests come first.** Cover as many lines of the Go code as possible from `test/integration/`, with both positive cases (success responses) and negative cases (validation errors, not found, conflicts, and every other error response the endpoint can return). They build the server through the production wiring (`di.InitializeApp`) and call it over HTTP against a real, migrated Postgres, so one case covers the controller, use case, repository, and router together.
 2. **Unit tests cover only what integration tests can't reach.** Every remaining branch must be covered by a unit test in the controller, application, or repository layer. Typical examples:
-   - a dependency failing on demand, e.g. the database-down 503 in `internal/interface/controller/health_test.go` (controller)
-   - timeouts and concurrency, e.g. a health check outliving its deadline (application)
+   - a state production wiring can't produce, e.g. the `degraded` health status, which needs a non-critical check that doesn't exist yet (`internal/application/healthcheck_test.go`, `internal/interface/controller/health_test.go`)
    - a driver error a repository must translate or wrap, e.g. a dropped connection or a failed `RowsAffected` (repository, with go-sqlmock)
+
+   Try an integration case first, even for failures. E.g. the database-down and timeout 503s of `GET /health/full` are integration cases: one drops a disposable database after startup, the other sets `HEALTH_CHECK_TIMEOUT` to `1ns`.
 3. **Don't duplicate.** If an integration test already covers a branch, don't also unit-test it.
 
 After `make test`, read the per-package coverage table it prints. Find each uncovered line in `coverage.out` (`go tool cover -html=coverage.out`), then cover it with an integration case if an HTTP request can reach it, or a unit test if not.
@@ -105,8 +115,8 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 
 - **One file per tag:** `test/integration/<tag>_test.go`. E.g. every operation tagged `health` goes in `health_test.go`. A new tag in the TypeSpec `@tag(...)` means a new file. An operation with several tags goes in the file for its first tag.
 - **One test function per path and method pair**, named `Test` + the operation's `operationId` with the first letter capitalized. E.g. `GET /health` (`getHealth`) is `TestGetHealth`, and `GET /health/full` (`getHealthFull`) is `TestGetHealthFull`.
-- **All of an endpoint's cases go inside its test function** as `t.Run` subtests, positive and negative alike. Don't add separate top-level functions for one endpoint's error cases.
-- Shared request helpers and fixtures go in `test/integration/helpers_test.go` (create it when the second tag file needs them), not in a tag file.
+- **All of an endpoint's cases go in one table inside its test function,** positive and negative alike, run with `runIntegrationTestCases`. Don't add separate top-level functions or hand-written `t.Run` blocks for one endpoint's cases.
+- Shared request helpers and fixtures go in `test/integration/helpers_test.go`, not in a tag file. Assertions specific to one tag (e.g. `assertHealthyDatabase`) stay in that tag's file.
 
 | Tag | File | Test functions |
 |-----|------|----------------|
@@ -114,13 +124,24 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 
 Update this table when you add a tag or an endpoint.
 
-- Start each test with `ts := newTestServer(t)` (`test/integration/setup_test.go`). It wires a fresh app, serves it over `httptest`, and cleans up through `t.Cleanup`.
-- `TestMain` sets `gin.TestMode` and fills in default env vars (`setEnvDefaults`). Put suite-wide env defaults there, not in individual tests, because tests that call `t.Parallel()` can't use `t.Setenv`.
-- Assert the response status and the decoded `generated.*` response body.
+Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
+
+| Field | Purpose |
+|-------|---------|
+| `name` | Subtest name, starting with the expected status, e.g. `"503 when the database goes away after startup"`. |
+| `req` | `method`, `path`, and `headers` to send. |
+| `env` | Env vars set with `t.Setenv` before the server is built, e.g. `{"HEALTH_CHECK_TIMEOUT": "1ns"}`. |
+| `setupFunc func(t) (afterStart func())` | Runs before the server is built. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` drops the database there. |
+| `expectedStatus` | The response status. The runner always checks it. |
+| `assertFunc func(t, response)` | Checks the body and headers. Use `assertBody(want)` for exact bodies, `assertHeader(key, want)` for headers, and `assertAll(...)` to combine them. Write a custom one for bodies with measured values (timestamps, counters). |
+
+- `runIntegrationTestCases` builds a fresh server per case with `newTestServer` (`test/integration/setup_test.go`): production wiring served over `httptest` and cleaned up through `t.Cleanup`. Cases run sequentially because they may set env vars.
+- `TestMain` sets `gin.TestMode` and fills in suite-wide default env vars with `setEnvDefaults`. Per-case overrides go in the case's `env`.
+- Decode bodies into the `generated.*` types with `decode[T]`, so the tests check the API contract.
 
 ### Unit tests: table-driven harness
 
-Each layer has a `helpers_test.go` with a generic case struct and runner. Use them instead of writing a table loop by hand:
+Each layer has a `helpers_test.go` with a generic case struct and runner (see [Table-driven tests](#table-driven-tests-always)):
 
 | Layer | Package | Case struct | Runner | Test doubles |
 |-------|---------|-------------|--------|--------------|
