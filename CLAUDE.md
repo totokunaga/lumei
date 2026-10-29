@@ -9,6 +9,8 @@
 | `infra/`    | AWS infrastructure                               |
 | `docs/`     | Documentation, including architecture diagrams   |
 
+Read `docs/requirements/business-requirements.md` before building or changing a feature. Cite the requirement IDs it implements (e.g. `BR-EXP-01`), and update the document in the same change if the behavior differs.
+
 Read `docs/architecture/aws-infrastructure.md` before any change that touches more than one of these parts, or touches AWS resources.
 
 Documentation lives in the root `docs/` directory. Don't add `docs/` directories or `README.md` files inside `frontend/`, `backend/`, or `infra/`. Instructions for working on one part go in that part's own `CLAUDE.md` (e.g. `backend/CLAUDE.md`).
