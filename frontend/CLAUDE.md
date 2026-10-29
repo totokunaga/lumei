@@ -1,6 +1,6 @@
 # CLAUDE.md (frontend)
 
-React Native app for Lumei (iOS and Android): Expo SDK 58, Expo Router, TypeScript, NativeWind, TanStack Query, Zustand, React Hook Form + Zod, i18next. It calls the Go API in `backend/` (see `docs/architecture/aws-infrastructure.md`).
+React Native app for Lumei (iOS and Android): Expo SDK 58, Expo Router, TypeScript, NativeWind, Reanimated, Liquid Glass (`expo-glass-effect`), `@expo/ui`, TanStack Query, Zustand, React Hook Form + Zod, i18next. It calls the Go API in `backend/` (see `docs/architecture/aws-infrastructure.md`).
 
 ## Expo changes often: don't trust your training data
 
@@ -62,6 +62,63 @@ Import from `src/` with the `@/` alias (`@/api/generated`), not relative paths.
 - **Text:** never hard-code text the user sees. Add a key to all three of `src/i18n/locales/en.json`, `ja.json`, and `fr.json`, and use `t('key')`. Keys are typed from `en.json`, so an unknown key fails `typecheck`, and `test/i18n/locales.test.ts` fails if `ja.json` or `fr.json` lacks a key or has an extra one.
 - **Money and dates:** format with `Intl` in the user's locale. Amounts are integers in the currency's minor unit (BR-NFR-06).
 - Cite the requirement IDs you implement (e.g. `BR-EXP-01`) in comments and test names (see the root `CLAUDE.md`).
+
+## Design
+
+Lumei should feel like a current, top-tier native app: modern platform materials, fluid motion, and moments of delight that make people want to come back and log a purchase. A plain, static screen is not done. Delight never comes at the cost of frame rate, battery, or accessibility.
+
+### Use the modern platform look
+
+- **iOS: Liquid Glass.** Build floating chrome (tab bar, toolbars, the quick-add button, sheets, overlays on top of content) from Liquid Glass.
+  - **Use native components first:** they get Liquid Glass for free.
+    - Tabs: `NativeTabs` from `expo-router/native-tabs`, not a JS tab bar.
+    - Native headers and form sheets: the `Stack` from `expo-router`.
+    - System controls: `@expo/ui/swift-ui` (`Host`, `Button`, `Picker`, `DatePicker`, `ContextMenu`, `BottomSheet`, `GlassEffectContainer`).
+  - **Custom glass surfaces:** `GlassView` from `expo-glass-effect`. Use `glassEffectStyle` `'regular'` for controls and `'clear'` over rich content, `isInteractive` for things the user presses, and `tintColor` for an accent.
+    - Wrap glass elements that sit near each other in a `GlassContainer` with `spacing`, so they merge and separate fluidly.
+- **Glass goes on the layer above the content, never on the content itself.** Lists, numbers, and charts sit on solid backgrounds; glass floats over them. Don't stack glass on glass, and keep text on glass short and bold enough to read over any backdrop.
+- **Always have a fallback.**
+  - Render `GlassView` only when `isLiquidGlassAvailable()` and `isGlassEffectAPIAvailable()` are both true. Otherwise use a solid, slightly translucent surface with a hairline border.
+  - Also use the solid surface when `AccessibilityInfo.isReduceTransparencyEnabled()` is true.
+  - Put this in one shared component (e.g. `src/components/glass-surface.tsx`), not in each screen.
+- **Android: Material 3 Expressive.** Don't imitate iOS glass on Android. Use `@expo/ui/jetpack-compose` components and Material You dynamic color, with expressive shapes and spring motion. Keep layout and behavior the same on both platforms; only the materials differ.
+- **Icons:** SF Symbols on iOS and Material Symbols on Android through `SymbolView` from `expo-symbols`, not PNG icons. Animate symbols (e.g. a bounce on save) where it adds meaning.
+- **Typography and layout:**
+  - **Type:** system fonts with Dynamic Type, bold and oversized for the key numbers. Today's allowance (BR-DSH) is the hero of the home screen.
+  - **Shape and space:** generous spacing, large continuous corner radii, and safe-area-aware edge-to-edge layouts.
+  - **Color:** a restrained palette with one vivid accent, and every color has a `dark:` variant.
+
+### Make it fascinating
+
+Take in distinctive, current design ideas actively rather than defaulting to stock screens. Each new screen or feature should have at least one moment that feels alive. Good places for it in Lumei:
+
+- **Numbers that move:** today's allowance and the remaining amount count up or down to their new value instead of jumping.
+- **Feedback on every action:**
+  - Use springs (`withSpring`) rather than linear timing, so motion feels physical.
+  - Buttons and cards scale slightly on press.
+  - Saving an expense plays a short success animation with a haptic tap (`expo-haptics`, added with `bunx expo install` when first needed).
+  - Going over today's allowance gets a distinct, gentler haptic and color shift.
+- **Shared-element and layout transitions:**
+  - Reanimated layout animations (`entering`, `exiting`, `layout`) for list rows being added, edited, or swiped away.
+  - Native zoom and sheet transitions from `expo-router` between screens.
+- **Live charts (BR-CHT):** bars and the cumulative line draw in on first show and morph smoothly when data changes; dragging across the chart scrubs with haptic ticks.
+- **Celebrations at milestones:** reaching the saving target, or a streak of days under the allowance, gets a short, tasteful celebration (particles, a glow, an animated symbol), at most once per milestone.
+- **Depth and texture:** subtle gradients, glows, and parallax on scroll, kept quiet enough that the numbers stay the focus.
+
+Keep every animation short (about 150–400 ms for feedback, under 1 s for celebrations) and interruptible. Motion must explain what happened; drop any animation that only decorates and slows the user down.
+
+### Keep it fast
+
+Target a steady 60 fps (120 fps on ProMotion devices) on a mid-range Android phone, not just the newest iPhone.
+
+- **Animate on the UI thread:** Reanimated shared values, `useAnimatedStyle`, and worklets, or Reanimated 4's CSS animations and transitions. Never animate with `setState` or React `Animated` driven from JS.
+- **Animate only `transform` and `opacity`** where possible. Animating layout props (`width`, `height`, `margin`) or shadows re-lays out every frame.
+- **Draw rich graphics with Skia** (`@shopify/react-native-skia`, which Victory Native XL also uses) instead of stacking many views.
+- **Use glass and blur sparingly:** they are costly to render. Use a few glass surfaces per screen, never inside list rows, and never animate their size on every frame.
+- **Lists:** use FlashList (or Legend List) for long ones, with stable keys and memoized rows. Don't put heavy animation in every row; animate rows only as they enter, leave, or move.
+- **Celebrations and particles:** pause them when the screen isn't focused, and keep particle counts small.
+- **Respect Reduce Motion.** With `useReducedMotion()` (Reanimated) set, replace movement with a short fade, and pass `reduceMotion: ReduceMotion.System` to animations. Never hide information behind an animation.
+- **Check performance in a release build on a real device,** not in the dev build, which is far slower. Use the performance monitor from the dev menu, and React DevTools' profiler for re-renders. Any animation that drops frames gets simplified or removed.
 
 ## API changes
 
