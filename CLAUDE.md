@@ -9,11 +9,23 @@
 | `infra/`    | AWS infrastructure                               |
 | `docs/`     | Documentation, including architecture diagrams   |
 
-Read `docs/requirements/business-requirements.md` before building or changing a feature. Cite the requirement IDs it implements (e.g. `BR-EXP-01`), and update the document in the same change if the behavior differs.
-
 Read `docs/architecture/aws-infrastructure.md` before any change that touches more than one of these parts, or touches AWS resources.
 
 Documentation lives in the root `docs/` directory. Don't add `docs/` directories or `README.md` files inside `frontend/`, `backend/`, or `infra/`. Instructions for working on one part go in that part's own `CLAUDE.md` (e.g. `backend/CLAUDE.md`).
+
+## Business requirements
+
+`docs/requirements/business-requirements.md` is the single source of truth for what the app does. Read it before building or changing a feature, and cite the requirement IDs you implement (e.g. `BR-EXP-01`) in code comments, tests, and PR descriptions.
+
+**Every addition, change, or deletion of a business requirement must update `docs/requirements/business-requirements.md` in the same change.** This applies whether it comes from the user in conversation, from a decision made while implementing, or from a code change that alters user-facing behavior or a calculation. Never leave the document behind the code or the conversation.
+
+- **Adding:** give the requirement the next free ID in its group (e.g. `BR-EXP-12`), and keep rows in ID order. For a new area, add a new group with its own prefix.
+- **Changing:** edit the row in place and keep its ID.
+- **Deleting:** remove the row and never reuse its ID. If the requirement is only postponed, move it to **Future** instead.
+- **Update everything the change touches:** the Glossary, Scope, Calculations and worked example, seed-data tables, cross-references to other IDs, Assumptions, and Future. Then search the code and tests for the affected IDs and update them too.
+- **Don't present a guess as a decision.** Anything the user hasn't decided goes in the Assumptions table. When it's decided, write it into the requirements and remove the row.
+- **Promoting a Future item** into the release turns it into a numbered requirement and removes it from Future.
+- If a request conflicts with an existing requirement, point out the conflict and ask before changing either.
 
 ## Backend
 

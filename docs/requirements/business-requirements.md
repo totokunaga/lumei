@@ -84,13 +84,13 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | ID | Priority | Requirement |
 |----|----------|-------------|
 | BR-ACC-01 | Must | A person signs in with **Sign in with Apple** or **Sign in with Google**, on both iOS and Android. The first sign-in creates the account. There is no email and password sign-in. |
-| BR-ACC-07 | Must | Lumei identifies a user by their email address. If an Apple or Google sign-in has the same email address as an existing account, it opens that account instead of creating a new one. The user can then sign in to the account with either provider. Only email addresses the provider reports as verified are matched. |
-| BR-ACC-08 | Must | A sign-in with a different email address creates a separate account. This includes an Apple sign-in that uses "Hide My Email". |
 | BR-ACC-02 | Must | A signed-in user sees and changes only their own data. No user can read or change another user's data. |
 | BR-ACC-03 | Must | A user stays signed in across app restarts until they sign out or the session expires. |
 | BR-ACC-04 | Must | A user can sign out. |
 | BR-ACC-05 | Must | A user can delete their account. Deletion permanently removes all of their data, including location history. It also revokes the app's access to every Apple and Google sign-in used for the account. |
 | BR-ACC-06 | Must | A new user goes through a short setup before reaching the home screen. They choose the region (BR-SET-06) and the account currency, then set the period start day, enter income and fixed expenses, and set a saving target. The region and currency steps can't be skipped. Every other step can be skipped and finished later. |
+| BR-ACC-07 | Must | Lumei identifies a user by their email address. If an Apple or Google sign-in has the same email address as an existing account, it opens that account instead of creating a new one. The user can then sign in to the account with either provider. Only email addresses the provider reports as verified are matched. |
+| BR-ACC-08 | Must | A sign-in with a different email address creates a separate account. This includes an Apple sign-in that uses "Hide My Email". |
 
 ### Saving periods
 
