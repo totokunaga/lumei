@@ -36,12 +36,15 @@ type testIntegrationInput struct {
 	name string
 	req  req
 
-	// env is set (via t.Setenv) before the server is built.
-	env map[string]string
+	// configure changes the case's own copy of the configuration before the
+	// server is built, e.g. to shorten a timeout. Cases never change the
+	// environment, so they can run in parallel.
+	configure func(cfg *config.Config)
 
-	// setupFunc runs before the server is built. The returned function, if
-	// any, runs after the server is built and before the request is sent.
-	setupFunc func(t *testing.T) (afterStart func())
+	// setupFunc runs before the server is built and may also change cfg. The
+	// returned function, if any, runs after the server is built and before the
+	// request is sent.
+	setupFunc func(t *testing.T, cfg *config.Config) (afterStart func())
 
 	expectedStatus int
 
@@ -51,23 +54,26 @@ type testIntegrationInput struct {
 }
 
 // runIntegrationTestCases builds a fresh server per case through the
-// production wiring and sends the case's request to it. Cases do not run in
-// parallel because they may set environment variables.
+// production wiring and sends the case's request to it. Cases run in parallel,
+// each with its own configuration loaded from the suite's environment.
 func runIntegrationTestCases(t *testing.T, tests []testIntegrationInput) {
 	t.Helper()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for k, v := range tt.env {
-				t.Setenv(k, v)
+			t.Parallel()
+
+			cfg := loadConfig(t)
+			if tt.configure != nil {
+				tt.configure(cfg)
 			}
 
 			var afterStart func()
 			if tt.setupFunc != nil {
-				afterStart = tt.setupFunc(t)
+				afterStart = tt.setupFunc(t, cfg)
 			}
 
-			ts := newTestServer(t)
+			ts := newTestServer(t, cfg)
 			if afterStart != nil {
 				afterStart()
 			}
@@ -80,6 +86,16 @@ func runIntegrationTestCases(t *testing.T, tests []testIntegrationInput) {
 			}
 		})
 	}
+}
+
+// loadConfig reads the configuration from the suite's environment, which
+// TestMain fills in before any test runs.
+func loadConfig(t *testing.T) *config.Config {
+	t.Helper()
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	return &cfg
 }
 
 // do sends r to the test server and returns the response.
@@ -147,12 +163,10 @@ func assertHeader(key, want string) func(t *testing.T, resp response) {
 // useDisposableDatabase is a setupFunc that points the server at a new, empty
 // database and drops it once the server has started. Dropping with FORCE
 // terminates the server's open connections, and reconnecting fails because the
-// database no longer exists.
-func useDisposableDatabase(t *testing.T) (afterStart func()) {
+// database no longer exists. The database is the case's own, so other cases
+// running in parallel are unaffected.
+func useDisposableDatabase(t *testing.T, cfg *config.Config) (afterStart func()) {
 	t.Helper()
-
-	cfg, err := config.Load()
-	require.NoError(t, err)
 
 	admin, err := driver.NewPostgresDriver(cfg.RDB).Open(cfg.RDB.DSN())
 	require.NoError(t, err)
@@ -165,7 +179,7 @@ func useDisposableDatabase(t *testing.T) (afterStart func()) {
 
 	_, err = admin.ExecContext(t.Context(), fmt.Sprintf(`CREATE DATABASE %q`, name))
 	require.NoError(t, err)
-	t.Setenv("RDB_NAME", name)
+	cfg.RDB.Name = name
 
 	drop := func() {
 		// Not t.Context(): this also runs from t.Cleanup, after it is canceled.

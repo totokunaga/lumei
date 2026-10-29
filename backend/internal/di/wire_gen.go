@@ -6,6 +6,11 @@
 
 package di
 
+import (
+	"github.com/google/wire"
+	"github.com/totokunaga/lumei/backend/internal/config"
+)
+
 // Injectors from wire.go:
 
 // InitializeApp creates a fully configured application with all dependencies
@@ -33,3 +38,44 @@ func InitializeApp() (*App, func(), error) {
 		cleanup()
 	}, nil
 }
+
+// InitializeAppWithConfig is InitializeApp with the configuration supplied by
+// the caller instead of read from the environment. Integration tests use it to
+// change settings per case without t.Setenv, so the cases can run in parallel.
+func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
+	serverConfig := ProvideServerConfig(cfg)
+	logConfig := ProvideLogConfig(cfg)
+	logger := ProvideLogger(logConfig)
+	rdbConfig := ProvideRDBConfig(cfg)
+	dbDriver := ProvideDBDriver(rdbConfig)
+	connector, cleanup, err := ProvideConnector(rdbConfig, dbDriver, logger)
+	if err != nil {
+		return nil, nil, err
+	}
+	v := ProvideHealthChecks(connector)
+	healthChecker := ProvideHealthChecker(serverConfig, v)
+	apiController := ProvideAPIController(healthChecker, logger)
+	router := ProvideRouter(serverConfig, logger, apiController)
+	app := ProvideApp(router, logger)
+	return app, func() {
+		cleanup()
+	}, nil
+}
+
+// wire.go:
+
+// appSet builds the App from a *config.Config. Both injectors share it, so the
+// graph tests build is the graph production runs.
+var appSet = wire.NewSet(
+	ProvideServerConfig,
+	ProvideRDBConfig,
+	ProvideLogConfig,
+	ProvideLogger,
+	ProvideDBDriver,
+	ProvideConnector,
+	ProvideHealthChecks,
+	ProvideHealthChecker,
+	ProvideAPIController,
+	ProvideRouter,
+	ProvideApp,
+)

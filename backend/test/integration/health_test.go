@@ -3,11 +3,13 @@ package integration
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/totokunaga/lumei/backend/internal/application"
+	"github.com/totokunaga/lumei/backend/internal/config"
 	"github.com/totokunaga/lumei/backend/internal/interface/generated"
 )
 
@@ -48,6 +50,8 @@ func assertUnhealthyDatabase(t *testing.T, resp response) {
 }
 
 func TestGetHealth(t *testing.T) {
+	t.Parallel()
+
 	tests := []testIntegrationInput{
 		{
 			name:           "200 with a static status",
@@ -79,6 +83,8 @@ func TestGetHealth(t *testing.T) {
 }
 
 func TestGetHealthFull(t *testing.T) {
+	t.Parallel()
+
 	tests := []testIntegrationInput{
 		{
 			name:           "200 with the database healthy",
@@ -96,7 +102,7 @@ func TestGetHealthFull(t *testing.T) {
 		{
 			name:           "503 when the database check outlives the timeout",
 			req:            req{method: http.MethodGet, path: "/health/full"},
-			env:            map[string]string{"HEALTH_CHECK_TIMEOUT": "1ns"},
+			configure:      func(cfg *config.Config) { cfg.Server.HealthCheckTimeout = time.Nanosecond },
 			expectedStatus: http.StatusServiceUnavailable,
 			assertFunc:     assertUnhealthyDatabase,
 		},

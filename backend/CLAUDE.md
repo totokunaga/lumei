@@ -72,7 +72,7 @@ interface/controller → application ← infrastructure/
 - `internal/application/` must NOT import `internal/infrastructure/...`, `internal/interface/...`, or `internal/di/`.
 - `internal/interface/controller/` must NOT import `internal/infrastructure/...`.
 - Assert interface conformance at compile time next to the implementation: `var _ application.HealthCheck = (*HealthProbe)(nil)`.
-- Process-global side effects (`gin.SetMode`, `slog.SetDefault`, `os.Exit`) live only in `cmd/main.go`, so per-test `di.InitializeApp()` calls never race. Constructors and providers must not touch globals.
+- Process-global side effects (`gin.SetMode`, `slog.SetDefault`, `os.Exit`) live only in `cmd/main.go`, so the parallel per-case `di.InitializeAppWithConfig()` calls in tests never race. Constructors and providers must not touch globals.
 - To add a dependency to `GET /health/full`, implement `application.HealthCheck` in infrastructure and register it in `ProvideHealthChecks`. Mark it `Critical()` only if no route works without it.
 
 ## Code style
@@ -94,19 +94,31 @@ Write every test, integration and unit alike, as a table-driven test:
 - **Keep the logic in the runner and the fields.** A case states its input, setup, and expected result as data. Put per-case behavior in the case's `setupMocks`, `setupFunc`, `env`, or `assertFunc` fields, not in `if tt.name == ...` branches.
 - **If the case struct can't express what a test needs,** add a field to the layer's case struct and handle it in its runner in `helpers_test.go`, rather than writing that test outside the table. If code outside these layers needs tests (e.g. `internal/infrastructure/router`), give its package the same pattern: a `helpers_test.go` with a case struct and a runner.
 
+### Parallel tests (always)
+
+Run every test in parallel, integration and unit alike. Lint enforces this with `paralleltest` and `tparallel`.
+
+- **Call `t.Parallel()` first in every top-level test function,** before building the table. The layer runners call it for each case, so a case runs alongside every other case and every other test in the package.
+- **Never change process-wide state in a test:** no `t.Setenv`, `os.Setenv`, `os.Chdir`, `gin.SetMode`, `slog.SetDefault`, or writes to package-level variables. Go refuses `t.Setenv` in a parallel test, and the other state would leak into tests running at the same time.
+  - To change a setting, change the case's own config instead. Integration cases do this in `configure` or `setupFunc` (e.g. `cfg.Server.HealthCheckTimeout = time.Nanosecond` rather than `HEALTH_CHECK_TIMEOUT=1ns`).
+  - Defaults the whole suite needs go in `TestMain`, which runs before any test starts (`setEnvDefaults`, `gin.SetMode(gin.TestMode)`).
+- **Give each case its own resources:** fresh mocks, its own server, and, if it changes data, its own data. Make the data unique to the case (e.g. a random email or ID, or a disposable database like `useDisposableDatabase`), and never assume a table is empty or holds only the case's rows. Never delete or truncate data other cases might be using.
+- **Don't wait on wall-clock time** (`time.Sleep`) to order events. Parallel runs are slower and less predictable. Synchronize on the event itself, or make the timeout tiny or huge so the outcome is certain.
+- **If a test truly can't be parallel,** say why at the call site: `//nolint:paralleltest // <reason>`. "It was easier" is not a reason. First try moving the shared state into the case.
+
 ### What to test where
 
-1. **Integration tests come first.** Cover as many lines of the Go code as possible from `test/integration/`, with both positive cases (success responses) and negative cases (validation errors, not found, conflicts, and every other error response the endpoint can return). They build the server through the production wiring (`di.InitializeApp`) and call it over HTTP against a real, migrated Postgres, so one case covers the controller, use case, repository, and router together.
+1. **Integration tests come first.** Cover as many lines of the Go code as possible from `test/integration/`, with both positive cases (success responses) and negative cases (validation errors, not found, conflicts, and every other error response the endpoint can return). They build the server through the production wiring (`di.InitializeAppWithConfig`, the same graph as `di.InitializeApp` with the config passed in) and call it over HTTP against a real, migrated Postgres, so one case covers the controller, use case, repository, and router together.
 2. **Unit tests cover only what integration tests can't reach.** Every remaining branch must be covered by a unit test in the controller, application, or repository layer. Typical examples:
    - a state production wiring can't produce, e.g. the `degraded` health status, which needs a non-critical check that doesn't exist yet (`internal/application/healthcheck_test.go`, `internal/interface/controller/health_test.go`)
    - a driver error a repository must translate or wrap, e.g. a dropped connection or a failed `RowsAffected` (repository, with go-sqlmock)
 
-   Try an integration case first, even for failures. E.g. the database-down and timeout 503s of `GET /health/full` are integration cases: one drops a disposable database after startup, the other sets `HEALTH_CHECK_TIMEOUT` to `1ns`.
+   Try an integration case first, even for failures. E.g. the database-down and timeout 503s of `GET /health/full` are integration cases: one drops a disposable database after startup, the other sets the case's health-check timeout to `1ns`.
 3. **Don't duplicate.** If an integration test already covers a branch, don't also unit-test it.
 
 After `make test`, read the per-package coverage table it prints. Find each uncovered line in `coverage.out` (`go tool cover -html=coverage.out`), then cover it with an integration case if an HTTP request can reach it, or a unit test if not.
 
-- `make test` starts `postgres-for-test`, applies `migration/` with `migrate-for-test`, then runs `scripts/run-tests.sh`. That script uses `-race -shuffle=on`, so tests must not depend on order or share mutable state.
+- `make test` starts `postgres-for-test`, applies `migration/` with `migrate-for-test`, then runs `scripts/run-tests.sh`. That script uses `-race -shuffle=on`, so tests must not depend on order or share mutable state (see [Parallel tests](#parallel-tests-always)).
 - Packages listed in `test/excluded.txt` (`cmd`, `internal/di`, generated code, mocks) are excluded from tests and coverage.
 
 ### Integration tests
@@ -130,13 +142,13 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 |-------|---------|
 | `name` | Subtest name, starting with the expected status, e.g. `"503 when the database goes away after startup"`. |
 | `req` | `method`, `path`, and `headers` to send. |
-| `env` | Env vars set with `t.Setenv` before the server is built, e.g. `{"HEALTH_CHECK_TIMEOUT": "1ns"}`. |
-| `setupFunc func(t) (afterStart func())` | Runs before the server is built. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` drops the database there. |
+| `configure func(cfg)` | Changes the case's own `*config.Config` before the server is built, e.g. `func(cfg *config.Config) { cfg.Server.HealthCheckTimeout = time.Nanosecond }`. |
+| `setupFunc func(t, cfg) (afterStart func())` | Runs before the server is built and may also change `cfg`. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` points `cfg` at a new database and drops it there. |
 | `expectedStatus` | The response status. The runner always checks it. |
 | `assertFunc func(t, response)` | Checks the body and headers. Use `assertBody(want)` for exact bodies, `assertHeader(key, want)` for headers, and `assertAll(...)` to combine them. Write a custom one for bodies with measured values (timestamps, counters). |
 
-- `runIntegrationTestCases` builds a fresh server per case with `newTestServer` (`test/integration/setup_test.go`): production wiring served over `httptest` and cleaned up through `t.Cleanup`. Cases run sequentially because they may set env vars.
-- `TestMain` sets `gin.TestMode` and fills in suite-wide default env vars with `setEnvDefaults`. Per-case overrides go in the case's `env`.
+- `runIntegrationTestCases` runs the cases in parallel. For each case it loads a fresh config from the environment, applies `configure` and `setupFunc`, and builds a server with `newTestServer(t, cfg)` (`test/integration/setup_test.go`): production wiring served over `httptest` and cleaned up through `t.Cleanup`.
+- `TestMain` sets `gin.TestMode` and fills in suite-wide default env vars with `setEnvDefaults`, before any test starts. Per-case overrides go in the case's `configure`, never in env vars.
 - Decode bodies into the `generated.*` types with `decode[T]`, so the tests check the API contract.
 
 ### Unit tests: table-driven harness

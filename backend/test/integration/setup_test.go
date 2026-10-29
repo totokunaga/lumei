@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	"github.com/totokunaga/lumei/backend/internal/config"
 	"github.com/totokunaga/lumei/backend/internal/di"
 )
 
@@ -24,8 +25,8 @@ var testRDBEnv = map[string]string{
 }
 
 // setEnvDefaults fills in vars the environment has not set, so a deliberate
-// value always wins. It runs from TestMain because a test that called
-// t.Parallel() may not use t.Setenv.
+// value always wins. It runs from TestMain, before any test starts, because
+// tests run in parallel and must not change the environment.
 func setEnvDefaults(vars map[string]string) {
 	for name, value := range vars {
 		if _, ok := os.LookupEnv(name); ok {
@@ -54,13 +55,13 @@ type TestServer struct {
 // Client returns the HTTP client for making requests against the test server.
 func (ts *TestServer) Client() *http.Client { return ts.client }
 
-// newTestServer builds the application through the production wire graph
-// (di.InitializeApp) and serves it over an httptest server, so integration
-// tests exercise exactly the dependencies that run in production.
-func newTestServer(t *testing.T) *TestServer {
+// newTestServer builds the application from cfg through the production wire
+// graph (di.InitializeAppWithConfig) and serves it over an httptest server, so
+// integration tests exercise exactly the dependencies that run in production.
+func newTestServer(t *testing.T, cfg *config.Config) *TestServer {
 	t.Helper()
 
-	app, cleanup, err := di.InitializeApp()
+	app, cleanup, err := di.InitializeAppWithConfig(cfg)
 	require.NoError(t, err, "failed to initialize application")
 
 	server := httptest.NewServer(app.Router.Handler())
