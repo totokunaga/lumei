@@ -2,7 +2,7 @@
 
 How the AWS infrastructure is laid out and how a request travels from a mobile app to the database.
 
-- **Stack:** React Native mobile app (one codebase for iOS and Android) a Go backend API, and PostgreSQL on Amazon RDS.
+- **Stack:** React Native mobile app built with Expo (one codebase for iOS and Android), a Go backend API, and PostgreSQL on Amazon RDS.
 - **Scope:** network layout, AWS resources, and traffic between them. Application internals are out of scope.
 - **Code paths:** `infra/` (AWS resources), `frontend/` (React Native app), `backend/` (Go API)
 

@@ -1,0 +1,8 @@
+{
+  "home": {
+    "title": "Lumei",
+    "apiStatus": "API status: {{status}}",
+    "apiChecking": "Checking the API…",
+    "apiUnreachable": "API unreachable"
+  }
+}

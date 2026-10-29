@@ -1,0 +1,8 @@
+{
+  "home": {
+    "title": "Lumei",
+    "apiStatus": "API の状態: {{status}}",
+    "apiChecking": "API を確認しています…",
+    "apiUnreachable": "API に接続できません"
+  }
+}

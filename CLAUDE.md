@@ -27,6 +27,10 @@ Documentation lives in the root `docs/` directory. Don't add `docs/` directories
 - **Promoting a Future item** into the release turns it into a numbered requirement and removes it from Future.
 - If a request conflicts with an existing requirement, point out the conflict and ask before changing either.
 
+## Frontend
+
+See `frontend/CLAUDE.md` for commands, layout, and code and testing conventions.
+
 ## Backend
 
 See `backend/CLAUDE.md` for commands, architecture rules, and testing conventions.
