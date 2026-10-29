@@ -40,8 +40,7 @@ type RDBConfig struct {
 	Port int    `env:"RDB_PORT" envDefault:"5432"`
 	// User and Password have no envDefault, so no credential is embedded in the
 	// binary and an unset variable is an error. See Validate.
-	User string `env:"RDB_USER"`
-	//nolint:gosec // G117: env-sourced credential; RDBConfig is never serialized.
+	User     string `env:"RDB_USER"`
 	Password string `env:"RDB_PASSWORD"`
 	Name     string `env:"RDB_NAME" envDefault:"lumei"`
 	SSLMode  string `env:"RDB_SSL_MODE" envDefault:"require"`

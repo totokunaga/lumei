@@ -1,4 +1,4 @@
-.PHONY: help up up-d down build logs ps clean wire typespec oapi-codegen mockgen generate lint lint-fix build-bin run tidy env test test-down migrate-create migrate-up migrate-down migrate-down-all migrate-status migrate-validate migrate-dry-run
+.PHONY: help up up-d up-deps up-migrate up-build down build logs ps clean wire typespec oapi-codegen mockgen generate lint lint-fix build-bin run tidy env test test-down migrate-create migrate-up migrate-down migrate-down-all migrate-status migrate-validate migrate-dry-run
 
 # Environment file consumed by dotenvx. Override with `make run ENV_FILE=.env.other`.
 ENV_FILE ?= .env.dev
@@ -31,11 +31,26 @@ help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-up: ## Start Postgres and the API (hot reload) in the foreground
-	$(DOTENVX_RUN) $(DOCKER_COMPOSE) up --build
+# `docker compose up --build` builds every image before starting any container,
+# so the migration would wait for the api build. up-deps runs the two in
+# parallel instead; up/up-d then start the api without re-running its
+# dependencies (--no-deps), since up-deps already did.
+up: up-deps ## Migrate Postgres while building the API, then start both in the foreground
+	$(DOTENVX_RUN) $(DOCKER_COMPOSE) up --no-deps postgres api
 
-up-d: ## Start Postgres and the API (hot reload) in the background
-	$(DOTENVX_RUN) $(DOCKER_COMPOSE) up --build -d
+up-d: up-deps ## Migrate Postgres while building the API, then start both in the background
+	$(DOTENVX_RUN) $(DOCKER_COMPOSE) up --no-deps -d postgres api
+
+up-deps:
+	@$(MAKE) --no-print-directory -j2 up-migrate up-build
+
+# Starts Postgres and the migrate container, and fails if the migration does.
+up-migrate:
+	$(DOTENVX_RUN) $(DOCKER_COMPOSE) up -d migrate
+	$(DOCKER_COMPOSE) wait migrate
+
+up-build:
+	$(DOTENVX_RUN) $(DOCKER_COMPOSE) build api
 
 down: ## Stop and remove containers
 	$(DOCKER_COMPOSE) down

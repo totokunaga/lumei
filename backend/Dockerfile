@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Keep the Go version in step with Dockerfile.dev and docker-compose.tool.yml.
-FROM --platform=$BUILDPLATFORM golang:1.26.4 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.3 AS build
 WORKDIR /src
 
 # Download dependencies as a separate, cacheable step.

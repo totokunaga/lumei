@@ -7,7 +7,7 @@ Go API server for Lumei: Gin, Bun ORM on PostgreSQL, slog, google/wire, golang-m
 Run every command from `backend/`. Codegen, lint, tests, and migrations run in Docker via `docker-compose.tool.yml`, so tool versions are pinned no matter what is installed locally.
 
 ```bash
-make up-d            # Start Postgres + API with hot reload (Air) in the background; API on localhost:18080
+make up-d            # Migrate Postgres while building the API image, then start the API with hot reload (Air) in the background; API on localhost:18080
 make down            # Stop containers
 make run             # Run the server on the host against the compose Postgres (needs `make up-d`)
 make test            # All tests with coverage, against a throwaway Postgres

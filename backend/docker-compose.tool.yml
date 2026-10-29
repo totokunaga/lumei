@@ -2,8 +2,8 @@
 # collide with other projects whose compose files also live in a backend/ dir.
 name: lumei-tool
 
-x-golang-image: &golang-image golang:1.26.4
-x-lint-image: &lint-image golangci/golangci-lint:v2.10.1-alpine
+x-golang-image: &golang-image golang:1.27.3
+x-lint-image: &lint-image golangci/golangci-lint:v2.15.0-alpine
 x-node-image: &node-image node:22-alpine
 
 # Shared settings for the services that run Go: the module, build, and

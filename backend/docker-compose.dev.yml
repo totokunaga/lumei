@@ -24,6 +24,34 @@ services:
       timeout: 5s
       retries: 5
 
+  # Applies migrations once Postgres is healthy, then exits. `make up`/`up-d`
+  # run it in parallel with building the api image (see the Makefile).
+  migrate:
+    container_name: lumei-migrate
+    # Keep in step with the Go version in Dockerfile.dev.
+    image: golang:1.27.3
+    working_dir: /app
+    environment:
+      - GOMODCACHE=/go/pkg/mod
+      - GOCACHE=/go/cache/go-build
+      - RDB_HOST=postgres
+      - RDB_PORT=5432
+      - RDB_USER=${RDB_USER:-postgres}
+      - RDB_PASSWORD=${RDB_PASSWORD:-postgres}
+      - RDB_NAME=${RDB_NAME:-lumei}
+      - RDB_SSL_MODE=disable
+      - MIGRATIONS_PATH=/app/migration
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+      - go-build-cache:/go/cache
+    networks:
+      - lumei-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["go", "run", "./cmd/migrate", "up"]
+
   api:
     container_name: lumei-api
     build:
@@ -51,6 +79,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # The server must not serve requests against an unmigrated schema.
+      migrate:
+        condition: service_completed_successfully
 
 networks:
   lumei-network:
@@ -60,4 +91,5 @@ networks:
 
 volumes:
   go-modules:
+  go-build-cache:
   postgres-data:

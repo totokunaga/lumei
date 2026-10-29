@@ -2,7 +2,7 @@
 
 # Development image with Air for live reloading.
 # Keep GO_VERSION in step with Dockerfile.
-ARG GO_VERSION=1.26.4
+ARG GO_VERSION=1.27.3
 FROM golang:${GO_VERSION}
 
 ARG AIR_VERSION=v1.65.3
