@@ -1,0 +1,4 @@
+/internal/di
+/cmd
+/internal/mock
+/internal/interface/generated

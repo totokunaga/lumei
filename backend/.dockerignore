@@ -1,0 +1,11 @@
+.git
+.gitignore
+bin
+tmp
+*.out
+coverage.*
+.env
+.env.keys
+.env.local
+.env.*.local
+api/typespec/node_modules

@@ -1,0 +1,15 @@
+# TypeSpec compiler configuration.
+#
+# The openapi3 emitter writes the single consolidated spec to ../index.yaml,
+# which `make oapi-codegen` reads to generate the Go server code.
+emit:
+  - "@typespec/openapi3"
+options:
+  "@typespec/openapi3":
+    # {project-root} is this directory (backend/api/typespec); emit one dir up
+    # into backend/api/ as index.yaml.
+    emitter-output-dir: "{project-root}/.."
+    output-file: "index.yaml"
+    openapi-versions:
+      - "3.0.0"
+    file-type: yaml

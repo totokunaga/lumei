@@ -1,0 +1,19 @@
+# Binaries
+bin/
+
+# Test / coverage artifacts
+*.out
+coverage.*
+
+# Temporary files
+tmp/
+
+# dotenvx: commit the env files (.env.dev, ...); never commit the private keys
+# or a personal override file.
+.env
+.env.keys
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store

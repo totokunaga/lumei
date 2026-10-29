@@ -1,0 +1,63 @@
+# Explicit project name: the default (the directory name, "backend") would
+# collide with other projects whose compose files also live in a backend/ dir.
+name: lumei
+
+services:
+  postgres:
+    container_name: lumei-postgres
+    # Same major version as the RDS for PostgreSQL instance.
+    image: postgres:17-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${RDB_USER:-postgres}
+      - POSTGRES_PASSWORD=${RDB_PASSWORD:-postgres}
+      - POSTGRES_DB=${RDB_NAME:-lumei}
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lumei-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    container_name: lumei-api
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      - SERVER_PORT=8080
+      - GIN_MODE=debug
+      - RDB_HOST=postgres
+      - RDB_PORT=5432
+      - RDB_USER=${RDB_USER:-postgres}
+      - RDB_PASSWORD=${RDB_PASSWORD:-postgres}
+      - RDB_NAME=${RDB_NAME:-lumei}
+      - RDB_SSL_MODE=disable
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+    ports:
+      - "18080:8080"
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+      - /app/tmp
+    networks:
+      - lumei-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  lumei-network:
+    # Named explicitly so docker-compose.tool.yml can attach to it.
+    name: lumei-network
+    driver: bridge
+
+volumes:
+  go-modules:
+  postgres-data:

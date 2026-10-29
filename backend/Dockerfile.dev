@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+
+# Development image with Air for live reloading.
+# Keep GO_VERSION in step with Dockerfile.
+ARG GO_VERSION=1.26.4
+FROM golang:${GO_VERSION}
+
+ARG AIR_VERSION=v1.65.3
+RUN go install github.com/air-verse/air@${AIR_VERSION}
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+CMD ["air", "-c", ".air.toml"]

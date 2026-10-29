@@ -1,0 +1,393 @@
+# golangci-lint v2 configuration with best practices
+# Run: golangci-lint run --fix ./...
+# Documentation: https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+run:
+  # Exit code when issues are found (0 = success, 1 = issues found)
+  issues-exit-code: 1
+  # Include test files in analysis
+  tests: true
+
+linters:
+  enable:
+    # Code correctness linters
+    - asciicheck       # Checks for non-ASCII identifiers
+    - bidichk         # Checks for dangerous unicode character sequences (trojan source attacks)
+    - bodyclose       # Checks whether HTTP response body is closed successfully
+    - containedctx    # Detects struct fields of type context.Context (anti-pattern)
+    - contextcheck    # Check whether the function uses a non-inherited context
+    - dogsled         # Checks assignments with too many blank identifiers (e.g., x, _, _, _, := f())
+    - dupl            # Tool for code clone detection
+    - durationcheck   # Check for two durations multiplied together
+    - errorlint       # Find code that will cause problems with error wrapping
+    - exhaustive      # Check exhaustiveness of enum switch statements
+    # - forcetypeassert # Disabled - type assertions without ok check are acceptable in controlled contexts
+
+    # Code complexity linters
+    - goconst         # Finds repeated strings that could be replaced by constants
+    - gocritic        # Provides many diagnostics for bugs, performance and style
+
+    # Code style linters
+    - lll             # Reports long lines
+    - goprintffuncname # Checks that printf-like functions are named with `f` at the end
+    - misspell        # Finds commonly misspelled English words in comments
+    - nakedret        # Finds naked returns in functions greater than a specified length
+    - nilerr          # Finds code that returns nil even if it checks that error is not nil
+    - noctx           # Finds sending http request without context.Context
+    - nolintlint      # Reports ill-formed or insufficient nolint directives
+    - predeclared     # Find code that shadows one of Go's predeclared identifiers
+    - reassign        # Checks that package variables are not reassigned
+    - revive          # Fast, configurable, extensible, flexible and beautiful linter for Go
+    - staticcheck     # Staticcheck is a go vet on steroids, applying many static analysis checks
+    - thelper         # Detects golang test helpers without t.Helper() call
+    - unconvert       # Remove unnecessary type conversions
+    - unparam         # Reports unused function parameters
+    - wastedassign    # Finds wasted assignment statements
+    - whitespace      # Tool for detection of leading and trailing whitespace
+
+    # Security linters
+    - gosec           # Inspects source code for security problems
+
+    # Performance linters
+    - prealloc        # Finds slice declarations that could potentially be preallocated
+
+  disable:
+    # Disabled linters (too strict or opinionated for this project)
+    - cyclop          # Checks function and package cyclomatic complexity (using gocyclo instead)
+    - depguard        # Go linter that checks if package imports are in a list of acceptable packages
+    - err113          # Golang linter to check the errors handling expressions (too opinionated)
+    - exhaustruct     # Checks if all structure fields are initialized (too strict)
+    - funlen          # Tool for detection of long functions (can be too restrictive)
+    - gochecknoglobals # Check that no global variables exist (sometimes globals are needed)
+    - gochecknoinits  # Checks that no init functions are present (sometimes needed)
+    - godox           # Tool for detection of TODO/BUG/FIXME comments (useful during dev)
+    - gomoddirectives # Manage the use of 'replace', 'retract', and 'exclude' in go.mod
+    - gomodguard      # Allow and block list linter for direct module dependencies
+    - ireturn         # Accept interfaces, return concrete types (not always applicable)
+    - mnd             # Magic number detector (can be too strict)
+    - nlreturn        # Checks for a new line before return and branch statements
+    - paralleltest    # Detects missing usage of t.Parallel() (not always needed)
+    - testpackage     # Linter that makes you use a separate _test package (preference)
+    - varnamelen      # Checks that the length of a variable's name matches its scope (opinionated)
+    - wrapcheck       # Checks that errors returned from external packages are wrapped (can be noisy)
+    - wsl             # Whitespace linter (too strict about formatting)
+
+  settings:
+    # dupl: Code duplication detector settings
+    dupl:
+      # Minimum number of lines to consider as duplicate
+      threshold: 150
+    
+    # errcheck: Check for unchecked errors
+    errcheck:
+      # Check type assertions (v := i.(Type) without ok check)
+      check-type-assertions: false  # Disabled - type assertions without ok check are acceptable
+      # Check for errors assigned to blank identifier
+      check-blank: false
+      # Functions whose errors can be ignored
+      exclude-functions:
+        - io.Copy
+        - fmt.Fprintf
+        - fmt.Fprintln
+    
+    # goconst: Find repeated strings that could be constants
+    goconst:
+      # Minimum length of string constant
+      min-len: 3
+      # Minimum occurrences count to trigger
+      min-occurrences: 3
+    
+    # gocritic: Highly extensible Go source code linter
+    gocritic:
+      # Only enable checks that are NOT already enabled by default
+      # See: https://golangci-lint.run/usage/linters/#gocritic
+      disabled-checks:
+        - singleCaseSwitch    # Disable single case switch warnings
+      enabled-checks:
+        # These are additional checks not enabled by default
+        - appendCombine       # Detects multiple appends that can be combined
+        - badLock            # Detects incorrect mutex lock/unlock
+        - badRegexp          # Detects bad regular expressions
+        - badSorting         # Detects bad sorting function
+        - boolExprSimplify   # Detects bool expressions that can be simplified
+        - builtinShadowDecl  # Detects shadowing of built-in identifiers in declarations
+        - commentedOutCode   # Detects commented-out code
+        - commentedOutImport # Detects commented-out imports
+        - deferInLoop        # Detects defer statements inside loops
+        - docStub            # Detects incomplete doc comments
+        - emptyDecl          # Detects empty declarations
+        - emptyFallthrough   # Detects empty fallthrough case
+        - emptyStringTest    # Detects empty string checks that can be simplified
+        - equalFold          # Detects case-insensitive comparisons
+        - evalOrder          # Detects potentially wrong evaluation order
+        - exposedSyncMutex   # Detects exposed sync.Mutex
+        - externalErrorReassign # Detects reassigning external errors
+        - filepathJoin       # Detects filepath.Join misuse
+        - hexLiteral         # Detects hex literals that can be improved
+        - httpNoBody         # Detects HTTP requests with empty body
+        - hugeParam          # Detects huge passed by value params
+        # - importShadow       # Detects import shadowing
+        - indexAlloc         # Detects index expressions causing allocation
+        - initClause         # Detects non-assignment statements in init clauses
+        - methodExprCall     # Detects method expression calls that can be simplified
+        - nestingReduce      # Detects deeply nested code
+        - nilValReturn       # Detects return of nil value
+        # - octalLiteral       # Detects old-style octal literals
+        - preferDecodeRune   # Detects string(rune) that can be replaced
+        - preferFilepathJoin # Detects string concatenation for file paths
+        - preferFprint       # Detects fmt.Sprint usage in io.Writer.Write
+        - preferStringWriter # Detects fmt.Fprintf(w, "%s", s) patterns
+        - preferWriteByte    # Detects Write([]byte{c}) that can be WriteByte(c)
+        - ptrToRefParam      # Detects pointer to reference param
+        - rangeAppendAll     # Detects appending all elements from range
+        - rangeExprCopy      # Detects expensive copying in range loops
+        - rangeValCopy       # Detects copying of large value in range loops
+        - redundantSprint    # Detects redundant fmt.Sprint
+        - regexpPattern      # Detects suspicious regexp patterns
+        - regexpSimplify     # Detects regexps that can be simplified
+        - returnAfterHttpError # Detects missing return after http error
+        - sliceClear         # Detects slice clear patterns
+        - sloppyReassign     # Detects sloppy reassignments
+        - sortSlice          # Detects sort.Sort calls that can use sort.Slice
+        - sprintfQuotedString # Detects fmt.Sprintf("%q", s)
+        - sqlQuery           # Detects SQL queries
+        - stringConcatSimplify # Detects string concat that can be simplified
+        - stringXbytes       # Detects redundant string/byte slice conversions
+        - stringsCompare     # Detects strings.Compare usage
+        - syncMapLoadAndDelete # Detects sync.Map Load+Delete pattern
+        - timeExprSimplify   # Detects time expressions that can be simplified
+        - todoCommentWithoutDetail # Detects TODO comments without details
+        - tooManyResultsChecker # Detects functions with too many results
+        - truncateCmp        # Detects truncate/rounding comparisons
+        - typeAssertChain    # Detects type assertion chains
+        - typeDefFirst       # Detects type definitions not at the top
+        - typeUnparen        # Detects unnecessary parentheses in type expressions
+        - uncheckedInlineErr # Detects unchecked errors in if statements
+        - unlabelStmt        # Detects redundant labels
+        # - unnamedResult      # Detects unnamed results in large functions
+        - unnecessaryBlock   # Detects unnecessary code blocks
+        - unnecessaryDefer   # Detects unnecessary defer usage
+        - weakCond           # Detects weak conditionals
+        - whyNoLint          # Ensures nolint directives have explanations
+        - yodaStyleExpr      # Detects yoda style expressions (if 42 == x)
+      
+      settings:
+        hugeParam:
+          # Size threshold for considering parameter "huge" (in bytes)
+          sizeThreshold: 512
+        rangeValCopy:
+          # Size threshold for considering value copy expensive (in bytes)
+          sizeThreshold: 512
+    
+    # gosec: Security problem scanner
+    gosec:
+      # Which issues to exclude
+      excludes:
+        - G104  # Unhandled errors (covered by errcheck)
+        - G204  # Subprocess launched with variable (can be too strict)
+        - G301  # Poor file permissions used when creating a directory (0755 is often needed)
+        - G304  # File path provided as taint input (often false positive)
+        - G306  # Poor file permissions used when writing to a file (0644 is standard for many files)
+      # Issue severity filter (low, medium, high)
+      severity: medium
+      # Issue confidence filter (low, medium, high)
+      confidence: medium
+    
+    # lll: Line length linter
+    lll:
+      # Maximum line length
+      line-length: 110
+      # Tab width for counting
+      tab-width: 4
+
+    # misspell: Spell checker
+    misspell:
+      # Locale for spell checking
+      locale: US
+      # Words to ignore
+      ignore-rules:
+        - cancelled  # British spelling that's commonly used
+    
+    # nakedret: Finds naked returns
+    nakedret:
+      # Maximum function length to check for naked returns
+      max-func-lines: 30
+    
+    # prealloc: Finds slices that could be preallocated
+    prealloc:
+      # Check for simple loops
+      simple: true
+      # Check for range loops
+      range-loops: true
+      # Check for for loops
+      for-loops: true
+    
+    # revive: Fast, configurable linter
+    revive:
+      # Severity level for issues
+      severity: warning
+      # Enabled rules
+      rules:
+        - name: atomic               # Check for non-atomic access to atomic values
+        - name: blank-imports        # Disallow blank imports
+        - name: context-as-argument  # context.Context should be first parameter
+          arguments:
+            - allowTypesBefore: "*testing.T"
+        - name: context-keys-type    # Disallow basic types as context keys
+        - name: defer                # Warns on deferring certain function calls
+        - name: dot-imports          # Forbids dot imports
+        - name: empty-block          # Warns on empty code blocks
+        - name: error-naming         # Ensures error variables are named correctly
+        - name: error-return         # Ensures error is last return value
+        - name: error-strings        # Ensures error strings follow conventions
+        - name: errorf               # Warns on errors.New(fmt.Sprintf()) pattern
+        - name: exported             # Ensures exported elements have comments
+        - name: increment-decrement  # Enforces using ++/-- operators correctly
+        - name: indent-error-flow    # Ensures proper error handling indentation
+        - name: package-comments     # Ensures packages have comments
+        - name: range                # Prevents issues with range loops
+        - name: receiver-naming      # Ensures consistent receiver names
+        - name: redefines-builtin-id # Warns when shadowing built-in identifiers
+        - name: string-of-int        # Warns on string(int) conversions
+        - name: superfluous-else     # Warns on unnecessary else blocks
+        - name: time-naming          # Ensures time variables follow conventions
+        - name: unreachable-code     # Detects unreachable code
+        - name: unused-parameter     # Warns on unused function parameters
+        - name: unused-receiver      # Warns on unused method receivers
+        - name: var-declaration      # Ensures consistent var declarations
+        - name: var-naming           # Ensures proper variable naming
+
+    # unparam: Finds unused function parameters
+    unparam:
+      # Check exported functions
+      check-exported: false
+
+    # whitespace: Detects unnecessary whitespace
+    whitespace:
+      # Check for unnecessary blank lines in if statements
+      multi-if: true
+      # Check for unnecessary blank lines in functions
+      multi-func: true
+
+  # Exclusions configuration for linters
+  exclusions:
+    # How to handle generated files (strict, lax, ignore)
+    generated: lax
+
+    # Rules for excluding certain linters from specific files
+    rules:
+      # Exclude certain linters from test files
+      - linters:
+          - dupl        # Test code can have duplication
+          - errcheck    # Error checking can be relaxed in tests
+          - goconst     # Constants not always needed in tests
+          - gosec       # Security checks can be relaxed in tests
+        path: _test\.go
+
+      # Exclude all linters from protobuf generated files
+      - linters:
+          - all
+        path: \.pb\.go
+
+      # Exclude all linters from wire generated files
+      - linters:
+          - all
+        path: wire_gen\.go
+
+      # Allow print statements in cmd directory
+      - linters:
+          - forbidigo
+        path: cmd/
+
+      # Allow global variables in cmd and config directories
+      - linters:
+          - gochecknoglobals
+        path: (cmd|config)/
+
+      # Don't check errors in defer statements
+      - linters:
+          - errcheck
+        source: defer
+
+      # Method names implementing the oapi-codegen ServerInterface are fixed by
+      # codegen and cannot be renamed without breaking interface conformance
+      - linters:
+          - revive
+        text: "var-naming: method GetV1.*|var-naming: method PatchV1.*|var-naming: method DeleteV1.*|var-naming: method PostV1.*"
+
+      # The driver package name intentionally matches its domain concept
+      - linters:
+          - revive
+        text: "var-naming: avoid package names that conflict with Go standard library"
+        path: internal/infrastructure/database/.*/driver/
+
+    # File paths to exclude from all linters
+    paths:
+      - .*\.pb\.go$      # Protocol buffer generated files
+      - .*\.gen\.go$     # Other generated files
+      - wire_gen\.go$    # Wire dependency injection generated files
+      - mock_.*\.go$     # Mock files
+      - helpers_test\.go$ # Test helper files
+      - vendor           # Vendor directory
+      - third_party      # Third party code
+      - testdata         # Test data files
+      - examples         # Example code
+      - Godeps           # Godeps directory
+      - builtin          # Built-in packages
+      - third_party$     # Third party directory (end match)
+      - builtin$         # Built-in directory (end match)
+      - examples$        # Examples directory (end match)
+
+issues:
+  # Maximum number of issues to report per linter (0 = unlimited)
+  max-issues-per-linter: 0
+  # Maximum number of same issues to report (0 = unlimited)
+  max-same-issues: 0
+  # Automatically fix issues when possible
+  fix: false
+
+# Formatters configuration
+formatters:
+  enable:
+    - gofmt      # Go standard formatter
+    - goimports  # Formats and organizes imports
+
+  settings:
+    # gofmt: Standard Go formatter settings
+    gofmt:
+      # Simplify code (e.g., remove redundant parentheses)
+      simplify: true
+      # Rewrite rules to apply during formatting
+      rewrite-rules:
+        - pattern: interface{}      # Replace interface{} with any (Go 1.18+)
+          replacement: any
+        - pattern: a[b:len(a)]     # Simplify slice expressions
+          replacement: a[b:]
+
+    # goimports: Import management settings
+    goimports:
+      # Local packages prefix for import grouping
+      local-prefixes:
+        - github.com/totokunaga/lumei/backend
+
+  # Additional exclusions for formatters
+  exclusions:
+    # How to handle generated files
+    generated: lax
+    # Paths to exclude from formatting
+    paths:
+      - .*\.pb\.go$      # Protocol buffer files
+      - .*\.gen\.go$     # Generated files
+      - wire_gen\.go$    # Wire generated files
+      - mock_.*\.go$     # Mock files
+      - vendor           # Vendor directory
+      - third_party      # Third party code
+      - testdata         # Test data
+      - examples         # Examples
+      - Godeps           # Godeps
+      - builtin          # Built-in packages
+      - third_party$     # Third party (end match)
+      - builtin$         # Built-in (end match)
+      - examples$        # Examples (end match)

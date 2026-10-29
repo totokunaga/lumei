@@ -1,0 +1,203 @@
+# Explicit project name: the default (the directory name, "backend") would
+# collide with other projects whose compose files also live in a backend/ dir.
+name: lumei-tool
+
+x-golang-image: &golang-image golang:1.26.4
+x-lint-image: &lint-image golangci/golangci-lint:v2.10.1-alpine
+x-node-image: &node-image node:22-alpine
+
+# Shared settings for the services that run Go: the module, build, and
+# installed-tool caches live on named volumes so repeat runs skip downloads and
+# recompiles.
+x-go-service: &go-service
+  image: *golang-image
+  working_dir: /app
+  environment: &go-env
+    GOMODCACHE: /go/pkg/mod
+    GOCACHE: /go/cache/go-build
+  volumes:
+    - .:/app
+    - go-mod-cache:/go/pkg/mod
+    - go-build-cache:/go/cache
+    - go-bin:/go/bin
+
+services:
+  typespec:
+    image: *node-image
+    container_name: lumei-exec-typespec
+    working_dir: /app/api/typespec
+    environment:
+      - npm_config_cache=/npm-cache
+    volumes:
+      - .:/app
+      - typespec-npm-cache:/npm-cache
+      # Install node_modules onto a named volume rather than into the
+      # bind-mounted repo, so root-owned files never land on the host.
+      - typespec-node-modules:/app/api/typespec/node_modules
+    command: |
+      sh -c '
+        npm ci --no-audit --no-fund && \
+        npx tsp compile .
+      '
+
+  wire:
+    <<: *go-service
+    container_name: lumei-exec-wire
+    command: |
+      sh -c '
+        go install github.com/google/wire/cmd/wire@v0.7.0 && \
+        cd ./internal/di && wire
+      '
+
+  mockgen:
+    <<: *go-service
+    container_name: lumei-exec-mockgen
+    # Add one mockgen line per file that declares ports in internal/application.
+    command: |
+      sh -c '
+        go install go.uber.org/mock/mockgen@v0.6.0 && \
+        mockgen -source=./internal/application/healthcheck.go -destination=./internal/mock/mock_healthcheck.go -package mock
+      '
+
+  oapi-codegen:
+    <<: *go-service
+    container_name: lumei-exec-oapi-codegen
+    command: |
+      sh -c '
+        go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0 && \
+        mkdir -p ./internal/interface/generated && \
+        oapi-codegen -config ./api/oapi-codegen.yaml ./api/index.yaml
+      '
+
+  postgres-for-test:
+    container_name: lumei-postgres-for-test
+    # Must match the postgres image in docker-compose.dev.yml.
+    image: postgres:17-alpine
+    ports:
+      - "25432:5432"
+    environment:
+      # Must match the RDB_* values of the migrate-for-test and test services.
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    tmpfs:
+      # Keep the test database in RAM: faster, and discarded on container stop.
+      - /var/lib/postgresql/data
+
+  # Applies migrations to the test database before the suite runs, so
+  # integration tests exercise the real schema.
+  migrate-for-test:
+    <<: *go-service
+    container_name: lumei-migrate-for-test
+    environment:
+      <<: *go-env
+      RDB_HOST: postgres-for-test
+      RDB_PORT: "5432"
+      RDB_USER: postgres
+      RDB_PASSWORD: postgres
+      RDB_NAME: postgres
+      RDB_SSL_MODE: disable
+      MIGRATIONS_PATH: /app/migration
+    depends_on:
+      postgres-for-test:
+        condition: service_healthy
+    entrypoint: ["go", "run", "./cmd/migrate", "up"]
+
+  test:
+    <<: *go-service
+    container_name: lumei-exec-test
+    environment:
+      <<: *go-env
+      # CGO is required by the race detector (-race in scripts/run-tests.sh).
+      CGO_ENABLED: "1"
+      RDB_HOST: postgres-for-test
+      RDB_PORT: "5432"
+      RDB_USER: postgres
+      RDB_PASSWORD: postgres
+      RDB_NAME: postgres
+      RDB_SSL_MODE: disable
+    depends_on:
+      postgres-for-test:
+        condition: service_healthy
+      migrate-for-test:
+        condition: service_completed_successfully
+    command: ["sh", "scripts/run-tests.sh"]
+
+  lint:
+    image: *lint-image
+    container_name: lumei-exec-lint
+    working_dir: /app
+    environment:
+      - GOMODCACHE=/go/pkg/mod
+      - GOCACHE=/go/cache/go-build
+      - GOLANGCI_LINT_CACHE=/go/cache/golangci-lint
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/go/cache
+    command: ["golangci-lint", "run", "./..."]
+
+  lint-fix:
+    image: *lint-image
+    container_name: lumei-exec-lint-fix
+    working_dir: /app
+    environment:
+      - GOMODCACHE=/go/pkg/mod
+      - GOCACHE=/go/cache/go-build
+      - GOLANGCI_LINT_CACHE=/go/cache/golangci-lint
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/go/cache
+    command: ["golangci-lint", "run", "--fix", "./..."]
+
+  # Runs the migration CLI against the dev database started by
+  # docker-compose.dev.yml, over that file's network. The command is supplied
+  # at invocation (e.g. `run --rm migrate up`).
+  migrate:
+    <<: *go-service
+    container_name: lumei-exec-migrate
+    environment:
+      <<: *go-env
+      RDB_HOST: postgres
+      RDB_PORT: "5432"
+      RDB_USER: ${RDB_USER:-postgres}
+      RDB_PASSWORD: ${RDB_PASSWORD:-postgres}
+      RDB_NAME: ${RDB_NAME:-lumei}
+      RDB_SSL_MODE: disable
+      MIGRATIONS_PATH: /app/migration
+    networks:
+      - dev
+    entrypoint: ["go", "run", "./cmd/migrate"]
+
+  # Offline migration-file validation. Kept off the dev network so it runs
+  # without `make up-d`.
+  migrate-validate:
+    <<: *go-service
+    container_name: lumei-exec-migrate-validate
+    environment:
+      <<: *go-env
+      MIGRATIONS_PATH: /app/migration
+      # The CLI validates RDB config before selecting its offline command.
+      # These placeholders satisfy that check; validate never connects to a DB.
+      RDB_USER: unused
+      RDB_PASSWORD: unused
+    entrypoint: ["go", "run", "./cmd/migrate", "validate"]
+
+volumes:
+  go-mod-cache:
+  go-build-cache:
+  go-bin:
+  typespec-npm-cache:
+  typespec-node-modules:
+
+networks:
+  # The network created by docker-compose.dev.yml.
+  dev:
+    name: lumei-network
+    external: true
