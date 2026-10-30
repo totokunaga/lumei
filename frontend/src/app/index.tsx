@@ -3,6 +3,9 @@ import { Text, View } from 'react-native';
 
 import { useGetHealth } from '@/api/generated';
 
+/**
+ * Renders the home screen: the app title and whether the API is reachable.
+ */
 export default function HomeScreen() {
   const { t } = useTranslation();
   const health = useGetHealth();

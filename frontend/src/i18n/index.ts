@@ -15,10 +15,18 @@ export const resources = {
 
 export type Language = keyof typeof resources;
 
+/**
+ * Checks whether a device language code is one the app is translated into.
+ * @returns True for `'en'`, `'ja'`, or `'fr'`, which also narrows the type to `Language`.
+ */
 const isLanguage = (code: string | null | undefined): code is Language =>
   code != null && code in resources;
 
-// detectLanguage returns the first device language the app supports, or English.
+/**
+ * Picks the app language on first launch from the device's preferred
+ * languages (BR-SET-01).
+ * @returns The first device language the app supports, or `'en'` if none is.
+ */
 export const detectLanguage = (): Language =>
   getLocales()
     .map((locale) => locale.languageCode)

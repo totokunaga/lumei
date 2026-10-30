@@ -63,6 +63,14 @@ Import from `src/` with the `@/` alias (`@/api/generated`), not relative paths.
 - **Text:** never hard-code text the user sees. Add a key to all three of `src/i18n/locales/en.json`, `ja.json`, and `fr.json`, and use `t('key')`. Keys are typed from `en.json`, so an unknown key fails `typecheck`, and `test/i18n/locales.test.ts` fails if `ja.json` or `fr.json` lacks a key or has an extra one.
 - **Money and dates:** use `src/domain/`. Amounts are integers in the currency's minor unit (BR-NFR-06): parse input with `parseAmount` and display with `formatMoney`. Dates are `IsoDate` strings (`YYYY-MM-DD`), never `Date`; get today with `localToday()`. Use `Fraction` for values that divide by days (chart shares and limits), and round them only for display.
 - **Business logic** goes in `src/domain/`, not in screens or hooks, so it is testable without rendering and works offline. Screens only call it and display the results.
+- **Comment every function and method,** exported or not, with a JSDoc block (`/** … */`):
+  - **What it does,** in a sentence starting with a verb ("Works out…", "Checks whether…"), including any business rule it follows.
+  - **`@returns`** what it returns, with an example value where it helps (`31 for Oct 25 – Nov 24`), and what `null` or a negative value means. Skip `@returns` only for functions that return nothing.
+  - **`@throws`** when it can throw, and on what input.
+  - **`@param`** only for parameters whose meaning or unit the name and type don't make clear (e.g. `amount` in minor units).
+  - **Components and hooks:** say what the component renders, or what the hook returns.
+  - Inline callbacks passed straight to another function (e.g. `.map((e) => e.amount)`) don't need one.
+  - `src/domain/` is the reference example.
 - Cite the requirement IDs you implement (e.g. `BR-EXP-01`) in comments and test names (see the root `CLAUDE.md`).
 
 ## Design
