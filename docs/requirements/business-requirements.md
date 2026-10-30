@@ -59,6 +59,7 @@ Habits seen across the 2026 tabs that the app must support:
 | **Spending budget** | What the user may spend on expenses in the period: income − fixed expenses − saving target. |
 | **Daily allowance** | How much the user can spend today and stay on track (see [BR-CALC-03](#calculations)). |
 | **Remaining today** | Daily allowance − what the user has spent today. |
+| **Overspent period** | A period whose expenses so far, today's included, are more than its spending budget (see [BR-CALC-03](#calculations)). |
 
 ## Scope
 
@@ -166,7 +167,7 @@ Initial seed data for the launch regions: Japan, the EU, and the United States. 
 | ID | Priority | Requirement |
 |----|----------|-------------|
 | BR-SET-01 | Must | The app is available in **English, Japanese, and French**. On first launch it uses the device language if it is one of these, and English otherwise. A user can change the language at any time in the app's settings. |
-| BR-SET-02 | Must | Dates, numbers, and currency amounts are formatted for the app language, e.g. "¥4,865" in English and Japanese, and "4 865 ¥" in French. |
+| BR-SET-02 | Must | Dates, numbers, and currency amounts are formatted for the app language, e.g. "¥4,865" in English, "￥4,865" in Japanese, and "4 865 ¥" in French. |
 | BR-SET-03 | Must | During setup, a user chooses the **account currency** from the [supported currencies](#currencies). The device region's currency is suggested when it is supported. Otherwise, USD is suggested. |
 | BR-SET-04 | Must | The account currency can't be changed after setup in the first release, and amounts are never converted between currencies. The app shows this before setup is confirmed. |
 | BR-SET-05 | Must | A user can choose the **big purchase spread**: **Days left** (the default) or **Whole period**. The one setting applies to all of the user's big purchases. Changing it updates the current and past periods' charts. Daily allowances and period results don't change (see [Calculations](#calculations)). |
@@ -204,8 +205,8 @@ The supported currencies are the major currencies listed by [OANDA](https://www.
 
 | ID | Priority | Requirement |
 |----|----------|-------------|
-| BR-DSH-01 | Must | The home screen shows, for today: the **daily allowance**, **spent today**, and **remaining today** (BR-CALC-03, BR-CALC-04). Remaining today is the most prominent number. |
-| BR-DSH-02 | Must | When remaining today is negative, the app shows it as an overspend (e.g. "¥1,200 over") rather than a negative number. When the whole period is overspent, the daily allowance shows 0 and the app shows by how much the period is over. |
+| BR-DSH-01 | Must | The home screen shows, for today: the **daily allowance**, **spent today**, and **remaining today** (BR-CALC-03, BR-CALC-04). Remaining today is the most prominent number, except while the period is overspent (BR-DSH-02). |
+| BR-DSH-02 | Must | When remaining today is negative, the app shows it as an overspend (e.g. "¥1,200 over") rather than a negative number. When the period is **overspent** (BR-CALC-03), the daily allowance shows 0, and by how much the period is over (e.g. "¥2,000 over for this period") replaces remaining today as the most prominent number. This happens as soon as the expense that takes the period over is saved. |
 | BR-DSH-03 | Must | The home screen shows a period summary: total income, total fixed expenses, total big purchases, total spending to date, saving target, spending budget left, and days left. |
 | BR-DSH-04 | Must | All numbers update as soon as an expense, income, fixed expense, or target changes. This includes changes made offline. |
 | BR-DSH-05 | Must | "Today" is the current date in the device's time zone. A day rolls over at local midnight. |
@@ -249,8 +250,8 @@ All amounts are in the account currency. All dates are calendar dates in the use
 |----|------|------------|
 | BR-CALC-01 | Period length and days left | `period days = end − start + 1`. `days left = end − today + 1` (today counts) while today is in the period. |
 | BR-CALC-02 | Spending budget | `budget = Σ income − Σ fixed expenses − saving target` |
-| BR-CALC-03 | Daily allowance | `allowance = floor((budget − Σ big purchases in the period − Σ other expenses dated before today) / days left)`, rounded down to the currency's minor unit so it never overstates what can be spent. If the result is negative, the allowance is 0 and the period is overspent by the absolute value (BR-DSH-02). |
-| BR-CALC-04 | Spent and remaining today | `spent today = Σ expenses dated today, excluding big purchases`. `remaining today = allowance − spent today`. |
+| BR-CALC-03 | Daily allowance | `allowance = floor((budget − Σ big purchases in the period − Σ other expenses dated before today) / days left)`, rounded down to the currency's minor unit so it never overstates what can be spent. It is fixed for the day: today's own expenses don't change it. The period is **overspent** when `Σ all expenses in the period`, today's and big purchases included, is greater than the budget. Then the allowance is 0 and `period overspend = Σ all expenses in the period − budget` (BR-DSH-02). |
+| BR-CALC-04 | Spent and remaining today | `spent today = Σ expenses dated today, excluding big purchases`. `remaining today = allowance − spent today`. Not shown while the period is overspent (BR-DSH-02), since today's numbers lose their meaning once the whole budget is gone. |
 | BR-CALC-05 | Daily spending (chart bars) | `daily spending(d) = Σ expenses dated d, excluding big purchases + Σ share(b, d) over the period's big purchases b`. The share depends on the big purchase spread (BR-SET-05). **Days left:** `share(b, d) = amount(b) / (end − date(b) + 1)` on each day from the purchase date to the end of the period, and 0 before it. **Whole period:** `share(b, d) = amount(b) / period days` on every day of the period. |
 | BR-CALC-06 | Spending limit (chart line) | `limit(d) = budget × n / period days`, where `n` is the day number of `d` in the period (1 for the start date). On the last day, the limit equals the budget, so ending at or under the line means the target was met. |
 | BR-CALC-07 | Amount saved (period result) | `saved = Σ income − Σ fixed expenses − Σ all expenses in the period, big purchases included`. The target is met when `saved ≥ saving target`. |
@@ -260,6 +261,7 @@ Notes on the definitions:
 - A big purchase reduces the allowance of every remaining day equally. It never counts toward "spent today".
 - The big purchase spread changes only the chart: which days' bars carry each big purchase, and so the cumulative line and today's distance from the limit. The daily allowance and the period result are the same under both options. Expenses can't be dated in the future (BR-EXP-02), so every big purchase in the allowance has already happened. The part of it that earlier days don't already carry is spread over today and the days left either way.
 - An expense recorded for an earlier date doesn't change "spent today". It lowers the allowance from today onward.
+- Today's expenses never lower today's allowance; they lower remaining today. Taking them out of both would count them twice, which is the spreadsheet's bug. They do count toward whether the period is overspent, so the allowance drops to 0 the moment the budget runs out.
 - The daily allowance is the only value that is rounded. A big purchase share can include a fraction of the minor unit. The chart keeps it exact and rounds it only for display.
 
 ### Worked example (`26Nov` on Oct 29, 2026)

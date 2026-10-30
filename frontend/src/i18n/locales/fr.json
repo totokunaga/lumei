@@ -4,5 +4,8 @@
     "apiStatus": "État de l’API : {{status}}",
     "apiChecking": "Vérification de l’API…",
     "apiUnreachable": "API injoignable"
+  },
+  "period": {
+    "labelWithRange": "{{month}} ({{start}} – {{end}})"
   }
 }

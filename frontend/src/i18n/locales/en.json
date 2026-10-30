@@ -4,5 +4,8 @@
     "apiStatus": "API status: {{status}}",
     "apiChecking": "Checking the API…",
     "apiUnreachable": "API unreachable"
+  },
+  "period": {
+    "labelWithRange": "{{month}} ({{start}} – {{end}})"
   }
 }
