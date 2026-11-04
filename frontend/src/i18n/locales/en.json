@@ -45,6 +45,8 @@
     "region": {
       "title": "Where do you live?",
       "description": "This picks the categories you start with. You can edit them later.",
+      "label": "Region",
+      "map": "Map showing {{region}}",
       "startsWith": "You'll start with",
       "loading": "Loading regions…",
       "loadFailed": "Couldn't load the regions. Check your connection and try again.",

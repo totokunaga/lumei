@@ -1,4 +1,10 @@
-import { Easing, FadeInDown, LinearTransition, ReduceMotion } from 'react-native-reanimated';
+import {
+  Easing,
+  FadeInDown,
+  LinearTransition,
+  ReduceMotion,
+  useReducedMotion,
+} from 'react-native-reanimated';
 
 // Lumei's motion eases to a stop and never overshoots: no springs, so nothing
 // bounces. Every animation follows Reduce Motion (ReduceMotion.System).
@@ -19,3 +25,13 @@ export const riseIn = (delay = 0) =>
 export const listLayout = LinearTransition.duration(250)
   .easing(EASE_OUT)
   .reduceMotion(ReduceMotion.System);
+
+/** The easing of camera moves, which travel far: slow to start and to stop. */
+export const EASE_IN_OUT = Easing.inOut(Easing.cubic);
+
+/**
+ * Reads whether the user has asked the system to reduce motion, as
+ * Reanimated's `useReducedMotion` does. Tests replace it (see test/setup.ts).
+ * @returns True if animations should be replaced by an immediate change.
+ */
+export const useReduceMotion = (): boolean => useReducedMotion();

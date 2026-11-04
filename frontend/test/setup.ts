@@ -32,3 +32,17 @@ jest.mock('expo-sqlite/kv-store', () => ({
   },
 }));
 beforeEach(() => mockKvStore.clear());
+
+// Native views: Skia draws the region map, and @expo/ui the dropdowns. The
+// stand-ins in test/helpers/ render plain views instead.
+jest.mock('@shopify/react-native-skia', () => require('./helpers/skia'));
+jest.mock('@expo/ui/swift-ui', () => require('./helpers/expo-ui-swift-ui'));
+jest.mock('@expo/ui/swift-ui/modifiers', () => require('./helpers/expo-ui-swift-ui-modifiers'));
+jest.mock('@expo/ui/jetpack-compose', () => require('./helpers/expo-ui-jetpack-compose'));
+
+// Amounts change at once instead of counting, as with Reduce Motion on, so
+// tests can read the new amount straight away. test/components/counting-text.test.tsx
+// turns counting back on.
+beforeEach(() =>
+  jest.spyOn(require('@/components/motion'), 'useReduceMotion').mockReturnValue(true),
+);

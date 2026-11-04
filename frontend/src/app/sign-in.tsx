@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Text, TextInput, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Text, useColorScheme, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import {
 import { SignInError, useAuth, type SignInErrorCode } from '@/auth/store';
 import { riseIn } from '@/components/motion';
 import { PressableScale } from '@/components/pressable-scale';
+import { TextField } from '@/components/text-field';
 
 /**
  * Builds the entrance of the screen's `index`th block: it rises into place,
@@ -125,7 +126,7 @@ export default function SignInScreen() {
             <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {t('signIn.devTitle')}
             </Text>
-            <TextInput
+            <TextField
               accessibilityLabel={t('signIn.devEmail')}
               placeholder={t('signIn.devEmail')}
               placeholderTextColor="#9ca3af"
@@ -134,7 +135,7 @@ export default function SignInScreen() {
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
-              className="h-12 rounded-xl bg-gray-100 px-4 text-base text-black dark:bg-gray-900 dark:text-white"
+              className="h-12 rounded-xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
             />
             <PressableScale
               accessibilityRole="button"

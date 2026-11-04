@@ -7,6 +7,7 @@ import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated
 import { z } from 'zod';
 
 import { AmountInput } from '@/components/amount-input';
+import { CountingText } from '@/components/counting-text';
 import { SetupStep } from '@/components/setup-step';
 import {
   amountToText,
@@ -103,13 +104,15 @@ export default function TargetStep() {
       />
 
       <View className="gap-2 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-        <Text
+        <CountingText
+          value={budget}
+          format={(amount) =>
+            t('setup.target.budget', { amount: formatMoney(amount, currency, i18n.language) })
+          }
           className={`text-xl font-bold ${
             budget < 0 ? 'text-red-500' : 'text-black dark:text-white'
           }`}
-        >
-          {t('setup.target.budget', { amount: formatMoney(budget, currency, i18n.language) })}
-        </Text>
+        />
         {budget < 0 && (
           <Animated.Text
             entering={FadeIn.reduceMotion(ReduceMotion.System)}

@@ -26,6 +26,7 @@ bun run test                 # Jest (test:watch to watch)
 bun run test -- -t "name"    # One test
 bun run generate:api         # Regenerate src/api/generated/ from backend/api/index.yaml
 bun run db:generate          # Write a drizzle/ migration after changing src/db/schema.ts
+bun run map:generate         # Rebuild the region map's data and relief from Natural Earth (scripts/)
 bun run doctor               # expo-doctor: dependency and config checks
 bunx expo install <package>  # Add a dependency
 ```
@@ -48,6 +49,11 @@ bunx expo install <package>  # Add a dependency
   - Every table spreads `syncColumns()` from `src/db/schema.ts`, and every write sets `updatedAt` and marks the row `pending` (see `saveSetup`).
   - IDs come from `src/db/ids.ts`: `newId()` for a new record, `derivedId(...)` for a record two devices could both create offline (settings, default categories, periods, targets).
   - After changing `src/db/schema.ts`, run `bun run db:generate` and commit the new files in `drizzle/`. Never edit an existing migration.
+- **Platform files:** a component that differs per platform goes in `<name>.ios.tsx` and `<name>.android.tsx`, which Metro picks between, plus a `<name>.tsx` that re-exports the iOS one for TypeScript (see `src/components/menu-picker.tsx`).
+- **World map** (the region step): `bun run map:generate` builds it from Natural Earth's data (public domain); don't edit its output by hand.
+  - `src/domain/world-map.json`, from the 1:10m countries, lakes, and disputed areas (`scripts/world-map.ts`): each country's path and the box around its mainland, which the map zooms to, and the disputed areas a seed region's country is party to (BR-SET-06). Areas shown as their administrator's instead (Senkaku) are listed in `UNDISPUTED`.
+  - `assets/images/relief/*.jpg` and `src/components/relief-tiles.ts`, from the 1:50m shaded relief (`scripts/relief.ts`): the terrain, as one low-resolution world image plus a sharper tile per region of the backend's seed data.
+  - Run it again after adding a region to the seed data, so the region gets its own sharp tile and its disputed areas.
 - Expo Go only includes its own native modules. Google Sign-In isn't one of them, so `src/auth/providers.ts` loads it only when Google sign-in runs, and hides the button in Expo Go. After adding a library with native code (e.g. Google Sign-In), use a development build: `bunx expo run:ios|android`, or `bunx eas-cli build --profile development`.
 
 ## Layout
@@ -72,6 +78,7 @@ Import from `src/` with the `@/` alias (`@/api/generated`), not relative paths.
 ## Code style
 
 - **Styling:** NativeWind `className` with Tailwind classes. Use `StyleSheet` only for what classes can't express (e.g. computed values). Give every color a `dark:` variant; the app follows the system theme.
+- **Text fields:** use `TextField` (`src/components/text-field.tsx`), or `AmountInput` for amounts, never a bare `TextInput`. Set the size with its `fontSize` prop, not a Tailwind `text-*` class: those also set a line height, and on iOS a text field with one draws its text below the middle.
 - **Server data:** Use the generated hooks (`useGetHealth`) and functions; never call `fetch` directly. **Local state:** Zustand. **Forms:** React Hook Form with a Zod schema.
 - **Sessions:** `apiFetch` sends the access token (a JWT valid for 15 minutes) and keeps it fresh. It refreshes the token through the auth store a minute before expiry, or after a 401, then retries once. Concurrent requests share one refresh, since each refresh replaces the refresh token. Never send `Authorization` yourself, and never call `refreshSession` outside `src/auth/store.ts`.
 - **Generated responses:** they are `{ data, status, headers }`, and an HTTP error status resolves instead of throwing. Read `res.data` and branch on `res.status` where the API documents error responses (e.g. `503` from `/health/full`). A network failure rejects, and the query's `isError` is set.
@@ -137,6 +144,7 @@ Keep every animation short (about 150–400 ms for feedback, under 1 s for celeb
 Target a steady 60 fps (120 fps on ProMotion devices) on a mid-range Android phone, not just the newest iPhone.
 
 - **Animate on the UI thread:** Reanimated shared values, `useAnimatedStyle`, and worklets, or Reanimated 4's CSS animations and transitions. Never animate with `setState` or React `Animated` driven from JS.
+  - **The one exception is counting numbers:** a text's content can't be animated on the UI thread. Show every displayed amount that can change with `CountingText` (`src/components/counting-text.tsx`), which counts in about 450 ms. Keep it to short texts like an amount, never inside list rows. Inputs don't count.
 - **Animate only `transform` and `opacity`** where possible. Animating layout props (`width`, `height`, `margin`) or shadows re-lays out every frame.
 - **Draw rich graphics with Skia** (`@shopify/react-native-skia`, which Victory Native XL also uses) instead of stacking many views.
 - **Use glass and blur sparingly:** they are costly to render. Use a few glass surfaces per screen, never inside list rows, and never animate their size on every frame.
@@ -160,6 +168,8 @@ The client is generated from `backend/api/index.yaml`. After the backend's TypeS
 - **Shared setup:** `test/setup.ts` runs before every test file. It gives `expo-secure-store` and `expo-sqlite/kv-store` in-memory stores, and replaces `src/db/client.ts` with `test/helpers/database.ts`: the same functions on in-memory sql.js databases, migrated from `drizzle/`. All are emptied before each test.
 - **Accounts:** `finishedSetup()` (`test/helpers/account.ts`) saves a finished setup for `testUser`, as an earlier session would have. Without it, a signed-in test lands on setup. `routes` (`test/helpers/routes.ts`) lists every route file for `renderRouter`. Fake the API with `mockApi({ 'GET /me': json(200, …) })` from `test/helpers/api.ts`, which fails the test on any request it doesn't list.
 - **Screens and navigation:** render the real route files with `renderRouter(routes, { initialUrl: '/' })` from `expo-router/testing-library`. Then check the route with `expect(screen).toHavePathname('/sign-in')`, so the tests cover the layout's sign-in and setup guards too. Reset the stores in `beforeEach`: `useAuth.setState({ status: 'restoring', session: null })` and `useLocalData.setState({ status: 'closed', userId: null, setupCompleted: false })`.
+- **Native views:** `test/setup.ts` replaces Skia (`test/helpers/skia.tsx`) and `@expo/ui` (`test/helpers/expo-ui-*.tsx`) with plain views. A SwiftUI `Picker` renders its options as radio buttons, so pick one with `fireEvent.press(screen.getByText('European Union'))`. A Compose `DropdownMenu` shows its items only while expanded.
+- **Counting amounts** change at once in tests: `test/setup.ts` reports Reduce Motion as on, so a new amount can be read straight away. `test/components/counting-text.test.tsx` turns counting back on with fake timers.
 - Reanimated runs in Jest through its resolver (`resolver` in the `jest` config), so animated components render without mocks.
 - **Code that reads config when its module loads** (`EXPO_PUBLIC_*`, Expo Go, the platform), e.g. `src/auth/providers.ts`: set the env var, then load a fresh copy inside `jest.isolateModules` (see `test/auth/providers.test.ts`).
   - Replace `Platform.OS` and share mocks outside the isolated registry: `react-native` looks `Platform` up when it is used, and a lazy `import()` resolves after `isolateModules` returns.

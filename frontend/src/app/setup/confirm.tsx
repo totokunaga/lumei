@@ -1,9 +1,10 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 
+import { CountingText } from '@/components/counting-text';
 import { PressableScale } from '@/components/pressable-scale';
 import { SetupStep } from '@/components/setup-step';
 import { localToday } from '@/domain/date';
@@ -18,7 +19,8 @@ import { editHref, type SetupPath } from '@/setup/navigation';
 /**
  * Renders the last setup step: the spending budget the choices give, then a
  * summary of every choice, with a reminder that the currency can't change later
- * (BR-SET-04). Tapping a choice opens its step to change it, which comes
+ * (BR-SET-04). The budget counts up from 0 each time the step comes into
+ * view, including on coming back from a change. Tapping a choice opens its step to change it, which comes
  * back here when done. Confirming saves everything and opens the home screen
  * (BR-ACC-06).
  */
@@ -28,11 +30,16 @@ export default function ConfirmStep() {
   const draft = useSetupDraft();
   const budget = useDraftBudget();
   const [failed, setFailed] = useState(false);
+  // Counts each time the step comes into view, so the budget counts up from 0 again.
+  const [views, setViews] = useState(0);
+  useFocusEffect(useCallback(() => setViews((n) => n + 1), []));
   const currency = draft.currency ?? 'USD';
   const money = (amount: Minor) => formatMoney(amount, currency, i18n.language);
   const sum = (items: { amount: Minor }[]) => items.reduce((total, item) => total + item.amount, 0);
 
-  const rows: { label: string; value: string; step: SetupPath }[] = [
+  // `amount` is set for the rows showing one, which count to a changed amount
+  // on coming back from editing it; `value` is what the row says when settled.
+  const rows: { label: string; value: string; amount?: Minor; step: SetupPath }[] = [
     {
       label: t('setup.confirm.region'),
       value: draft.set?.name[currentLanguage()] ?? '',
@@ -56,6 +63,7 @@ export default function ConfirmStep() {
       step: '/setup/income',
       label: t('setup.confirm.income'),
       value: draft.incomes.length > 0 ? money(sum(draft.incomes)) : t('setup.confirm.notSet'),
+      amount: draft.incomes.length > 0 ? sum(draft.incomes) : undefined,
     },
     {
       step: '/setup/fixed-expenses',
@@ -64,11 +72,13 @@ export default function ConfirmStep() {
         draft.fixedExpenses.length > 0
           ? money(sum(draft.fixedExpenses))
           : t('setup.confirm.notSet'),
+      amount: draft.fixedExpenses.length > 0 ? sum(draft.fixedExpenses) : undefined,
     },
     {
       step: '/setup/target',
       label: t('setup.confirm.target'),
       value: draft.savingTarget === null ? t('setup.confirm.notSet') : money(draft.savingTarget),
+      amount: draft.savingTarget ?? undefined,
     },
   ];
 
@@ -102,13 +112,16 @@ export default function ConfirmStep() {
         <Text className="text-sm font-medium uppercase text-emerald-700 dark:text-emerald-300">
           {t('setup.confirm.budget')}
         </Text>
-        <Text
+        <CountingText
+          value={budget}
+          format={money}
+          from={0}
+          restart={views}
+          duration={800}
           className={`text-5xl font-bold ${
             budget < 0 ? 'text-red-500' : 'text-emerald-700 dark:text-emerald-300'
           }`}
-        >
-          {money(budget)}
-        </Text>
+        />
       </View>
 
       <View className="overflow-hidden rounded-3xl bg-gray-50 dark:bg-gray-950">
@@ -124,9 +137,17 @@ export default function ConfirmStep() {
           >
             <Text className="text-base text-gray-500 dark:text-gray-400">{row.label}</Text>
             <View className="flex-shrink flex-row items-center gap-2">
-              <Text className="flex-shrink text-right text-base font-semibold text-black dark:text-white">
-                {row.value}
-              </Text>
+              {row.amount === undefined ? (
+                <Text className="flex-shrink text-right text-base font-semibold text-black dark:text-white">
+                  {row.value}
+                </Text>
+              ) : (
+                <CountingText
+                  value={row.amount}
+                  format={money}
+                  className="flex-shrink text-right text-base font-semibold text-black dark:text-white"
+                />
+              )}
               <SymbolView
                 name={{ ios: 'chevron.right', android: 'chevron_right' }}
                 size={14}

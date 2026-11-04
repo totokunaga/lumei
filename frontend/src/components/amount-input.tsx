@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { StyleSheet, Text, type TextInputProps, View } from 'react-native';
 
 import {
   CURRENCIES,
@@ -7,6 +7,8 @@ import {
   formatAmountText,
   readAmountText,
 } from '@/domain/money';
+
+import { TextField } from './text-field';
 
 /** Props of `AmountInput`: a `TextInput`'s, plus the currency and language. */
 interface AmountInputProps extends Omit<TextInputProps, 'keyboardType'> {
@@ -49,24 +51,24 @@ export function AmountInput({
       <Text style={styles.text} className="text-gray-400">
         {currencySymbol(currency, locale)}
       </Text>
-      <TextInput
+      <TextField
         {...props}
+        fontSize={20}
         value={formatAmountText(value, locale)}
         onChangeText={(text) => onChangeText?.(readAmountText(text, currency, locale))}
         placeholder={placeholder && formatAmountText(placeholder, locale)}
         keyboardType={CURRENCIES[currency] === 0 ? 'number-pad' : 'decimal-pad'}
         placeholderTextColor="#9CA3AF"
-        style={[styles.text, styles.input]}
+        style={styles.input}
         className="flex-1 text-black dark:text-white"
       />
     </View>
   );
 }
 
-// The symbol and the amount share one font size and no line height: on iOS a
-// TextInput with a line height (as Tailwind's text-xl sets) draws its text
-// below the middle, out of line with the symbol.
+// The symbol and the amount share one font size and no line height, so they
+// line up (see TextField).
 const styles = StyleSheet.create({
   text: { fontSize: 20, fontWeight: '600' },
-  input: { height: '100%', paddingVertical: 0, textAlignVertical: 'center' },
+  input: { height: '100%', fontWeight: '600' },
 });

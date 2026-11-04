@@ -45,6 +45,8 @@
     "region": {
       "title": "Où habitez-vous ?",
       "description": "Cela choisit vos catégories de départ. Vous pourrez les modifier plus tard.",
+      "label": "Région",
+      "map": "Carte montrant : {{region}}",
       "startsWith": "Vous commencerez avec",
       "loading": "Chargement des régions…",
       "loadFailed": "Impossible de charger les régions. Vérifiez votre connexion et réessayez.",

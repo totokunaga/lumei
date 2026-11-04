@@ -207,6 +207,17 @@ describe('Setup (BR-ACC-06)', () => {
     expect(scrollTo).toHaveBeenCalledWith({ y: 882, animated: false });
   });
 
+  it('zooms the map to the region chosen from the dropdown (BR-SET-06)', async () => {
+    await openSetup();
+    expect(screen.getByRole('image', { name: 'Map showing Japan' })).toBeOnTheScreen();
+    expect(screen.getByText('🍔 🏪')).toBeOnTheScreen();
+
+    await press('European Union');
+
+    expect(screen.getByRole('image', { name: 'Map showing European Union' })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'European Union' })).toBeSelected();
+  });
+
   it('can’t continue past the region and currency steps without them (BR-ACC-06)', async () => {
     await openSetup();
 

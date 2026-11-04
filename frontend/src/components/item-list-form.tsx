@@ -3,7 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
@@ -17,9 +17,11 @@ import {
 } from '@/domain/money';
 
 import { AmountInput } from './amount-input';
+import { CountingText } from './counting-text';
 import { listLayout, riseIn } from './motion';
 import { PressableScale } from './pressable-scale';
 import { type SetupStepName, SetupStep } from './setup-step';
+import { TextField } from './text-field';
 
 /** An item as the form returns it: amounts in minor units, an empty note as null. */
 export interface ListItem {
@@ -157,9 +159,13 @@ export function ItemListForm({
       onSkip={onSkip}
       editing={editing}
       footer={
-        <Text className="pb-1 text-center text-base font-semibold text-gray-500 dark:text-gray-400">
-          {t('setup.items.total', { amount: formatMoney(total, currency, i18n.language) })}
-        </Text>
+        <CountingText
+          value={total}
+          format={(amount) =>
+            t('setup.items.total', { amount: formatMoney(amount, currency, i18n.language) })
+          }
+          className="pb-1 text-center text-base font-semibold text-gray-500 dark:text-gray-400"
+        />
       }
     >
       {fields.map((field, index) => (
@@ -175,14 +181,15 @@ export function ItemListForm({
               control={control}
               name={`items.${index}.name`}
               render={({ field: { value, onChange, onBlur }, fieldState }) => (
-                <TextInput
+                <TextField
+                  fontSize={18}
                   accessibilityLabel={t('setup.items.name')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   placeholder={index === 0 ? placeholder : t('setup.items.name')}
                   placeholderTextColor="#9CA3AF"
-                  className={`h-14 flex-1 rounded-2xl border-2 bg-gray-100 px-4 text-lg text-black dark:bg-gray-900 dark:text-white ${
+                  className={`h-14 flex-1 rounded-2xl border-2 bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white ${
                     fieldState.error ? 'border-red-500' : 'border-transparent'
                   }`}
                 />
@@ -226,14 +233,14 @@ export function ItemListForm({
               control={control}
               name={`items.${index}.note`}
               render={({ field: { value, onChange, onBlur } }) => (
-                <TextInput
+                <TextField
                   accessibilityLabel={t('setup.items.note')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   placeholder={t('setup.items.note')}
                   placeholderTextColor="#9CA3AF"
-                  className="h-12 rounded-2xl bg-gray-100 px-4 text-base text-black dark:bg-gray-900 dark:text-white"
+                  className="h-12 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
                 />
               )}
             />

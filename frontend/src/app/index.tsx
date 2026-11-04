@@ -7,6 +7,7 @@ import { useGetHealth } from '@/api/generated';
 import { signOutOfDevice, unsyncedChanges } from '@/auth/sign-out';
 import { useAuth } from '@/auth/store';
 import { riseIn } from '@/components/motion';
+import { CountingText } from '@/components/counting-text';
 import { PressableScale } from '@/components/pressable-scale';
 import { database } from '@/db/client';
 import { readPeriodRecords, readSettings } from '@/db/records';
@@ -69,9 +70,11 @@ export default function HomeScreen() {
             <Text className="pt-2 text-sm font-medium uppercase text-emerald-700 dark:text-emerald-300">
               {t('home.budget')}
             </Text>
-            <Text className="text-5xl font-bold text-emerald-700 dark:text-emerald-300">
-              {formatMoney(spendingBudget(records), currency, i18n.language)}
-            </Text>
+            <CountingText
+              value={spendingBudget(records)}
+              format={(amount) => formatMoney(amount, currency, i18n.language)}
+              className="text-5xl font-bold text-emerald-700 dark:text-emerald-300"
+            />
           </View>
         ) : (
           <Text className="text-base text-gray-500">{t('home.noPeriod')}</Text>
