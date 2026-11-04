@@ -39,11 +39,22 @@ func setEnvDefaults(vars map[string]string) {
 }
 
 // TestMain sets the gin mode once for the whole package. Production sets it in
-// cmd/main, so building the app through di.InitializeApp never mutates it.
+// cmd/main, so building the app through di.InitializeApp never mutates it. It
+// also starts the fake identity provider and points the server's sign-in at
+// it.
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 	setEnvDefaults(testRDBEnv)
-	os.Exit(m.Run())
+
+	idp = newFakeIdentityProvider()
+	setEnvDefaults(idp.env())
+
+	signingKey, signingKeyPEM = newSigningKey()
+	setEnvDefaults(map[string]string{"AUTH_JWT_SIGNING_KEY": signingKeyPEM})
+
+	code := m.Run()
+	idp.server.Close()
+	os.Exit(code)
 }
 
 // TestServer encapsulates a running test server.

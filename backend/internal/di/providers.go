@@ -5,13 +5,18 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/totokunaga/lumei/backend/internal/application"
 	"github.com/totokunaga/lumei/backend/internal/config"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/database/rdb"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/database/rdb/driver"
+	"github.com/totokunaga/lumei/backend/internal/infrastructure/database/rdb/repository"
+	"github.com/totokunaga/lumei/backend/internal/infrastructure/identity"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/logger"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/router"
+	"github.com/totokunaga/lumei/backend/internal/infrastructure/token"
 	"github.com/totokunaga/lumei/backend/internal/interface/controller"
 )
 
@@ -43,6 +48,11 @@ func ProvideRDBConfig(cfg *config.Config) config.RDBConfig {
 // ProvideLogConfig extracts the logger configuration.
 func ProvideLogConfig(cfg *config.Config) config.LogConfig {
 	return cfg.Log
+}
+
+// ProvideAuthConfig extracts the sign-in and session configuration.
+func ProvideAuthConfig(cfg *config.Config) config.AuthConfig {
+	return cfg.Auth
 }
 
 // ProvideLogger provides a configured slog logger.
@@ -100,14 +110,58 @@ func ProvideHealthChecker(
 	return application.NewHealthChecker(checks, cfg.HealthCheckTimeout)
 }
 
+// ProvideIdentityVerifier provides the verifier of Apple and Google ID
+// tokens. Its HTTP client fetches the providers' signing keys.
+func ProvideIdentityVerifier(cfg config.AuthConfig) application.IdentityVerifier {
+	return identity.New(cfg, &http.Client{Timeout: 10 * time.Second})
+}
+
+// ProvideUserRepository provides the user repository.
+func ProvideUserRepository(connector *rdb.Connector) application.UserRepository {
+	return repository.NewUserRepository(connector.DB())
+}
+
+// ProvideSessionRepository provides the session repository.
+func ProvideSessionRepository(connector *rdb.Connector) application.SessionRepository {
+	return repository.NewSessionRepository(connector.DB())
+}
+
+// ProvideAccessTokenIssuer provides the signer and verifier of access JWTs.
+func ProvideAccessTokenIssuer(cfg config.AuthConfig) (application.AccessTokenIssuer, error) {
+	issuer, err := token.NewJWTIssuer(cfg.JWTSigningKey, cfg.JWTPreviousSigningKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the access token issuer: %w", err)
+	}
+	return issuer, nil
+}
+
+// ProvideAuthenticator provides the sign-in use case.
+func ProvideAuthenticator(
+	cfg config.AuthConfig,
+	verifier application.IdentityVerifier,
+	users application.UserRepository,
+	sessions application.SessionRepository,
+	issuer application.AccessTokenIssuer,
+) application.Authenticator {
+
+	policy := application.AuthPolicy{
+		SessionTTL:        cfg.SessionTTL,
+		AccessTokenTTL:    cfg.AccessTokenTTL,
+		RefreshReuseGrace: cfg.RefreshReuseGrace,
+	}
+	return application.NewAuthenticator(verifier, users, sessions, issuer, policy, time.Now)
+}
+
 // ProvideAPIController provides the API controller.
 func ProvideAPIController(
 	healthChecker application.HealthChecker,
+	auth application.Authenticator,
 	log *slog.Logger,
 ) *controller.APIController {
 
 	return controller.NewAPIController(&controller.APIControllerInput{
 		HealthChecker: healthChecker,
+		Auth:          auth,
 		Logger:        log,
 	})
 }
@@ -117,9 +171,10 @@ func ProvideRouter(
 	cfg config.ServerConfig,
 	log *slog.Logger,
 	apiController *controller.APIController,
+	auth application.Authenticator,
 ) *router.Router {
 
-	return router.New(cfg, log, apiController)
+	return router.New(cfg, log, apiController, auth)
 }
 
 // ProvideApp assembles the application components.

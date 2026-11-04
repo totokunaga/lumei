@@ -41,6 +41,8 @@ make help            # Every target
 3. Declare the ports the use case needs and implement the use case in `internal/application/<feature>.go`.
 4. Implement the ports in `internal/infrastructure/` (e.g. a repository in `database/rdb/repository/`).
 5. Implement the new `generated.ServerInterface` methods in `internal/interface/controller/<feature>.go`. Add the use case to `APIControllerInput`.
+   - **Signed-in endpoints:** mark the operation `@useAuth(BearerAuth)` in TypeSpec. The `Authenticate` middleware (`internal/infrastructure/router/auth.go`) then answers `401` to any request without a valid access token, before the handler runs. Access tokens are ES256 JWTs (`internal/infrastructure/token`), valid for 15 minutes and checked without the database. The refresh tokens that renew them are stored hashed in `sessions` (see `application.AuthUsecase`). So a signed-out or deleted session's access token keeps working until it expires: don't rely on the session row existing in a signed-in request. Read the user with `application.PrincipalFrom(ctx)` in the use case, and scope every query to that user's ID. Never take a user ID from the path, query, or body (BR-ACC-02).
+   - **Errors:** answer with `generated.ErrorResponse` (`writeError` in the controller), with a stable snake_case `code` the app can branch on. List the codes in the operation's TypeSpec doc comment. `message` is for developers and isn't translated.
 6. Wire the providers in `internal/di/providers.go` and `internal/di/wire.go`, then run `make wire`.
 7. Add a `mockgen` line for the new port file to the `mockgen` service in `docker-compose.tool.yml`, then run `make mockgen`.
 8. Add a `Test<OperationId>` function to `test/integration/<tag>_test.go` with its positive and negative cases. Then add unit tests for any branch those cases can't reach (see [Testing](#testing)).
@@ -65,7 +67,7 @@ interface/controller → application ← infrastructure/
 |---------|------|-----------|
 | `internal/application/` | Use cases and the interfaces (ports) they need | stdlib and pure libraries only |
 | `internal/interface/controller/` | HTTP handlers implementing `generated.ServerInterface` | `application`, `interface/generated` |
-| `internal/infrastructure/...` | Port implementations: `database/rdb` (connector, repositories), `database/migration`, `logger`, `router` | `application`, `config`, other infrastructure packages |
+| `internal/infrastructure/...` | Port implementations: `database/rdb` (connector, repositories), `database/migration`, `identity` (Apple and Google ID token verification), `token` (access JWTs), `logger`, `router` (including the `Authenticate` middleware) | `application`, `config`, other infrastructure packages |
 | `internal/di/` | Wire providers; the only place layers meet | everything |
 | `cmd/` | Entry points (`cmd/main.go` server, `cmd/migrate` CLI) | `di`, `config`, infrastructure |
 
@@ -133,6 +135,8 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 | Tag | File | Test functions |
 |-----|------|----------------|
 | `health` | `health_test.go` | `TestGetHealth` (`GET /health`), `TestGetHealthFull` (`GET /health/full`) |
+| `auth` | `auth_test.go` | `TestSignIn` (`POST /auth/sign-in`), `TestRefreshSession` (`POST /auth/refresh`), `TestSignOut` (`POST /auth/sign-out`) |
+| `users` | `users_test.go` | `TestGetMe` (`GET /me`) |
 
 Update this table when you add a tag or an endpoint.
 
@@ -141,15 +145,18 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 | Field | Purpose |
 |-------|---------|
 | `name` | Subtest name, starting with the expected status, e.g. `"503 when the database goes away after startup"`. |
-| `req` | `method`, `path`, and `headers` to send. |
+| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `refreshReq`, `meReq`, and `signOutReq`. |
 | `configure func(cfg)` | Changes the case's own `*config.Config` before the server is built, e.g. `func(cfg *config.Config) { cfg.Server.HealthCheckTimeout = time.Nanosecond }`. |
 | `setupFunc func(t, cfg) (afterStart func())` | Runs before the server is built and may also change `cfg`. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` points `cfg` at a new database and drops it there. |
+| `prepare func(t, ts) (req, assertFunc)` | Replaces `req` and `assertFunc` when the request depends on earlier requests, e.g. one that needs a session. It runs after the server starts, may send those requests (`signIn`, `newGoogleSession`, `refresh`), and returns the request and an assertion that can close over their results, e.g. the first sign-in's user ID. Start it with `t.Helper()`. |
 | `expectedStatus` | The response status. The runner always checks it. |
 | `assertFunc func(t, response)` | Checks the body and headers. Use `assertBody(want)` for exact bodies, `assertHeader(key, want)` for headers, and `assertAll(...)` to combine them. Write a custom one for bodies with measured values (timestamps, counters). |
 
 - `runIntegrationTestCases` runs the cases in parallel. For each case it loads a fresh config from the environment, applies `configure` and `setupFunc`, and builds a server with `newTestServer(t, cfg)` (`test/integration/setup_test.go`): production wiring served over `httptest` and cleaned up through `t.Cleanup`.
 - `TestMain` sets `gin.TestMode` and fills in suite-wide default env vars with `setEnvDefaults`, before any test starts. Per-case overrides go in the case's `configure`, never in env vars.
 - Decode bodies into the `generated.*` types with `decode[T]`, so the tests check the API contract.
+- **Sign-in runs against a fake identity provider** (`fakeIdentityProvider` in `helpers_test.go`). `TestMain` starts it and points the Apple and Google JWKS URLs and client IDs at it, so every case verifies real signed tokens. Build a token with `appleToken(subject, email)` or `googleToken(subject, email)`, change fields for a negative case (`expiresAt`, `audience`, `issuer`, `forged`, `emailVerified`, `extra`), and sign it with `idp.sign(token)`. Use `newSubject()` and `uniqueEmail()` so cases never share a user.
+- **Access tokens:** `TestMain` generates the server's signing key (`signingKey`, passed as `AUTH_JWT_SIGNING_KEY`). To test the token check itself, build a token with `validAccessToken(email)`, change fields (`key`, `keyID`, `issuer`, `audience`, `subject`, `expiresAt`), and sign it with `signAccessToken(t, at)`. A signed token needs no database, so it also reaches handlers in cases that drop the database with `useDisposableDatabase`.
 
 ### Unit tests: table-driven harness
 

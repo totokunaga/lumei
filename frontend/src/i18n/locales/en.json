@@ -3,9 +3,26 @@
     "title": "Lumei",
     "apiStatus": "API status: {{status}}",
     "apiChecking": "Checking the API…",
-    "apiUnreachable": "API unreachable"
+    "apiUnreachable": "API unreachable",
+    "signedInAs": "Signed in as {{email}}",
+    "signOut": "Sign out"
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})"
+  },
+  "signIn": {
+    "tagline": "See what you can spend today, and still hit your saving target.",
+    "google": "Sign in with Google",
+    "devTitle": "Development only: sign in as any email",
+    "devEmail": "Email address",
+    "devSubmit": "Sign in",
+    "signingIn": "Signing in…",
+    "errors": {
+      "email_not_verified": "Your email address isn't verified with this account. Verify it with Apple or Google, then try again.",
+      "invalid_id_token": "Sign-in didn't go through. Please try again.",
+      "unsupported_provider": "This sign-in option isn't available right now.",
+      "network": "Can't reach Lumei. Check your connection and try again.",
+      "unknown": "Something went wrong. Please try again."
+    }
   }
 }

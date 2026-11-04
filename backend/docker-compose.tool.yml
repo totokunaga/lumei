@@ -56,7 +56,8 @@ services:
     command: |
       sh -c '
         go install go.uber.org/mock/mockgen@v0.6.0 && \
-        mockgen -source=./internal/application/healthcheck.go -destination=./internal/mock/mock_healthcheck.go -package mock
+        mockgen -source=./internal/application/healthcheck.go -destination=./internal/mock/mock_healthcheck.go -package mock && \
+        mockgen -source=./internal/application/auth.go -destination=./internal/mock/mock_auth.go -package mock
       '
 
   oapi-codegen:

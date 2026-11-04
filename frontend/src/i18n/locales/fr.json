@@ -3,9 +3,26 @@
     "title": "Lumei",
     "apiStatus": "État de l’API : {{status}}",
     "apiChecking": "Vérification de l’API…",
-    "apiUnreachable": "API injoignable"
+    "apiUnreachable": "API injoignable",
+    "signedInAs": "Connecté en tant que {{email}}",
+    "signOut": "Se déconnecter"
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})"
+  },
+  "signIn": {
+    "tagline": "Voyez ce que vous pouvez dépenser aujourd’hui, tout en atteignant votre objectif d’épargne.",
+    "google": "Se connecter avec Google",
+    "devTitle": "Développement uniquement : connexion avec n’importe quelle adresse",
+    "devEmail": "Adresse e-mail",
+    "devSubmit": "Se connecter",
+    "signingIn": "Connexion…",
+    "errors": {
+      "email_not_verified": "L’adresse e-mail de ce compte n’est pas vérifiée. Vérifiez-la auprès d’Apple ou de Google, puis réessayez.",
+      "invalid_id_token": "La connexion a échoué. Veuillez réessayer.",
+      "unsupported_provider": "Cette option de connexion n’est pas disponible pour le moment.",
+      "network": "Impossible de joindre Lumei. Vérifiez votre connexion et réessayez.",
+      "unknown": "Une erreur s’est produite. Veuillez réessayer."
+    }
   }
 }

@@ -31,8 +31,18 @@ func InitializeApp() (*App, func(), error) {
 	}
 	v := ProvideHealthChecks(connector)
 	healthChecker := ProvideHealthChecker(serverConfig, v)
-	apiController := ProvideAPIController(healthChecker, logger)
-	router := ProvideRouter(serverConfig, logger, apiController)
+	authConfig := ProvideAuthConfig(config)
+	identityVerifier := ProvideIdentityVerifier(authConfig)
+	userRepository := ProvideUserRepository(connector)
+	sessionRepository := ProvideSessionRepository(connector)
+	accessTokenIssuer, err := ProvideAccessTokenIssuer(authConfig)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer)
+	apiController := ProvideAPIController(healthChecker, authenticator, logger)
+	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
 		cleanup()
@@ -54,8 +64,18 @@ func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
 	}
 	v := ProvideHealthChecks(connector)
 	healthChecker := ProvideHealthChecker(serverConfig, v)
-	apiController := ProvideAPIController(healthChecker, logger)
-	router := ProvideRouter(serverConfig, logger, apiController)
+	authConfig := ProvideAuthConfig(cfg)
+	identityVerifier := ProvideIdentityVerifier(authConfig)
+	userRepository := ProvideUserRepository(connector)
+	sessionRepository := ProvideSessionRepository(connector)
+	accessTokenIssuer, err := ProvideAccessTokenIssuer(authConfig)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer)
+	apiController := ProvideAPIController(healthChecker, authenticator, logger)
+	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
 		cleanup()
@@ -70,11 +90,17 @@ var appSet = wire.NewSet(
 	ProvideServerConfig,
 	ProvideRDBConfig,
 	ProvideLogConfig,
+	ProvideAuthConfig,
 	ProvideLogger,
 	ProvideDBDriver,
 	ProvideConnector,
 	ProvideHealthChecks,
 	ProvideHealthChecker,
+	ProvideIdentityVerifier,
+	ProvideUserRepository,
+	ProvideSessionRepository,
+	ProvideAccessTokenIssuer,
+	ProvideAuthenticator,
 	ProvideAPIController,
 	ProvideRouter,
 	ProvideApp,

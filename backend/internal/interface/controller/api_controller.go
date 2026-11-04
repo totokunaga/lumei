@@ -18,6 +18,7 @@ type APIController struct {
 // APIControllerInput holds the dependencies for APIController.
 type APIControllerInput struct {
 	HealthChecker application.HealthChecker
+	Auth          application.Authenticator
 	Logger        *slog.Logger
 }
 

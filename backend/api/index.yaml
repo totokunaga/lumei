@@ -5,7 +5,120 @@ info:
   description: API server for Lumei.
 tags:
   - name: health
+  - name: auth
+  - name: users
 paths:
+  /auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Refresh the tokens
+      description: |-
+        Exchanges a refresh token for a new access token and refresh token, and
+        extends the session (BR-ACC-03). A refresh token just replaced still
+        works for a minute, so a lost response doesn't sign the user out.
+        Reusing it later ends the session, because only a copy would be used
+        that late.
+
+        Errors: 400 `invalid_request`; 401 `unauthenticated` when the refresh
+        token is unknown, expired, or reused. Sign in again then.
+      parameters: []
+      responses:
+        '200':
+          description: New tokens. The refresh token in the request no longer works.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: The request is malformed or names something unsupported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshSessionRequest'
+  /auth/sign-in:
+    post:
+      operationId: signIn
+      summary: Sign in
+      description: |-
+        Signs in with an ID token from Apple or Google, and starts a session.
+        The first sign-in creates the account. A sign-in whose verified email
+        matches an existing account opens that account (BR-ACC-07); any other
+        email gets a separate account (BR-ACC-08).
+
+        Errors: 400 `invalid_request` or `unsupported_provider`; 401
+        `invalid_id_token`; 403 `email_not_verified` when the provider doesn't
+        report the email as verified.
+      parameters: []
+      responses:
+        '201':
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: The request is malformed or names something unsupported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: The request is understood but refused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+  /auth/sign-out:
+    post:
+      operationId: signOut
+      summary: Sign out
+      description: |-
+        Signs out this device by ending its session (BR-ACC-04), so its refresh
+        token stops working. Its access token is checked without the database,
+        so it works until it expires, at most 15 minutes; the app discards it.
+        Other devices stay signed in.
+      parameters: []
+      responses:
+        '204':
+          description: Signed out.
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - auth
+      security:
+        - BearerAuth: []
   /health:
     get:
       operationId: getHealth
@@ -47,6 +160,29 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
       tags:
         - health
+  /me:
+    get:
+      operationId: getMe
+      summary: Get the signed-in user
+      description: Returns the signed-in user. The app calls it on start to check the stored session (BR-ACC-03).
+      parameters: []
+      responses:
+        '200':
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - users
+      security:
+        - BearerAuth: []
 components:
   schemas:
     BasicHealthResponse:
@@ -58,6 +194,23 @@ components:
           type: string
           example: ok
       description: Minimal health payload returned by the basic health check.
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: |-
+            A stable, machine-readable code, e.g. `invalid_request`,
+            `unsupported_provider`, `invalid_id_token`, `email_not_verified`, or
+            `unauthenticated`.
+          example: invalid_id_token
+        message:
+          type: string
+          description: "A description for developers. Don't show it to users: it isn't translated."
+      description: An error the client can act on.
     HealthCheckEntry:
       type: object
       required:
@@ -103,6 +256,79 @@ components:
         Detailed health payload with one entry per dependency.
         `status` is `unhealthy` (503) when a critical check fails, `degraded` (200) when
         only non-critical checks fail, and `healthy` otherwise.
+    RefreshSessionRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: The refresh token from the last sign-in or refresh.
+    SessionResponse:
+      type: object
+      required:
+        - access_token
+        - access_token_expires_at
+        - refresh_token
+        - user
+      properties:
+        access_token:
+          type: string
+          description: |-
+            A JWT that authenticates requests: send it as
+            `Authorization: Bearer <access_token>`. It is valid for 15 minutes.
+        access_token_expires_at:
+          type: string
+          format: date-time
+          description: When the access token expires. Get new tokens from `POST /auth/refresh` before then.
+        refresh_token:
+          type: string
+          description: |-
+            Gets new tokens from `POST /auth/refresh`. Each refresh replaces it, so
+            store the new one. The session ends 90 days after the last refresh
+            (BR-ACC-03). Keep it in the device's secure storage.
+        user:
+          $ref: '#/components/schemas/User'
+    SignInProvider:
+      type: string
+      enum:
+        - apple
+        - google
+        - dev
+      description: The service a user signs in with (BR-ACC-01). `dev` works only where the server enables it.
+    SignInRequest:
+      type: object
+      required:
+        - provider
+        - id_token
+      properties:
+        provider:
+          allOf:
+            - $ref: '#/components/schemas/SignInProvider'
+          example: google
+        id_token:
+          type: string
+          description: |-
+            The ID token Sign in with Apple or Google returned to the app. For `dev`,
+            the email address to sign in as.
+    User:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          example: 0199a6c5-3f4e-7c2a-9b1d-5e8f2a4c6d10
+        email:
+          type: string
+          description: The account's email address, in lower case (BR-ACC-07).
+          example: user@example.com
+      description: A Lumei account.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: Bearer
 servers:
   - url: '{baseUrl}'
     description: Lumei API server

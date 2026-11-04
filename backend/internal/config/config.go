@@ -19,6 +19,7 @@ type Config struct {
 	Server ServerConfig
 	RDB    RDBConfig
 	Log    LogConfig
+	Auth   AuthConfig
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -108,6 +109,72 @@ type LogConfig struct {
 	ServiceName string `env:"LOG_SERVICE_NAME" envDefault:"lumei-api"`
 }
 
+// AuthConfig holds sign-in and session configuration.
+type AuthConfig struct {
+	// SessionTTL is how long a session lasts after its last use: each
+	// refresh extends it by this much (BR-ACC-03). It is the lifetime of the
+	// refresh token.
+	SessionTTL time.Duration `env:"AUTH_SESSION_TTL" envDefault:"2160h"`
+
+	// AccessTokenTTL is how long an access JWT is valid. It is also how long
+	// a token issued before sign-out keeps working, since access tokens are
+	// checked without the database.
+	AccessTokenTTL time.Duration `env:"AUTH_ACCESS_TOKEN_TTL" envDefault:"15m"`
+
+	// RefreshReuseGrace is how long a replaced refresh token still works, so
+	// a refresh whose response was lost, or two racing refreshes, don't sign
+	// the user out. Reusing it later ends the session, as a stolen token
+	// would.
+	RefreshReuseGrace time.Duration `env:"AUTH_REFRESH_REUSE_GRACE" envDefault:"1m"`
+
+	// JWTSigningKey is the PEM-encoded (PKCS #8) P-256 private key that signs
+	// access JWTs with ES256.
+	JWTSigningKey string `env:"AUTH_JWT_SIGNING_KEY"`
+	// JWTPreviousSigningKey is the key used before the last rotation. Tokens
+	// it signed are still accepted until they expire. Empty when not
+	// rotating.
+	JWTPreviousSigningKey string `env:"AUTH_JWT_PREVIOUS_SIGNING_KEY"`
+
+	// AppleClientIDs are the audiences a Sign in with Apple ID token may be
+	// issued for: the iOS bundle ID, and later the Services ID used on
+	// Android. Empty disables Apple sign-in.
+	AppleClientIDs []string `env:"AUTH_APPLE_CLIENT_IDS" envSeparator:","`
+	AppleIssuer    string   `env:"AUTH_APPLE_ISSUER" envDefault:"https://appleid.apple.com"`
+	AppleJWKSURL   string   `env:"AUTH_APPLE_JWKS_URL" envDefault:"https://appleid.apple.com/auth/keys"`
+
+	// GoogleClientIDs are the audiences a Google ID token may be issued for:
+	// the web client ID the app passes to Google Sign-In. Empty disables
+	// Google sign-in.
+	GoogleClientIDs []string `env:"AUTH_GOOGLE_CLIENT_IDS" envSeparator:","`
+	GoogleIssuer    string   `env:"AUTH_GOOGLE_ISSUER" envDefault:"https://accounts.google.com"`
+
+	// GoogleJWKSURL serves the keys Google signs ID tokens with.
+	GoogleJWKSURL string `env:"AUTH_GOOGLE_JWKS_URL" envDefault:"https://www.googleapis.com/oauth2/v3/certs"`
+
+	// DevSignIn enables the "dev" provider, which signs in as any email
+	// without proof. Only for local development: never enable it in a
+	// deployed environment.
+	DevSignIn bool `env:"AUTH_DEV_SIGN_IN" envDefault:"false"`
+}
+
+// Validate rejects lifetimes that would end every session at once, and a
+// missing signing key.
+func (c AuthConfig) Validate() error {
+	if c.SessionTTL <= 0 {
+		return errors.New("AUTH_SESSION_TTL must be positive")
+	}
+	if c.AccessTokenTTL <= 0 {
+		return errors.New("AUTH_ACCESS_TOKEN_TTL must be positive")
+	}
+	if c.RefreshReuseGrace < 0 {
+		return errors.New("AUTH_REFRESH_REUSE_GRACE must not be negative")
+	}
+	if c.JWTSigningKey == "" {
+		return errors.New("AUTH_JWT_SIGNING_KEY must not be empty")
+	}
+	return nil
+}
+
 // Load reads the environment variables used by the API server and returns a
 // validated Config.
 func Load() (Config, error) {
@@ -116,6 +183,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("failed to parse config from env: %w", err)
 	}
 	if err := cfg.RDB.Validate(); err != nil {
+		return Config{}, err
+	}
+	if err := cfg.Auth.Validate(); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil

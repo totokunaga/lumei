@@ -68,6 +68,10 @@ services:
       - RDB_SSL_MODE=disable
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=${LOG_FORMAT:-json}
+      - AUTH_DEV_SIGN_IN=${AUTH_DEV_SIGN_IN:-false}
+      - AUTH_APPLE_CLIENT_IDS=${AUTH_APPLE_CLIENT_IDS:-}
+      - AUTH_GOOGLE_CLIENT_IDS=${AUTH_GOOGLE_CLIENT_IDS:-}
+      - AUTH_JWT_SIGNING_KEY=${AUTH_JWT_SIGNING_KEY:-}
     ports:
       - "18080:8080"
     volumes:

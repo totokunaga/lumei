@@ -3,9 +3,26 @@
     "title": "Lumei",
     "apiStatus": "API の状態: {{status}}",
     "apiChecking": "API を確認しています…",
-    "apiUnreachable": "API に接続できません"
+    "apiUnreachable": "API に接続できません",
+    "signedInAs": "{{email}} でサインイン中",
+    "signOut": "サインアウト"
   },
   "period": {
     "labelWithRange": "{{month}}（{{start}}～{{end}}）"
+  },
+  "signIn": {
+    "tagline": "今日使える金額がわかるから、貯金目標も守れる。",
+    "google": "Google でサインイン",
+    "devTitle": "開発用: 任意のメールアドレスでサインイン",
+    "devEmail": "メールアドレス",
+    "devSubmit": "サインイン",
+    "signingIn": "サインインしています…",
+    "errors": {
+      "email_not_verified": "このアカウントのメールアドレスが確認されていません。Apple または Google で確認してから、もう一度お試しください。",
+      "invalid_id_token": "サインインできませんでした。もう一度お試しください。",
+      "unsupported_provider": "このサインイン方法は現在ご利用いただけません。",
+      "network": "Lumei に接続できません。通信環境を確認して、もう一度お試しください。",
+      "unknown": "問題が発生しました。もう一度お試しください。"
+    }
   }
 }

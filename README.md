@@ -69,7 +69,9 @@ bun run android   # Opens the app in the Android emulator
 bun run start     # Starts the dev server only. Scan the QR code with Expo Go, or press i / a to pick a simulator.
 ```
 
-The home screen shows `API status: ok` when the app can reach the backend.
+The app opens on the sign-in screen. In a development build, sign in with any email address under **Development only**. This works against the backend from `make up-d`, which enables dev sign-in (`AUTH_DEV_SIGN_IN=true` in `backend/.env.dev`). Sign in with Apple and Google need the client IDs described in [`frontend/CLAUDE.md`](frontend/CLAUDE.md).
+
+After you sign in, the home screen shows `API status: ok` when the app can reach the backend, and the account you signed in with.
 
 ### Point the app at the backend
 

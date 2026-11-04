@@ -7,7 +7,13 @@
  */
 
 export * from './basicHealthResponse';
+export * from './errorResponse';
 export * from './healthCheckEntry';
 export * from './healthCheckEntryDetails';
 export * from './healthResponse';
 export * from './healthResponseChecks';
+export * from './refreshSessionRequest';
+export * from './sessionResponse';
+export * from './signInProvider';
+export * from './signInRequest';
+export * from './user';

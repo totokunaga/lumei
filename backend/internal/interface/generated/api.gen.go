@@ -9,9 +9,45 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
+)
+
+// Defines values for SignInProvider.
+const (
+	Apple  SignInProvider = "apple"
+	Dev    SignInProvider = "dev"
+	Google SignInProvider = "google"
+)
+
+// Valid indicates whether the value is a known member of the SignInProvider enum.
+func (e SignInProvider) Valid() bool {
+	switch e {
+	case Apple:
+		return true
+	case Dev:
+		return true
+	case Google:
+		return true
+	default:
+		return false
+	}
+}
+
 // BasicHealthResponse Minimal health payload returned by the basic health check.
 type BasicHealthResponse struct {
 	Status string `json:"status"`
+}
+
+// ErrorResponse An error the client can act on.
+type ErrorResponse struct {
+	// Code A stable, machine-readable code, e.g. `invalid_request`,
+	// `unsupported_provider`, `invalid_id_token`, `email_not_verified`, or
+	// `unauthenticated`.
+	Code string `json:"code"`
+
+	// Message A description for developers. Don't show it to users: it isn't translated.
+	Message string `json:"message"`
 }
 
 // HealthCheckEntry Result of one dependency's health check.
@@ -36,14 +72,77 @@ type HealthResponse struct {
 	Status string                      `json:"status"`
 }
 
+// RefreshSessionRequest defines model for RefreshSessionRequest.
+type RefreshSessionRequest struct {
+	// RefreshToken The refresh token from the last sign-in or refresh.
+	RefreshToken string `json:"refresh_token"`
+}
+
+// SessionResponse defines model for SessionResponse.
+type SessionResponse struct {
+	// AccessToken A JWT that authenticates requests: send it as
+	// `Authorization: Bearer <access_token>`. It is valid for 15 minutes.
+	AccessToken string `json:"access_token"`
+
+	// AccessTokenExpiresAt When the access token expires. Get new tokens from `POST /auth/refresh` before then.
+	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
+
+	// RefreshToken Gets new tokens from `POST /auth/refresh`. Each refresh replaces it, so
+	// store the new one. The session ends 90 days after the last refresh
+	// (BR-ACC-03). Keep it in the device's secure storage.
+	RefreshToken string `json:"refresh_token"`
+
+	// User A Lumei account.
+	User User `json:"user"`
+}
+
+// SignInProvider The service a user signs in with (BR-ACC-01). `dev` works only where the server enables it.
+type SignInProvider string
+
+// SignInRequest defines model for SignInRequest.
+type SignInRequest struct {
+	// IdToken The ID token Sign in with Apple or Google returned to the app. For `dev`,
+	// the email address to sign in as.
+	IdToken  string         `json:"id_token"`
+	Provider SignInProvider `json:"provider"`
+}
+
+// User A Lumei account.
+type User struct {
+	// Email The account's email address, in lower case (BR-ACC-07).
+	Email string `json:"email"`
+	Id    string `json:"id"`
+}
+
+// bearerAuthContextKey is the context key for BearerAuth security scheme
+type bearerAuthContextKey string
+
+// RefreshSessionJSONRequestBody defines body for RefreshSession for application/json ContentType.
+type RefreshSessionJSONRequestBody = RefreshSessionRequest
+
+// SignInJSONRequestBody defines body for SignIn for application/json ContentType.
+type SignInJSONRequestBody = SignInRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Refresh the tokens
+	// (POST /auth/refresh)
+	RefreshSession(c *gin.Context)
+	// Sign in
+	// (POST /auth/sign-in)
+	SignIn(c *gin.Context)
+	// Sign out
+	// (POST /auth/sign-out)
+	SignOut(c *gin.Context)
 	// Basic health check with HTTP server status
 	// (GET /health)
 	GetHealth(c *gin.Context)
 	// Detailed health check with dependency status
 	// (GET /health/full)
 	GetHealthFull(c *gin.Context)
+	// Get the signed-in user
+	// (GET /me)
+	GetMe(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -54,6 +153,47 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// RefreshSession operation middleware
+func (siw *ServerInterfaceWrapper) RefreshSession(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RefreshSession(c)
+}
+
+// SignIn operation middleware
+func (siw *ServerInterfaceWrapper) SignIn(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SignIn(c)
+}
+
+// SignOut operation middleware
+func (siw *ServerInterfaceWrapper) SignOut(c *gin.Context) {
+
+	c.Set(string(BearerAuthScopes), []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SignOut(c)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
@@ -79,6 +219,21 @@ func (siw *ServerInterfaceWrapper) GetHealthFull(c *gin.Context) {
 	}
 
 	siw.Handler.GetHealthFull(c)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
+
+	c.Set(string(BearerAuthScopes), []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMe(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -108,6 +263,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.POST(options.BaseURL+"/auth/refresh", wrapper.RefreshSession)
+	router.POST(options.BaseURL+"/auth/sign-in", wrapper.SignIn)
+	router.POST(options.BaseURL+"/auth/sign-out", wrapper.SignOut)
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/health/full", wrapper.GetHealthFull)
+	router.GET(options.BaseURL+"/me", wrapper.GetMe)
 }

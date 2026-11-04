@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/totokunaga/lumei/backend/internal/interface/generated"
+	"github.com/totokunaga/lumei/backend/internal/mock"
 )
 
 type httpHeader struct {
@@ -174,3 +177,25 @@ func assertNoContent(t *testing.T, actual resp, expected resp) {
 	assert.Equal(t, expected.status, actual.status)
 	assert.Nil(t, actual.body)
 }
+
+// authMocks holds the mocks of the auth and users handler tests.
+type authMocks struct {
+	auth *mock.MockAuthenticator
+}
+
+// newAuthTestEnv builds an API controller with a mock Authenticator and
+// registers its handlers without the authentication middleware.
+func newAuthTestEnv(ctrl *gomock.Controller) (authMocks, *gin.Engine) {
+	m := authMocks{auth: mock.NewMockAuthenticator(ctrl)}
+	api := NewAPIController(&APIControllerInput{
+		Auth:   m.auth,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	router := gin.New()
+	generated.RegisterHandlers(router, api)
+	return m, router
+}
+
+// internalErrorBody is the body of every 500 response.
+var internalErrorBody = generated.ErrorResponse{Code: "internal_error", Message: "something went wrong"}

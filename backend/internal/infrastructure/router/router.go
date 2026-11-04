@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/totokunaga/lumei/backend/internal/application"
 	"github.com/totokunaga/lumei/backend/internal/config"
 	"github.com/totokunaga/lumei/backend/internal/interface/generated"
 )
@@ -27,14 +28,17 @@ type Router struct {
 	cfg        config.ServerConfig
 	logger     *slog.Logger
 	controller generated.ServerInterface
+	auth       application.Authenticator
 	setupOnce  sync.Once
 }
 
-// New creates a new Router with the given configuration, logger, and controller.
+// New creates a new Router with the given configuration, logger, and
+// controller. auth authenticates the operations that require a session.
 func New(
 	cfg config.ServerConfig,
 	log *slog.Logger,
 	controller generated.ServerInterface,
+	auth application.Authenticator,
 ) *Router {
 
 	// The ALB sets X-Forwarded-For. Until its address range is configured here,
@@ -47,6 +51,7 @@ func New(
 		cfg:        cfg,
 		logger:     log,
 		controller: controller,
+		auth:       auth,
 	}
 }
 
@@ -62,7 +67,9 @@ func (r *Router) setup() {
 			Recovery(r.logger),
 		)
 
-		generated.RegisterHandlers(r.engine, r.controller)
+		generated.RegisterHandlersWithOptions(r.engine, r.controller, generated.GinServerOptions{
+			Middlewares: []generated.MiddlewareFunc{Authenticate(r.auth, r.logger)},
+		})
 	})
 }
 

@@ -6,6 +6,8 @@ import "@typespec/openapi3";
 // this entrypoint's import chain, otherwise the compiler ignores it. Add new
 // features here as they are created.
 import "./health.tsp";
+import "./auth.tsp";
+import "./users.tsp";
 
 using Http;
 using OpenAPI;
