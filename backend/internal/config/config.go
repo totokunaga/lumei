@@ -178,7 +178,13 @@ func (c AuthConfig) Validate() error {
 // Load reads the environment variables used by the API server and returns a
 // validated Config.
 func Load() (Config, error) {
-	cfg, err := env.ParseAs[Config]()
+	return load(env.Options{})
+}
+
+// load is Load reading from opts, so tests can pass their own environment
+// instead of changing the process's.
+func load(opts env.Options) (Config, error) {
+	cfg, err := env.ParseAsWithOptions[Config](opts)
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to parse config from env: %w", err)
 	}
@@ -205,7 +211,13 @@ type MigrateConfig struct {
 // LoadMigrate reads the environment variables used by the migration CLI and
 // returns a validated MigrateConfig.
 func LoadMigrate() (MigrateConfig, error) {
-	cfg, err := env.ParseAs[MigrateConfig]()
+	return loadMigrate(env.Options{})
+}
+
+// loadMigrate is LoadMigrate reading from opts, so tests can pass their own
+// environment instead of changing the process's.
+func loadMigrate(opts env.Options) (MigrateConfig, error) {
+	cfg, err := env.ParseAsWithOptions[MigrateConfig](opts)
 	if err != nil {
 		return MigrateConfig{}, fmt.Errorf("failed to parse migrate config from env: %w", err)
 	}

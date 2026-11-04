@@ -32,6 +32,11 @@ var sensitiveKeySubstrings = []string{
 // New does not touch global state. slog.SetDefault is called once in cmd/main,
 // so per-test di.InitializeApp calls never race on the global default.
 func New(cfg config.LogConfig) *slog.Logger {
+	return newLogger(os.Stdout, cfg)
+}
+
+// newLogger is New writing to w, so tests can read what it logs.
+func newLogger(w io.Writer, cfg config.LogConfig) *slog.Logger {
 	handlerOpts := &slog.HandlerOptions{
 		Level:     parseLevel(cfg.Level),
 		AddSource: cfg.AddSource,
@@ -50,7 +55,7 @@ func New(cfg config.LogConfig) *slog.Logger {
 		},
 	}
 
-	handler := newHandler(os.Stdout, cfg.Format, handlerOpts)
+	handler := newHandler(w, cfg.Format, handlerOpts)
 	handler = NewRequestIDHandler(handler)
 	if cfg.ServiceName != "" {
 		handler = handler.WithAttrs([]slog.Attr{slog.String("service", cfg.ServiceName)})
