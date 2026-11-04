@@ -25,6 +25,8 @@ var appSet = wire.NewSet(
 	ProvideSessionRepository,
 	ProvideAccessTokenIssuer,
 	ProvideAuthenticator,
+	ProvideCategorySetRepository,
+	ProvideCategorySetLister,
 	ProvideAPIController,
 	ProvideRouter,
 	ProvideApp,

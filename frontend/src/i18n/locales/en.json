@@ -5,7 +5,14 @@
     "apiChecking": "Checking the API…",
     "apiUnreachable": "API unreachable",
     "signedInAs": "Signed in as {{email}}",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "period": "This period",
+    "budget": "Spending budget",
+    "noPeriod": "No period covers today yet.",
+    "signOutTitle": "Sign out?",
+    "signOutUnsynced_one": "{{count}} change hasn't synced yet. It will be lost if you sign out.",
+    "signOutUnsynced_other": "{{count}} changes haven't synced yet. They will be lost if you sign out.",
+    "cancel": "Cancel"
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})"
@@ -24,5 +31,104 @@
       "network": "Can't reach Lumei. Check your connection and try again.",
       "unknown": "Something went wrong. Please try again."
     }
+  },
+  "data": {
+    "openFailed": "Couldn't open your data on this device.",
+    "retry": "Try again"
+  },
+  "setup": {
+    "progress": "Step {{step}} of {{total}}",
+    "continue": "Continue",
+    "skip": "Skip for now",
+    "back": "Back",
+    "done": "Done",
+    "region": {
+      "title": "Where do you live?",
+      "description": "This picks the categories you start with. You can edit them later.",
+      "startsWith": "You'll start with",
+      "loading": "Loading regions…",
+      "loadFailed": "Couldn't load the regions. Check your connection and try again.",
+      "retry": "Try again",
+      "language": "Language"
+    },
+    "currency": {
+      "title": "Your currency",
+      "description": "Every amount in Lumei is in this currency.",
+      "notice": "You can't change the currency after setup."
+    },
+    "startDay": {
+      "title": "When does your period start?",
+      "description": "Pick the day of the month your saving period starts, e.g. your payday.",
+      "day": "Day {{day}}",
+      "current": "Your current period",
+      "shortMonths": "In months without day {{day}}, the period starts on the month's last day."
+    },
+    "items": {
+      "name": "Name",
+      "amount": "Amount",
+      "note": "Note (optional)",
+      "remove": "Remove {{name}}",
+      "removeUnnamed": "Remove this item",
+      "total": "Total {{amount}}"
+    },
+    "income": {
+      "title": "Your income",
+      "description": "Add what you receive each period, e.g. your salary.",
+      "add": "Add income",
+      "placeholder": "Salary"
+    },
+    "fixedExpenses": {
+      "title": "Fixed expenses",
+      "description": "Add known costs of each period, like rent or subscriptions. An amount of 0 keeps an item for months it isn't charged.",
+      "add": "Add a fixed expense",
+      "placeholder": "House Rent"
+    },
+    "target": {
+      "title": "Your saving target",
+      "description": "How much do you want left over at the end of each period?",
+      "budget": "You can spend {{amount}} this period.",
+      "overBudget": "This target is more than your income minus your fixed expenses, so no spending could meet it."
+    },
+    "confirm": {
+      "title": "All set?",
+      "description": "Check your setup. You can change everything but the currency later.",
+      "region": "Region",
+      "currency": "Currency",
+      "period": "Period",
+      "income": "Income",
+      "fixedExpenses": "Fixed expenses",
+      "target": "Saving target",
+      "budget": "Spending budget",
+      "notSet": "Not set",
+      "finish": "Start using Lumei",
+      "failed": "Couldn't save your setup. Please try again.",
+      "edit": "{{item}}: {{value}}. Change"
+    },
+    "errors": {
+      "nameRequired": "Enter a name.",
+      "invalidAmount": "Enter an amount like {{example}}."
+    }
+  },
+  "currencies": {
+    "AED": "UAE dirham",
+    "AUD": "Australian dollar",
+    "BRL": "Brazilian real",
+    "CAD": "Canadian dollar",
+    "CHF": "Swiss franc",
+    "CNY": "Chinese yuan renminbi",
+    "EUR": "Euro",
+    "GBP": "British pound",
+    "HKD": "Hong Kong dollar",
+    "INR": "Indian rupee",
+    "JPY": "Japanese yen",
+    "MXN": "Mexican peso",
+    "MYR": "Malaysian ringgit",
+    "PHP": "Philippine peso",
+    "SAR": "Saudi riyal",
+    "SEK": "Swedish krona",
+    "SGD": "Singapore dollar",
+    "THB": "Thai baht",
+    "USD": "US dollar",
+    "ZAR": "South African rand"
   }
 }

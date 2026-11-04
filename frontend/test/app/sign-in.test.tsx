@@ -2,19 +2,17 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { renderRouter } from 'expo-router/testing-library';
 
-import RootLayout from '@/app/_layout';
-import HomeScreen from '@/app/index';
-import SignInScreen from '@/app/sign-in';
 import * as providers from '@/auth/providers';
 import { useAuth } from '@/auth/store';
 import i18n from '@/i18n';
 
+import { finishedSetup } from '../helpers/account';
 import { json, mockApi, offline, requestBody, signedIn } from '../helpers/api';
+import { routes } from '../helpers/routes';
 
 // Apple's button is native; the stand-in is a plain button with its label.
 jest.mock('expo-apple-authentication', () => require('../helpers/apple-authentication'));
 
-const routes = { _layout: RootLayout, index: HomeScreen, 'sign-in': SignInScreen };
 const health = json(200, { status: 'ok' });
 
 /** Opens the app signed out, on the sign-in screen. */
@@ -25,8 +23,10 @@ const openSignIn = async () => {
 
 describe('SignInScreen (BR-ACC-01)', () => {
   beforeAll(() => i18n.changeLanguage('en'));
-  beforeEach(() => {
+  beforeEach(async () => {
     useAuth.setState({ status: 'restoring', session: null });
+    // The account finished setup on an earlier sign-in, so signing in opens home.
+    await finishedSetup();
     jest.mocked(AppleAuthentication.isAvailableAsync).mockResolvedValue(true);
   });
   afterEach(() => jest.restoreAllMocks());

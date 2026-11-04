@@ -7,11 +7,15 @@
  */
 
 export * from './basicHealthResponse';
+export * from './categorySet';
+export * from './categorySetList';
+export * from './defaultCategory';
 export * from './errorResponse';
 export * from './healthCheckEntry';
 export * from './healthCheckEntryDetails';
 export * from './healthResponse';
 export * from './healthResponseChecks';
+export * from './localizedText';
 export * from './refreshSessionRequest';
 export * from './sessionResponse';
 export * from './signInProvider';

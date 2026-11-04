@@ -2,7 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Text, TextInput, useColorScheme, View } from 'react-native';
-import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { SignInProvider } from '@/api/generated/model';
@@ -13,17 +13,14 @@ import {
   signInWithGoogle,
 } from '@/auth/providers';
 import { SignInError, useAuth, type SignInErrorCode } from '@/auth/store';
+import { riseIn } from '@/components/motion';
 import { PressableScale } from '@/components/pressable-scale';
 
 /**
- * Builds the entrance of the screen's `index`th block: it rises into place
- * on a spring, one block after another. With Reduce Motion on, it only fades.
+ * Builds the entrance of the screen's `index`th block: it rises into place,
+ * one block after another. With Reduce Motion on, it only fades.
  */
-const entering = (index: number) =>
-  FadeInDown.springify()
-    .damping(18)
-    .delay(120 + index * 90)
-    .reduceMotion(ReduceMotion.System);
+const entering = (index: number) => riseIn(120 + index * 90);
 
 /**
  * Renders the sign-in screen (BR-ACC-01): Sign in with Apple on iOS, Sign in

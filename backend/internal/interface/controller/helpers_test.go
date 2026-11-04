@@ -197,5 +197,23 @@ func newAuthTestEnv(ctrl *gomock.Controller) (authMocks, *gin.Engine) {
 	return m, router
 }
 
+type categoryMocks struct {
+	sets *mock.MockCategorySetLister
+}
+
+// newCategoryTestEnv builds an API controller with a mock CategorySetLister
+// and registers its handlers without the authentication middleware.
+func newCategoryTestEnv(ctrl *gomock.Controller) (categoryMocks, *gin.Engine) {
+	m := categoryMocks{sets: mock.NewMockCategorySetLister(ctrl)}
+	api := NewAPIController(&APIControllerInput{
+		CategorySets: m.sets,
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	router := gin.New()
+	generated.RegisterHandlers(router, api)
+	return m, router
+}
+
 // internalErrorBody is the body of every 500 response.
 var internalErrorBody = generated.ErrorResponse{Code: "internal_error", Message: "something went wrong"}

@@ -4,20 +4,22 @@ import Animated, {
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
+
+import { EASE_OUT } from './motion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const spring = { damping: 15, stiffness: 300, reduceMotion: ReduceMotion.System };
+const press = { duration: 120, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
 
 /** Props of `PressableScale`: a `Pressable`'s, with children as nodes only. */
 type PressableScaleProps = Omit<PressableProps, 'children'> & { children: ReactNode };
 
 /**
- * Renders a `Pressable` that shrinks slightly while pressed and springs back
- * on release, on the UI thread. With Reduce Motion on, it changes without
- * the spring.
+ * Renders a `Pressable` that shrinks slightly while pressed and eases back
+ * on release, without a bounce, on the UI thread. With Reduce Motion on, it
+ * changes without animating.
  */
 export function PressableScale({ children, onPressIn, onPressOut, ...props }: PressableScaleProps) {
   const scale = useSharedValue(1);
@@ -28,11 +30,11 @@ export function PressableScale({ children, onPressIn, onPressOut, ...props }: Pr
       {...props}
       style={[style, props.style as object]}
       onPressIn={(event) => {
-        scale.set(withSpring(0.96, spring));
+        scale.set(withTiming(0.96, press));
         onPressIn?.(event);
       }}
       onPressOut={(event) => {
-        scale.set(withSpring(1, spring));
+        scale.set(withTiming(1, press));
         onPressOut?.(event);
       }}
     >

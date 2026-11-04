@@ -7,6 +7,7 @@ tags:
   - name: health
   - name: auth
   - name: users
+  - name: categories
 paths:
   /auth/refresh:
     post:
@@ -119,6 +120,32 @@ paths:
         - auth
       security:
         - BearerAuth: []
+  /category-sets:
+    get:
+      operationId: listCategorySets
+      summary: List the default category sets
+      description: |-
+        Returns the default category sets from the seed data, so a region or a
+        set can change without an app update (BR-CAT-07). Setup lists the regions
+        and copies the chosen set into the user's categories (BR-CAT-01).
+      parameters: []
+      responses:
+        '200':
+          description: The default category sets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategorySetList'
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - categories
+      security:
+        - BearerAuth: []
   /health:
     get:
       operationId: getHealth
@@ -194,6 +221,70 @@ components:
           type: string
           example: ok
       description: Minimal health payload returned by the basic health check.
+    CategorySet:
+      type: object
+      required:
+        - region
+        - name
+        - countries
+        - categories
+      properties:
+        region:
+          type: string
+          description: |-
+            The region, e.g. `jp`. `global` is the set for every region without its
+            own, offered at setup as "Other" (BR-SET-06).
+          example: jp
+        name:
+          allOf:
+            - $ref: '#/components/schemas/LocalizedText'
+          description: The region's name in each language, as shown at setup.
+        countries:
+          type: array
+          items:
+            type: string
+          description: |-
+            ISO 3166-1 alpha-2 codes of the device regions that preselect this set
+            at setup, e.g. every EU member state for `eu`. Empty for `global`.
+          example:
+            - JP
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefaultCategory'
+          description: The categories, in display order.
+      description: The default categories of one region (BR-CAT-07).
+    CategorySetList:
+      type: object
+      required:
+        - sets
+      properties:
+        sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategorySet'
+      description: Every default category set, in the order setup lists the regions.
+    DefaultCategory:
+      type: object
+      required:
+        - key
+        - emoji
+        - name
+      properties:
+        key:
+          type: string
+          description: |-
+            Identifies the category across languages and sets, e.g. `eat_out`. The app
+            derives the new category's ID from it.
+          example: eat_out
+        emoji:
+          type: string
+          example: 🍔
+        name:
+          allOf:
+            - $ref: '#/components/schemas/LocalizedText'
+          description: The name in each language. Setup uses the app's language (BR-CAT-06).
+      description: A category a new account starts with (BR-CAT-01).
     ErrorResponse:
       type: object
       required:
@@ -256,6 +347,23 @@ components:
         Detailed health payload with one entry per dependency.
         `status` is `unhealthy` (503) when a critical check fails, `degraded` (200) when
         only non-critical checks fail, and `healthy` otherwise.
+    LocalizedText:
+      type: object
+      required:
+        - en
+        - ja
+        - fr
+      properties:
+        en:
+          type: string
+          example: Eat Out
+        ja:
+          type: string
+          example: 外食
+        fr:
+          type: string
+          example: Restaurant
+      description: A text in every language the app supports (BR-SET-01).
     RefreshSessionRequest:
       type: object
       required:

@@ -88,3 +88,87 @@ export const formatMoney = (amount: Minor, currency: CurrencyCode, locale: strin
     maximumFractionDigits: digits,
   }).format(amount / 10 ** digits);
 };
+
+/**
+ * Writes an amount the way the user would type it, to fill an input that
+ * edits it. `parseAmount` reads it back to the same amount.
+ * @param amount Minor units, e.g. 123450 for $1,234.50.
+ * @returns e.g. `"1234.50"` for USD, or `"640808"` for JPY.
+ */
+export const amountToText = (amount: Minor, currency: CurrencyCode): string =>
+  (amount / 10 ** CURRENCIES[currency]).toFixed(CURRENCIES[currency]);
+
+/**
+ * Finds the currency's symbol as `formatMoney` shows it, e.g. to label an
+ * amount input.
+ * It formats 0 and strips the digits, separators, spaces (\s includes the
+ * no-break spaces French uses), and direction marks, because Hermes
+ * (the app's JavaScript engine) has no `Intl.NumberFormat.formatToParts`.
+ * @returns e.g. `"¥"` for JPY in English, `"€"` for EUR, or the code when the
+ *   currency has no symbol of its own, e.g. `"AED"`.
+ */
+export const currencySymbol = (currency: CurrencyCode, locale: string): string =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+    .format(0)
+    .replace(/[\d\s.,\u200e\u200f\u061c-]/g, '') || currency;
+
+/**
+ * Finds the grouping and decimal separators of a language's numbers, e.g.
+ * `","` and `"."` in English, a narrow no-break space and `","` in French.
+ * @returns The two separators.
+ */
+const separators = (locale: string): { group: string; decimal: string } => {
+  // "1,234.5" in English: the character after the first digit groups, the one
+  // before the last digit is the decimal separator.
+  const sample = new Intl.NumberFormat(locale, { useGrouping: true }).format(1234.5);
+  return { group: sample.charAt(1), decimal: sample.charAt(sample.length - 2) };
+};
+
+/**
+ * Shows an amount as it is typed, grouped the way the app language writes
+ * numbers, e.g. to display in an amount input. It only regroups: an amount
+ * the currency doesn't allow, e.g. too many decimals, stays as typed, for
+ * `parseAmount` to reject.
+ * @param text The amount as `amountToText` and `readAmountText` write it,
+ *   with `.` as the decimal separator and no grouping, e.g. `"1234.5"`.
+ * @returns e.g. `"1,234.5"` in English, `"1 234,5"` in French, `""` for `""`.
+ */
+export const formatAmountText = (text: string, locale: string): string => {
+  const match = /^(\d*)(\.(\d*))?$/.exec(text);
+  if (!match) {
+    return text;
+  }
+  const [, whole, point, fraction = ''] = match;
+  const { group, decimal } = separators(locale);
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+  return point ? `${grouped || '0'}${decimal}${fraction}` : grouped;
+};
+
+/**
+ * Reads what is in an amount input back into the text `formatAmountText`
+ * shows, dropping the grouping. The keyboard's decimal key follows the device
+ * region, not the app language, so `.` and `,` both work as the decimal
+ * separator: the app language's own decimal separator if typed, otherwise the
+ * last `.` or `,` followed by no more digits than the currency has decimals.
+ * Currencies without decimals keep only the digits.
+ * @param input What the field shows after the user's edit, e.g. `"1,234,5"`.
+ * @returns e.g. `"1234.5"` for USD, `"1234"` for `"1,234"` in English.
+ */
+export const readAmountText = (input: string, currency: CurrencyCode, locale: string): string => {
+  const text = input.replace(/\s/g, '');
+  const digits = CURRENCIES[currency];
+  if (digits === 0) {
+    return text.replace(/\D/g, '');
+  }
+  const { decimal } = separators(locale);
+  let point = /[.,]/.test(decimal) ? text.indexOf(decimal) : -1;
+  if (point < 0) {
+    const last = Math.max(text.lastIndexOf('.'), text.lastIndexOf(','));
+    const after = text.length - last - 1;
+    point = last >= 0 && after <= digits ? last : -1;
+  }
+  if (point < 0) {
+    return text.replace(/\D/g, '');
+  }
+  return `${text.slice(0, point).replace(/\D/g, '')}.${text.slice(point + 1).replace(/\D/g, '')}`;
+};

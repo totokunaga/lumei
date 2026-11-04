@@ -89,7 +89,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-ACC-03 | Must | A user stays signed in across app restarts until they sign out or the session expires. A session expires after **90 days without use**: every use of the app extends it, so only someone who hasn't opened the app for 90 days has to sign in again. Signing out ends the session on that device only. |
 | BR-ACC-04 | Must | A user can sign out. If some changes haven't synced yet (BR-OFF-04), the app first tries to sync them. If that fails, it warns that those changes will be lost and lets the user cancel. Signing out removes the account's data from the device; the synced data stays on the server. |
 | BR-ACC-05 | Must | A user can delete their account. Deletion permanently removes all of their data, including location history. It also revokes the app's access to every Apple and Google sign-in used for the account. |
-| BR-ACC-06 | Must | A new user goes through a short setup before reaching the home screen. They choose the region (BR-SET-06) and the account currency, then set the period start day, enter income and fixed expenses, and set a saving target. The region and currency steps can't be skipped. Every other step can be skipped and finished later. |
+| BR-ACC-06 | Must | A new user goes through a short setup before reaching the home screen. They choose the region (BR-SET-06) and the account currency, then set the period start day, enter income and fixed expenses, and set a saving target. The region and currency steps can't be skipped. Every other step can be skipped and finished later. The last step summarizes every choice; tapping one opens its step to change it, and finishing that step returns to the summary. |
 | BR-ACC-07 | Must | Lumei identifies a user by their email address. If an Apple or Google sign-in has the same email address as an existing account, it opens that account instead of creating a new one. The user can then sign in to the account with either provider. Only email addresses the provider reports as verified are matched. A sign-in whose email the provider doesn't report as verified is rejected, and the app asks the user to verify the address with the provider first. So every account has a verified email. |
 | BR-ACC-08 | Must | A sign-in with a different email address creates a separate account. This includes an Apple sign-in that uses "Hide My Email". |
 
@@ -167,7 +167,7 @@ Initial seed data for the launch regions: Japan, the EU, and the United States. 
 | ID | Priority | Requirement |
 |----|----------|-------------|
 | BR-SET-01 | Must | The app is available in **English, Japanese, and French**. On first launch it uses the device language if it is one of these, and English otherwise. A user can change the language at any time in the app's settings. |
-| BR-SET-02 | Must | Dates, numbers, and currency amounts are formatted for the app language, e.g. "¥4,865" in English, "￥4,865" in Japanese, and "4 865 ¥" in French. |
+| BR-SET-02 | Must | Dates, numbers, and currency amounts are formatted for the app language, e.g. "¥4,865" in English, "￥4,865" in Japanese, and "4 865 ¥" in French. Amount fields group the digits the same way as the user types, e.g. "1,234.5" in English and "1 234,5" in French. |
 | BR-SET-03 | Must | During setup, a user chooses the **account currency** from the [supported currencies](#currencies). The device region's currency is suggested when it is supported. Otherwise, USD is suggested. |
 | BR-SET-04 | Must | The account currency can't be changed after setup in the first release, and amounts are never converted between currencies. The app shows this before setup is confirmed. |
 | BR-SET-05 | Must | A user can choose the **big purchase spread**: **Days left** (the default) or **Whole period**. The one setting applies to all of the user's big purchases. Changing it updates the current and past periods' charts. Daily allowances and period results don't change (see [Calculations](#calculations)). |
@@ -301,7 +301,12 @@ For comparison, the spreadsheet shows ¥575 for remaining today, because it subt
 
 Items not yet decided. When one is decided, update this document and remove its row.
 
-None at the moment. Add new rows as `| Item | Assumption |`.
+| Item | Assumption |
+|------|------------|
+| Leaving setup before confirming it (BR-ACC-06) | Nothing is saved until the user confirms the last step. Setup starts again from the first step at the next launch. |
+| Japanese and French names in the default category sets (BR-CAT-07) | As in `backend/migration/20261104214647_seed_category_sets.up.sql`, e.g. 🍔 Eat Out is 外食 and Restaurant, and the "Other" region is その他 and Autre. They need a review by native speakers. |
+
+Add new rows as `| Item | Assumption |`.
 
 ## Future
 

@@ -8,6 +8,7 @@ import "@typespec/openapi3";
 import "./health.tsp";
 import "./auth.tsp";
 import "./users.tsp";
+import "./categories.tsp";
 
 using Http;
 using OpenAPI;

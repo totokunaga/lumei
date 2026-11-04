@@ -7,9 +7,11 @@
     "@hookform/resolvers": "^6.0.2",
     "@react-native-google-signin/google-signin": "^17.0.0",
     "@tanstack/react-query": "^5.105.0",
+    "drizzle-orm": "^0.45.4",
     "expo": "~58.0.21",
     "expo-apple-authentication": "~58.0.2",
     "expo-constants": "~58.0.14",
+    "expo-crypto": "~58.0.7",
     "expo-device": "~58.0.5",
     "expo-font": "~58.0.11",
     "expo-glass-effect": "~58.0.5",
@@ -19,6 +21,7 @@
     "expo-router": "~58.0.28",
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.12",
+    "expo-sqlite": "~58.0.15",
     "expo-status-bar": "~58.0.4",
     "expo-symbols": "~58.0.4",
     "expo-system-ui": "~58.0.7",
@@ -34,6 +37,7 @@
     "react-native-safe-area-context": "~5.10.1",
     "react-native-screens": "~4.30.0",
     "react-native-worklets": "0.13.0",
+    "uuid": "^14.0.3",
     "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
@@ -42,6 +46,9 @@
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "30.0.0",
     "@types/react": "~19.3.0",
+    "@types/sql.js": "^1.4.11",
+    "babel-plugin-inline-import": "^3.0.0",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-expo": "~58.0.4",
     "eslint-config-prettier": "^10.1.8",
@@ -50,6 +57,7 @@
     "jest-expo": "~58.0.13",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.5.11",
+    "sql.js": "^1.15.2",
     "tailwindcss": "^3.4.17",
     "typescript": "~6.0.3"
   },
@@ -63,6 +71,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
+    "db:generate": "drizzle-kit generate",
     "generate:api": "bunx orval@8.45.0 && prettier --write src/api/generated --ignore-path /dev/null --log-level warn",
     "doctor": "bunx expo-doctor",
     "check": "bun run typecheck && bun run lint && bun run test"
@@ -74,7 +83,7 @@
       "<rootDir>/test"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(.bun|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|nativewind|react-native-css-interop|standard-navigation))"
+      "node_modules/(?!(.bun|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|nativewind|react-native-css-interop|standard-navigation|uuid))"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/test/setup.ts"

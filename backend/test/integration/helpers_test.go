@@ -432,6 +432,12 @@ func meReq(accessToken string) req {
 	return req{method: http.MethodGet, path: "/me", headers: bearer(accessToken)}
 }
 
+// categorySetsReq builds a GET /category-sets request authenticated with
+// accessToken.
+func categorySetsReq(accessToken string) req {
+	return req{method: http.MethodGet, path: "/category-sets", headers: bearer(accessToken)}
+}
+
 // signOutReq builds a POST /auth/sign-out request authenticated with accessToken.
 func signOutReq(accessToken string) req {
 	return req{method: http.MethodPost, path: "/auth/sign-out", headers: bearer(accessToken)}

@@ -5,7 +5,14 @@
     "apiChecking": "Vérification de l’API…",
     "apiUnreachable": "API injoignable",
     "signedInAs": "Connecté en tant que {{email}}",
-    "signOut": "Se déconnecter"
+    "signOut": "Se déconnecter",
+    "period": "Période en cours",
+    "budget": "Budget de dépenses",
+    "noPeriod": "Aucune période ne couvre encore aujourd'hui.",
+    "signOutTitle": "Se déconnecter ?",
+    "signOutUnsynced_one": "{{count}} modification n'est pas encore synchronisée. Elle sera perdue si vous vous déconnectez.",
+    "signOutUnsynced_other": "{{count}} modifications ne sont pas encore synchronisées. Elles seront perdues si vous vous déconnectez.",
+    "cancel": "Annuler"
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})"
@@ -24,5 +31,104 @@
       "network": "Impossible de joindre Lumei. Vérifiez votre connexion et réessayez.",
       "unknown": "Une erreur s’est produite. Veuillez réessayer."
     }
+  },
+  "data": {
+    "openFailed": "Impossible d'ouvrir vos données sur cet appareil.",
+    "retry": "Réessayer"
+  },
+  "setup": {
+    "progress": "Étape {{step}} sur {{total}}",
+    "continue": "Continuer",
+    "skip": "Passer pour le moment",
+    "back": "Retour",
+    "done": "Terminé",
+    "region": {
+      "title": "Où habitez-vous ?",
+      "description": "Cela choisit vos catégories de départ. Vous pourrez les modifier plus tard.",
+      "startsWith": "Vous commencerez avec",
+      "loading": "Chargement des régions…",
+      "loadFailed": "Impossible de charger les régions. Vérifiez votre connexion et réessayez.",
+      "retry": "Réessayer",
+      "language": "Langue"
+    },
+    "currency": {
+      "title": "Votre devise",
+      "description": "Tous les montants de Lumei sont dans cette devise.",
+      "notice": "Vous ne pourrez plus changer de devise après la configuration."
+    },
+    "startDay": {
+      "title": "Quand commence votre période ?",
+      "description": "Choisissez le jour du mois où commence votre période, par exemple votre jour de paie.",
+      "day": "Le {{day}}",
+      "current": "Votre période actuelle",
+      "shortMonths": "Les mois sans {{day}}e jour, la période commence le dernier jour du mois."
+    },
+    "items": {
+      "name": "Nom",
+      "amount": "Montant",
+      "note": "Note (facultatif)",
+      "remove": "Supprimer {{name}}",
+      "removeUnnamed": "Supprimer cet élément",
+      "total": "Total {{amount}}"
+    },
+    "income": {
+      "title": "Vos revenus",
+      "description": "Ajoutez ce que vous recevez à chaque période, par exemple votre salaire.",
+      "add": "Ajouter un revenu",
+      "placeholder": "Salaire"
+    },
+    "fixedExpenses": {
+      "title": "Dépenses fixes",
+      "description": "Ajoutez les coûts connus de chaque période, comme le loyer ou les abonnements. Un montant de 0 garde un élément pour les mois où il n'est pas facturé.",
+      "add": "Ajouter une dépense fixe",
+      "placeholder": "Loyer"
+    },
+    "target": {
+      "title": "Votre objectif d'épargne",
+      "description": "Combien voulez-vous mettre de côté à la fin de chaque période ?",
+      "budget": "Vous pouvez dépenser {{amount}} sur cette période.",
+      "overBudget": "Cet objectif dépasse vos revenus moins vos dépenses fixes : aucune dépense ne permettrait de l’atteindre."
+    },
+    "confirm": {
+      "title": "Tout est prêt ?",
+      "description": "Vérifiez votre configuration. Tout sauf la devise pourra être modifié plus tard.",
+      "region": "Région",
+      "currency": "Devise",
+      "period": "Période",
+      "income": "Revenus",
+      "fixedExpenses": "Dépenses fixes",
+      "target": "Objectif d'épargne",
+      "budget": "Budget de dépenses",
+      "notSet": "Non défini",
+      "finish": "Commencer avec Lumei",
+      "failed": "Impossible d'enregistrer la configuration. Veuillez réessayer.",
+      "edit": "{{item}} : {{value}}. Modifier"
+    },
+    "errors": {
+      "nameRequired": "Saisissez un nom.",
+      "invalidAmount": "Saisissez un montant comme {{example}}."
+    }
+  },
+  "currencies": {
+    "AED": "Dirham des Émirats arabes unis",
+    "AUD": "Dollar australien",
+    "BRL": "Réal brésilien",
+    "CAD": "Dollar canadien",
+    "CHF": "Franc suisse",
+    "CNY": "Yuan renminbi chinois",
+    "EUR": "Euro",
+    "GBP": "Livre sterling",
+    "HKD": "Dollar de Hong Kong",
+    "INR": "Roupie indienne",
+    "JPY": "Yen japonais",
+    "MXN": "Peso mexicain",
+    "MYR": "Ringgit malaisien",
+    "PHP": "Peso philippin",
+    "SAR": "Riyal saoudien",
+    "SEK": "Couronne suédoise",
+    "SGD": "Dollar de Singapour",
+    "THB": "Baht thaïlandais",
+    "USD": "Dollar américain",
+    "ZAR": "Rand sud-africain"
   }
 }

@@ -53,6 +53,7 @@ make help            # Every target
 - Create files only with `make migrate-create NAME=<snake_case_name>`. Every version needs exactly one `.up.sql` and one `.down.sql`; `make migrate-validate` checks this.
 - Keep the `BEGIN; ... COMMIT;` wrapper from the template, and make every down migration fully reverse its up migration.
 - Never edit a migration that has been applied in a shared environment. Add a new one instead.
+- **Seed data** (e.g. the default category sets, BR-CAT-07) goes in its own migration, separate from the one that creates its tables. To change it, add a new migration that updates the rows.
 
 ## Architecture
 
@@ -137,6 +138,7 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 | `health` | `health_test.go` | `TestGetHealth` (`GET /health`), `TestGetHealthFull` (`GET /health/full`) |
 | `auth` | `auth_test.go` | `TestSignIn` (`POST /auth/sign-in`), `TestRefreshSession` (`POST /auth/refresh`), `TestSignOut` (`POST /auth/sign-out`) |
 | `users` | `users_test.go` | `TestGetMe` (`GET /me`) |
+| `categories` | `categories_test.go` | `TestListCategorySets` (`GET /category-sets`) |
 
 Update this table when you add a tag or an endpoint.
 

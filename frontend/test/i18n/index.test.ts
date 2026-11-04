@@ -1,6 +1,8 @@
 import { getLocales } from 'expo-localization';
 
-import { detectLanguage } from '@/i18n';
+import Storage from 'expo-sqlite/kv-store';
+
+import { detectLanguage, storedLanguage } from '@/i18n';
 
 jest.mock('expo-localization', () => ({ getLocales: jest.fn(() => []) }));
 
@@ -17,5 +19,27 @@ describe('detectLanguage', () => {
     mockLocales(...codes);
 
     expect(detectLanguage()).toBe(expected);
+  });
+});
+
+describe('storedLanguage (BR-SET-01)', () => {
+  it.each([
+    { name: 'the language the user chose', stored: 'fr', expected: 'fr' },
+    { name: 'null before the user chooses one', stored: null, expected: null },
+    { name: 'null for a value that isn’t a language', stored: 'de', expected: null },
+  ])('returns $name', ({ stored, expected }) => {
+    if (stored) {
+      Storage.setItemSync('lumei.language', stored);
+    }
+
+    expect(storedLanguage()).toBe(expected);
+  });
+
+  it('opens the app in the language chosen on an earlier launch', () => {
+    Storage.setItemSync('lumei.language', 'ja');
+
+    jest.isolateModules(() => {
+      expect(require('@/i18n').default.language).toBe('ja');
+    });
   });
 });

@@ -39,6 +39,40 @@ type BasicHealthResponse struct {
 	Status string `json:"status"`
 }
 
+// CategorySet The default categories of one region (BR-CAT-07).
+type CategorySet struct {
+	// Categories The categories, in display order.
+	Categories []DefaultCategory `json:"categories"`
+
+	// Countries ISO 3166-1 alpha-2 codes of the device regions that preselect this set
+	// at setup, e.g. every EU member state for `eu`. Empty for `global`.
+	Countries []string `json:"countries"`
+
+	// Name The region's name in each language, as shown at setup.
+	Name LocalizedText `json:"name"`
+
+	// Region The region, e.g. `jp`. `global` is the set for every region without its
+	// own, offered at setup as "Other" (BR-SET-06).
+	Region string `json:"region"`
+}
+
+// CategorySetList Every default category set, in the order setup lists the regions.
+type CategorySetList struct {
+	Sets []CategorySet `json:"sets"`
+}
+
+// DefaultCategory A category a new account starts with (BR-CAT-01).
+type DefaultCategory struct {
+	Emoji string `json:"emoji"`
+
+	// Key Identifies the category across languages and sets, e.g. `eat_out`. The app
+	// derives the new category's ID from it.
+	Key string `json:"key"`
+
+	// Name The name in each language. Setup uses the app's language (BR-CAT-06).
+	Name LocalizedText `json:"name"`
+}
+
 // ErrorResponse An error the client can act on.
 type ErrorResponse struct {
 	// Code A stable, machine-readable code, e.g. `invalid_request`,
@@ -70,6 +104,13 @@ type HealthResponse struct {
 	// Checks One entry per dependency, keyed by name: `database` (critical).
 	Checks map[string]HealthCheckEntry `json:"checks"`
 	Status string                      `json:"status"`
+}
+
+// LocalizedText A text in every language the app supports (BR-SET-01).
+type LocalizedText struct {
+	En string `json:"en"`
+	Fr string `json:"fr"`
+	Ja string `json:"ja"`
 }
 
 // RefreshSessionRequest defines model for RefreshSessionRequest.
@@ -134,6 +175,9 @@ type ServerInterface interface {
 	// Sign out
 	// (POST /auth/sign-out)
 	SignOut(c *gin.Context)
+	// List the default category sets
+	// (GET /category-sets)
+	ListCategorySets(c *gin.Context)
 	// Basic health check with HTTP server status
 	// (GET /health)
 	GetHealth(c *gin.Context)
@@ -193,6 +237,21 @@ func (siw *ServerInterfaceWrapper) SignOut(c *gin.Context) {
 	}
 
 	siw.Handler.SignOut(c)
+}
+
+// ListCategorySets operation middleware
+func (siw *ServerInterfaceWrapper) ListCategorySets(c *gin.Context) {
+
+	c.Set(string(BearerAuthScopes), []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListCategorySets(c)
 }
 
 // GetHealth operation middleware
@@ -266,6 +325,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/refresh", wrapper.RefreshSession)
 	router.POST(options.BaseURL+"/auth/sign-in", wrapper.SignIn)
 	router.POST(options.BaseURL+"/auth/sign-out", wrapper.SignOut)
+	router.GET(options.BaseURL+"/category-sets", wrapper.ListCategorySets)
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/health/full", wrapper.GetHealthFull)
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)

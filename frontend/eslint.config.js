@@ -6,6 +6,6 @@ module.exports = defineConfig([
   expoConfig,
   eslintPluginPrettierRecommended,
   {
-    ignores: ['dist/*', 'src/api/generated/*'],
+    ignores: ['dist/*', 'src/api/generated/*', 'drizzle/*'],
   },
 ]);

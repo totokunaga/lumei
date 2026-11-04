@@ -152,16 +152,28 @@ func ProvideAuthenticator(
 	return application.NewAuthenticator(verifier, users, sessions, issuer, policy, time.Now)
 }
 
+// ProvideCategorySetRepository provides the default category set repository.
+func ProvideCategorySetRepository(connector *rdb.Connector) application.CategorySetRepository {
+	return repository.NewCategorySetRepository(connector.DB())
+}
+
+// ProvideCategorySetLister provides the default category set use case.
+func ProvideCategorySetLister(sets application.CategorySetRepository) application.CategorySetLister {
+	return application.NewCategorySetLister(sets)
+}
+
 // ProvideAPIController provides the API controller.
 func ProvideAPIController(
 	healthChecker application.HealthChecker,
 	auth application.Authenticator,
+	categorySets application.CategorySetLister,
 	log *slog.Logger,
 ) *controller.APIController {
 
 	return controller.NewAPIController(&controller.APIControllerInput{
 		HealthChecker: healthChecker,
 		Auth:          auth,
+		CategorySets:  categorySets,
 		Logger:        log,
 	})
 }

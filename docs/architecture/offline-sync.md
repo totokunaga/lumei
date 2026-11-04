@@ -2,11 +2,11 @@
 
 How the mobile app saves changes on the device first and syncs them with the Go API, so the app works offline (BR-OFF-01 to BR-OFF-06, BR-NFR-04, BR-NFR-05).
 
-- **Status:** design only. Nothing here is implemented yet; the code paths below are where it will live.
+- **Status:** the on-device database is implemented (`frontend/src/db/`): every table has the sync columns, and every write marks its rows pending. The sync engine and the sync endpoints aren't implemented yet, so changes stay on the device for now.
 - **Stack:** the app keeps every record in SQLite on the device (`expo-sqlite` with Drizzle). Screens read and write only that database. A sync engine in the app pushes local changes to the API and pulls changes from other devices. The API stores the records in PostgreSQL on RDS and resolves conflicts. The sync protocol is our own: two endpoints, no third-party sync service.
 - **Scope:** all user data: settings, categories, periods, income, fixed expenses, targets, and expenses. Each one uses the same mechanism, so BR-OFF-06 comes with BR-OFF-01. Signing in, account deletion, and the network layout are out of scope; see [`authentication.md`](authentication.md) and [`aws-infrastructure.md`](aws-infrastructure.md).
 - **Code paths (planned):**
-  - App: `frontend/src/db/` (schema, migrations, queries), `frontend/src/sync/` (sync engine)
+  - App: `frontend/src/db/` (schema, client, queries; migrations in `frontend/drizzle/`), `frontend/src/sync/` (sync engine, planned)
   - API: `backend/api/typespec/sync.tsp`, `backend/internal/application/sync.go`, `backend/internal/interface/controller/sync.go`, `backend/internal/infrastructure/database/rdb/repository/sync.go`
 
 ## Diagram
@@ -108,8 +108,9 @@ Some records must get the same ID on every device, so two devices that create th
 |--------|----|
 | Settings (one row per user) | The user ID |
 | Default categories created at setup (BR-CAT-01) | A UUIDv5 of the user ID and the seed category's key |
-| A period created automatically (BR-PER-03) | A UUIDv5 of the user ID and the period's start date |
-| An income, fixed expense, or target copied into a new period (BR-PER-03) | A UUIDv5 of the new period's ID and the copied item's ID |
+| A period, created at setup or automatically (BR-PER-03) | A UUIDv5 of the user ID and the period's start date |
+| The saving target of a period (one per period, BR-TGT-01) | A UUIDv5 of the period's ID |
+| An income or fixed expense copied into a new period (BR-PER-03) | A UUIDv5 of the new period's ID and the copied item's ID |
 
 ### When a sync runs
 

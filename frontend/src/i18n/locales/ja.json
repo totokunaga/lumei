@@ -5,7 +5,14 @@
     "apiChecking": "API を確認しています…",
     "apiUnreachable": "API に接続できません",
     "signedInAs": "{{email}} でサインイン中",
-    "signOut": "サインアウト"
+    "signOut": "サインアウト",
+    "period": "今の期間",
+    "budget": "使えるお金",
+    "noPeriod": "今日を含む期間はまだありません。",
+    "signOutTitle": "サインアウトしますか？",
+    "signOutUnsynced_one": "{{count}}件の変更がまだ同期されていません。サインアウトすると失われます。",
+    "signOutUnsynced_other": "{{count}}件の変更がまだ同期されていません。サインアウトすると失われます。",
+    "cancel": "キャンセル"
   },
   "period": {
     "labelWithRange": "{{month}}（{{start}}～{{end}}）"
@@ -24,5 +31,104 @@
       "network": "Lumei に接続できません。通信環境を確認して、もう一度お試しください。",
       "unknown": "問題が発生しました。もう一度お試しください。"
     }
+  },
+  "data": {
+    "openFailed": "この端末のデータを開けませんでした。",
+    "retry": "再試行"
+  },
+  "setup": {
+    "progress": "ステップ {{step}}/{{total}}",
+    "continue": "次へ",
+    "skip": "あとで設定する",
+    "back": "戻る",
+    "done": "完了",
+    "region": {
+      "title": "お住まいの地域は？",
+      "description": "最初のカテゴリーが決まります。カテゴリーはあとで編集できます。",
+      "startsWith": "最初のカテゴリー",
+      "loading": "地域を読み込み中…",
+      "loadFailed": "地域を読み込めませんでした。接続を確認して、もう一度お試しください。",
+      "retry": "再試行",
+      "language": "言語"
+    },
+    "currency": {
+      "title": "通貨",
+      "description": "Lumei の金額はすべてこの通貨で表示されます。",
+      "notice": "通貨は設定後に変更できません。"
+    },
+    "startDay": {
+      "title": "期間の開始日は？",
+      "description": "貯金期間が始まる日を選んでください。例：給料日",
+      "day": "{{day}}日",
+      "current": "今の期間",
+      "shortMonths": "{{day}}日がない月は、その月の最終日から始まります。"
+    },
+    "items": {
+      "name": "名前",
+      "amount": "金額",
+      "note": "メモ（任意）",
+      "remove": "{{name}}を削除",
+      "removeUnnamed": "この項目を削除",
+      "total": "合計 {{amount}}"
+    },
+    "income": {
+      "title": "収入",
+      "description": "毎期間の収入を追加してください。例：給料",
+      "add": "収入を追加",
+      "placeholder": "給料"
+    },
+    "fixedExpenses": {
+      "title": "固定費",
+      "description": "家賃やサブスクなど、毎期間決まっている支出を追加してください。請求のない月は金額を 0 にできます。",
+      "add": "固定費を追加",
+      "placeholder": "家賃"
+    },
+    "target": {
+      "title": "貯金目標",
+      "description": "期間の終わりにいくら残したいですか？",
+      "budget": "この期間に使えるのは {{amount}} です。",
+      "overBudget": "この目標は収入から固定費を引いた額より大きいため、達成できません。"
+    },
+    "confirm": {
+      "title": "これで始めますか？",
+      "description": "設定を確認してください。通貨以外はあとで変更できます。",
+      "region": "地域",
+      "currency": "通貨",
+      "period": "期間",
+      "income": "収入",
+      "fixedExpenses": "固定費",
+      "target": "貯金目標",
+      "budget": "使えるお金",
+      "notSet": "未設定",
+      "finish": "Lumei を始める",
+      "failed": "設定を保存できませんでした。もう一度お試しください。",
+      "edit": "{{item}}：{{value}}。変更する"
+    },
+    "errors": {
+      "nameRequired": "名前を入力してください。",
+      "invalidAmount": "{{example}} のように金額を入力してください。"
+    }
+  },
+  "currencies": {
+    "AED": "UAEディルハム",
+    "AUD": "オーストラリアドル",
+    "BRL": "ブラジルレアル",
+    "CAD": "カナダドル",
+    "CHF": "スイスフラン",
+    "CNY": "中国人民元",
+    "EUR": "ユーロ",
+    "GBP": "英ポンド",
+    "HKD": "香港ドル",
+    "INR": "インドルピー",
+    "JPY": "日本円",
+    "MXN": "メキシコペソ",
+    "MYR": "マレーシアリンギット",
+    "PHP": "フィリピンペソ",
+    "SAR": "サウジアラビアリヤル",
+    "SEK": "スウェーデンクローナ",
+    "SGD": "シンガポールドル",
+    "THB": "タイバーツ",
+    "USD": "米ドル",
+    "ZAR": "南アフリカランド"
   }
 }
