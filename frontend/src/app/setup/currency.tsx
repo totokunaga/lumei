@@ -31,7 +31,6 @@ export default function CurrencyStep() {
 
   return (
     <SetupStep
-      step="currency"
       title={t('setup.currency.title')}
       description={t('setup.currency.description')}
       onContinue={() => {

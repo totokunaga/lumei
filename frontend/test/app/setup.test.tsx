@@ -195,7 +195,7 @@ describe('Setup (BR-ACC-06)', () => {
     await openSetup();
     await press('Continue');
 
-    let scrollView = (await screen.findByText('Your currency')).parent;
+    let scrollView = (await screen.findByText('Euro')).parent;
     while (scrollView && scrollView.type !== 'RCTScrollView') {
       scrollView = scrollView.parent;
     }
@@ -227,6 +227,20 @@ describe('Setup (BR-ACC-06)', () => {
     await screen.findByText('Your currency');
     expect(screen.queryByText('Skip for now')).toBeNull();
     expect(screen.getByText("You can't change the currency after setup.")).toBeOnTheScreen();
+  });
+
+  it('keeps one header whose progress follows the steps forward and back', async () => {
+    await openSetup();
+    expect(screen.getByLabelText('Step 1 of 7')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Back')).toBeNull();
+
+    await continueToStartDay();
+    expect(screen.getByLabelText('Step 3 of 7')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByLabelText('Back'));
+    await screen.findByText('Your currency');
+    expect(screen.getByLabelText('Step 2 of 7')).toBeOnTheScreen();
+    expect(screen.getAllByLabelText(/^Step \d of 7$/)).toHaveLength(1);
   });
 
   it('goes back a step with the choices kept', async () => {

@@ -84,7 +84,6 @@ export default function ConfirmStep() {
 
   return (
     <SetupStep
-      step="confirm"
       title={t('setup.confirm.title')}
       description={t('setup.confirm.description')}
       continueLabel={t('setup.confirm.finish')}

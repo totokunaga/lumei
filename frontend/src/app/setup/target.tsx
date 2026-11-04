@@ -67,7 +67,6 @@ export default function TargetStep() {
 
   return (
     <SetupStep
-      step="target"
       title={t('setup.target.title')}
       description={t('setup.target.description')}
       onContinue={() =>

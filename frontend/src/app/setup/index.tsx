@@ -37,7 +37,6 @@ export default function RegionStep() {
 
   return (
     <SetupStep
-      step="index"
       title={t('setup.region.title')}
       description={t('setup.region.description')}
       editing={flow.editing}

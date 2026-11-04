@@ -26,7 +26,6 @@ export default function StartDayStep() {
 
   return (
     <SetupStep
-      step="start-day"
       title={t('setup.startDay.title')}
       description={t('setup.startDay.description')}
       editing={flow.editing}

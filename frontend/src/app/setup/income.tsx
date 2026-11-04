@@ -18,7 +18,6 @@ export default function IncomeStep() {
 
   return (
     <ItemListForm
-      step="income"
       title={t('setup.income.title')}
       description={t('setup.income.description')}
       addLabel={t('setup.income.add')}

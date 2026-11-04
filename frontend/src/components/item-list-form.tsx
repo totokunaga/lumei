@@ -20,7 +20,7 @@ import { AmountInput } from './amount-input';
 import { CountingText } from './counting-text';
 import { listLayout, riseIn } from './motion';
 import { PressableScale } from './pressable-scale';
-import { type SetupStepName, SetupStep } from './setup-step';
+import { SetupStep } from './setup-step';
 import { TextField } from './text-field';
 
 /** An item as the form returns it: amounts in minor units, an empty note as null. */
@@ -32,7 +32,6 @@ export interface ListItem {
 
 /** Props of `ItemListForm`. */
 interface ItemListFormProps {
-  step: SetupStepName;
   title: string;
   description: string;
   addLabel: string;
@@ -97,7 +96,6 @@ const formSchema = (currency: CurrencyCode) =>
  * removed. Continuing returns the filled-in items; blank rows are dropped.
  */
 export function ItemListForm({
-  step,
   title,
   description,
   addLabel,
@@ -152,7 +150,6 @@ export function ItemListForm({
 
   return (
     <SetupStep
-      step={step}
       title={title}
       description={description}
       onContinue={() => void submit()}

@@ -18,7 +18,6 @@ export default function FixedExpensesStep() {
 
   return (
     <ItemListForm
-      step="fixed-expenses"
       title={t('setup.fixedExpenses.title')}
       description={t('setup.fixedExpenses.description')}
       addLabel={t('setup.fixedExpenses.add')}

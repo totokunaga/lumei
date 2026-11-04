@@ -1,36 +1,12 @@
-import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { type ComponentRef, type ReactNode, type RefObject, useEffect, useRef } from 'react';
+import { type ComponentRef, type ReactNode, type RefObject, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
-import Animated, {
-  ReduceMotion,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EASE_OUT, riseIn } from './motion';
 import { PressableScale } from './pressable-scale';
-
-/** The setup steps in order (BR-ACC-06), as routes under `/setup`. */
-export const SETUP_STEPS = [
-  'index',
-  'currency',
-  'start-day',
-  'income',
-  'fixed-expenses',
-  'target',
-  'confirm',
-] as const;
-
-/** One step of setup. */
-export type SetupStepName = (typeof SETUP_STEPS)[number];
 
 /** Props of `SetupStep`. */
 interface SetupStepProps {
-  step: SetupStepName;
   title: string;
   description?: string;
   children: ReactNode;
@@ -54,19 +30,16 @@ interface SetupStepProps {
   revealRef?: RefObject<ComponentRef<typeof View> | null>;
 }
 
-const progressTiming = { duration: 350, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
-
 /**
- * Renders one setup step: a back button and a progress bar that slides to
- * the step's position, the title and description, the step's content in a
- * scroll view, and the continue and skip buttons, kept above the keyboard.
- * The content rises into place when the step opens; with Reduce Motion on, it
- * only fades. When editing, the primary button says "Done" and the step
- * can't be skipped. When the step opens, the content scrolls so `revealRef`'s view
- * sits in the middle of the screen, or as close as the content allows.
+ * Renders one setup step under setup's header (`SetupHeader`, in the setup
+ * layout): the title and description, which stay in place, the step's
+ * content in a scroll view under them,
+ * and the continue and skip buttons, kept above the keyboard. When editing,
+ * the primary button says "Done" and the step can't be skipped. When the
+ * step opens, the content scrolls so `revealRef`'s view sits in the middle of
+ * the screen, or as close as the content allows.
  */
 export function SetupStep({
-  step,
   title,
   description,
   children,
@@ -80,16 +53,7 @@ export function SetupStep({
   revealRef,
 }: SetupStepProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const index = SETUP_STEPS.indexOf(step);
-
-  // The bar starts at the previous step's position and slides forward.
-  const progress = useSharedValue(index / SETUP_STEPS.length);
-  useEffect(() => {
-    progress.set(withTiming((index + 1) / SETUP_STEPS.length, progressTiming));
-  }, [index, progress]);
-  const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: progress.get() }] }));
 
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const viewportHeight = useRef(0);
@@ -123,39 +87,17 @@ export function SetupStep({
 
   return (
     <KeyboardAvoidingView behavior="padding" className="flex-1 bg-white dark:bg-black">
-      <View style={{ paddingTop: insets.top + 8 }} className="flex-row items-center gap-3 px-5">
-        <View className="h-11 w-11">
-          {index > 0 && (
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel={t('setup.back')}
-              onPress={() => router.back()}
-              className="h-11 w-11 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-900"
-            >
-              <SymbolView
-                name={{ ios: 'chevron.left', android: 'arrow_back' }}
-                size={18}
-                tintColor="#8E8E93"
-              />
-            </PressableScale>
-          )}
-        </View>
-        <View
-          accessibilityRole="progressbar"
-          accessibilityLabel={t('setup.progress', {
-            step: index + 1,
-            total: SETUP_STEPS.length,
-          })}
-          className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-900"
-        >
-          <Animated.View
-            style={[{ transformOrigin: 'left' }, barStyle]}
-            className="h-full w-full rounded-full bg-emerald-500"
-          />
-        </View>
-        <View className="h-11 w-11" />
+      {/* The title and description stay in place while the content scrolls, so
+          a step opened scrolled down (e.g. to the selected currency) still says
+          what it asks. */}
+      <View className="gap-3 px-6 pb-4 pt-8">
+        <Text accessibilityRole="header" className="text-4xl font-bold text-black dark:text-white">
+          {title}
+        </Text>
+        {description && (
+          <Text className="text-lg leading-6 text-gray-500 dark:text-gray-400">{description}</Text>
+        )}
       </View>
-
       <ScrollView
         ref={scrollRef}
         onLayout={(event) => {
@@ -167,24 +109,9 @@ export function SetupStep({
           reveal();
         }}
         keyboardShouldPersistTaps="handled"
-        contentContainerClassName="gap-6 px-6 pb-6 pt-8"
+        contentContainerClassName="gap-4 px-6 pb-6 pt-2"
       >
-        <Animated.View entering={riseIn()} className="gap-3">
-          <Text
-            accessibilityRole="header"
-            className="text-4xl font-bold text-black dark:text-white"
-          >
-            {title}
-          </Text>
-          {description && (
-            <Text className="text-lg leading-6 text-gray-500 dark:text-gray-400">
-              {description}
-            </Text>
-          )}
-        </Animated.View>
-        <Animated.View entering={riseIn(80)} className="gap-4">
-          {children}
-        </Animated.View>
+        {children}
       </ScrollView>
 
       <View style={{ paddingBottom: insets.bottom + 12 }} className="gap-2 px-6 pt-3">
