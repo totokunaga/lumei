@@ -87,7 +87,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-ACC-01 | Must | A person signs in with **Sign in with Apple** or **Sign in with Google**, on both iOS and Android. The first sign-in creates the account. There is no email and password sign-in. |
 | BR-ACC-02 | Must | A signed-in user sees and changes only their own data. No user can read or change another user's data. |
 | BR-ACC-03 | Must | A user stays signed in across app restarts until they sign out or the session expires. A session expires after **90 days without use**: every use of the app extends it, so only someone who hasn't opened the app for 90 days has to sign in again. Signing out ends the session on that device only. |
-| BR-ACC-04 | Must | A user can sign out. |
+| BR-ACC-04 | Must | A user can sign out. If some changes haven't synced yet (BR-OFF-04), the app first tries to sync them. If that fails, it warns that those changes will be lost and lets the user cancel. Signing out removes the account's data from the device; the synced data stays on the server. |
 | BR-ACC-05 | Must | A user can delete their account. Deletion permanently removes all of their data, including location history. It also revokes the app's access to every Apple and Google sign-in used for the account. |
 | BR-ACC-06 | Must | A new user goes through a short setup before reaching the home screen. They choose the region (BR-SET-06) and the account currency, then set the period start day, enter income and fixed expenses, and set a saving target. The region and currency steps can't be skipped. Every other step can be skipped and finished later. |
 | BR-ACC-07 | Must | Lumei identifies a user by their email address. If an Apple or Google sign-in has the same email address as an existing account, it opens that account instead of creating a new one. The user can then sign in to the account with either provider. Only email addresses the provider reports as verified are matched. A sign-in whose email the provider doesn't report as verified is rejected, and the app asks the user to verify the address with the provider first. So every account has a verified email. |
@@ -146,8 +146,8 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-CAT-01 | Must | A new account starts with the [default category set](#default-category-sets) of its region (BR-SET-06). A user whose region has no set of its own gets the Global set. |
 | BR-CAT-02 | Must | A user can add a category with a name and an emoji, rename it, change its emoji, and reorder categories. The order is the order shown when recording an expense. |
 | BR-CAT-03 | Must | A user can archive a category. An archived category isn't offered for new expenses, but past expenses keep it and still appear under it in history and trends. A user can unarchive a category. |
-| BR-CAT-04 | Must | Category names are unique per user, among active and archived categories alike. |
-| BR-CAT-05 | Should | A category can be deleted only if no expense uses it. Otherwise, the app offers to archive it instead. |
+| BR-CAT-04 | Must | Category names are unique per user, among active and archived categories alike. If two devices create categories with the same name while offline, the one that syncs later gets a number added to its name, e.g. "Coffee (2)". The user can rename it. |
+| BR-CAT-05 | Should | A category can be deleted only if no expense uses it. Otherwise, the app offers to archive it instead. If another device recorded an expense in the category before the deletion synced, the category is archived instead of deleted (BR-CAT-03), so the expense keeps it. |
 | BR-CAT-06 | Must | The default categories are named in the app language chosen at setup. Changing the language later doesn't rename categories. |
 | BR-CAT-07 | Must | Default category sets are defined in seed data, not in the app's code. The seed data gives each category its emoji and its name in every supported language. Adding a region or editing a set needs no app update. A change applies only to accounts set up after it. Existing users' categories never change. |
 
@@ -237,10 +237,10 @@ The supported currencies are the major currencies listed by [OANDA](https://www.
 |----|----------|-------------|
 | BR-OFF-01 | Must | A user can record, edit, and delete expenses without a network connection. |
 | BR-OFF-02 | Must | Today's status and the chart for the current period work offline. They reflect the changes the user made offline. |
-| BR-OFF-03 | Must | Offline changes sync automatically once the device is back online, without the user doing anything. A change is never lost or applied twice. |
+| BR-OFF-03 | Must | Offline changes sync automatically once the device is back online, without the user doing anything. Syncing runs while the app is open: changes made offline sync the next time the app is open with a connection. A change is never lost or applied twice. |
 | BR-OFF-04 | Must | The app shows which changes haven't synced yet. |
-| BR-OFF-05 | Must | If the same expense was changed on two devices, the change saved most recently wins. Deleting an expense wins over editing it. |
-| BR-OFF-06 | Should | Changing income, fixed expenses, the target, periods, and categories works offline too. If this isn't ready in time, these screens may require a connection in the first release. They must then say so clearly. |
+| BR-OFF-05 | Must | If the same expense was changed on two devices, the change saved most recently wins. "Most recently" goes by when the user made each change, by the clock of the device it was made on, not by when it reached the server. A change dated more than 5 minutes ahead of the server's clock is rejected, so a device whose clock is wrong can't win every conflict. Deleting an expense wins over editing it, whichever was made first. |
+| BR-OFF-06 | Should | Changing income, fixed expenses, the target, periods, and categories works offline too, and syncs by the same rules as expenses (BR-OFF-03 to BR-OFF-05). If this isn't ready in time, these screens may require a connection in the first release. They must then say so clearly. |
 
 ## Calculations
 
@@ -324,3 +324,4 @@ Requirements recognised but out of the first release:
 - Data export (CSV).
 - Bank and card integration for automatic expense import.
 - Showing expenses on a map, using the recorded locations.
+- Syncing in the background while the app is closed (see BR-OFF-03).
