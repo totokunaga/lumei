@@ -9,7 +9,7 @@ import { useLocalData } from '@/db/store';
 import i18n from '@/i18n';
 
 import { finishedSetup } from '../helpers/account';
-import { json, mockApi, noContent, storedSessionFor, testUser } from '../helpers/api';
+import { json, mockApi, noContent, offline, storedSessionFor, syncApi, testUser } from '../helpers/api';
 import { categorySets } from '../helpers/category-sets';
 import { hasDatabase } from '../helpers/database';
 import { routes } from '../helpers/routes';
@@ -53,6 +53,7 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
       await finishedSetup();
     }
     mockApi({
+      ...syncApi,
       'GET /me': json(200, testUser),
       'GET /category-sets': json(200, { sets: categorySets }),
     });
@@ -63,11 +64,28 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     expect(screen).toHavePathname(expected.path);
   });
 
+  it('offers a retry when a new device can’t download the account’s data (BR-ACC-06)', async () => {
+    await storeSession();
+    mockApi({
+      'GET /me': json(200, testUser),
+      'GET /sync/pull': [offline, json(200, { rows: [], cursor: 0, has_more: false })],
+      'GET /category-sets': json(200, { sets: categorySets }),
+    });
+    await renderRouter(routes, { initialUrl: '/' });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Couldn't load your data/);
+    await fireEvent.press(screen.getByText('Try again'));
+
+    // The server has no data for the account, so it is new: setup opens.
+    await screen.findByText('Japan');
+    expect(screen).toHavePathname('/setup');
+  });
+
   it('offers a retry when the account’s data can’t be opened', async () => {
     await storeSession();
     await finishedSetup();
     jest.spyOn(client, 'openUserDatabase').mockRejectedValueOnce(new Error('disk full'));
-    mockApi({ 'GET /me': json(200, testUser) });
+    mockApi({ ...syncApi, 'GET /me': json(200, testUser) });
     await renderRouter(routes, { initialUrl: '/' });
 
     await fireEvent.press(await screen.findByText('Try again'));
@@ -80,14 +98,22 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     {
       name: 'at once when every change has synced',
       unsynced: false,
+      online: true,
       confirm: false,
     },
     {
-      name: 'after confirming that unsynced changes will be lost',
+      name: 'after syncing the unsynced changes first',
       unsynced: true,
+      online: true,
+      confirm: false,
+    },
+    {
+      name: 'after confirming that changes that can’t sync will be lost',
+      unsynced: true,
+      online: false,
       confirm: true,
     },
-  ])('signs out and deletes the account’s data $name (BR-ACC-04)', async ({ unsynced, confirm }) => {
+  ])('signs out and deletes the account’s data $name (BR-ACC-04)', async ({ unsynced, online, confirm }) => {
     await storeSession();
     await finishedSetup();
     if (!unsynced) {
@@ -99,6 +125,7 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     }
     const alert = jest.spyOn(Alert, 'alert');
     mockApi({
+      ...(online ? syncApi : { 'POST /sync/push': offline, 'GET /sync/pull': offline }),
       'GET /me': json(200, testUser),
       'POST /auth/sign-out': noContent,
     });
@@ -107,10 +134,12 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     await fireEvent.press(await screen.findByLabelText('Account'));
     await fireEvent.press(await screen.findByText('Sign out'));
     if (confirm) {
-      expect(alert).toHaveBeenCalledWith(
-        'Sign out?',
-        "7 changes haven't synced yet. They will be lost if you sign out.",
-        expect.any(Array),
+      await waitFor(() =>
+        expect(alert).toHaveBeenCalledWith(
+          'Sign out?',
+          "7 changes haven't synced yet. They will be lost if you sign out.",
+          expect.any(Array),
+        ),
       );
       const buttons = alert.mock.calls[0][2] as AlertButton[];
       buttons.find((button) => button.style === 'destructive')?.onPress?.();
@@ -127,11 +156,12 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     await storeSession();
     await finishedSetup();
     const alert = jest.spyOn(Alert, 'alert');
-    const fetch = mockApi({ 'GET /me': json(200, testUser) });
+    const fetch = mockApi({ 'GET /me': json(200, testUser), 'POST /sync/push': offline, 'GET /sync/pull': offline });
     await renderRouter(routes, { initialUrl: '/' });
 
     await fireEvent.press(await screen.findByLabelText('Account'));
     await fireEvent.press(await screen.findByText('Sign out'));
+    await waitFor(() => expect(alert).toHaveBeenCalled());
     const buttons = alert.mock.calls[0][2] as AlertButton[];
     buttons.find((button) => button.style === 'cancel')?.onPress?.();
 

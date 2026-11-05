@@ -28,7 +28,10 @@
     "expenseLabelBig": "{{category}}, {{amount}}, {{when}}, big purchase",
     "periodDetails": "Period details",
     "spentOfAllowance": "Spent today / Daily allowance",
-    "pair": "{{first}}, {{second}}"
+    "pair": "{{first}}, {{second}}",
+    "notSynced": "Not synced yet",
+    "syncFailed": "Couldn't sync",
+    "withSync": "{{label}}, {{status}}"
   },
   "account": {
     "title": "Account",
@@ -37,7 +40,13 @@
     "signOutTitle": "Sign out?",
     "cancel": "Cancel",
     "signOutUnsynced_one": "{{count}} change hasn't synced yet. It will be lost if you sign out.",
-    "signOutUnsynced_other": "{{count}} changes haven't synced yet. They will be lost if you sign out."
+    "signOutUnsynced_other": "{{count}} changes haven't synced yet. They will be lost if you sign out.",
+    "allSynced": "All changes synced",
+    "syncing": "Syncing…",
+    "unsynced_one": "{{count}} change not synced yet",
+    "unsynced_other": "{{count}} changes not synced yet",
+    "failed_one": "{{count}} change couldn't sync.",
+    "failed_other": "{{count}} changes couldn't sync."
   },
   "expense": {
     "title": "New expense",
@@ -72,7 +81,8 @@
   },
   "data": {
     "openFailed": "Couldn't open your data on this device.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "unreachable": "Couldn't load your data. Check your connection and try again."
   },
   "setup": {
     "progress": "Step {{step}} of {{total}}",

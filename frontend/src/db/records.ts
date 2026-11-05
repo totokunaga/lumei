@@ -1,6 +1,6 @@
 // Reads and writes the account's records. Every write marks its rows pending,
 // so the sync engine uploads them (BR-OFF-03, BR-OFF-04).
-import { and, asc, count, desc, eq, gte, isNull, lte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte } from 'drizzle-orm';
 
 import type { PeriodRecords } from '@/domain/calculations';
 import type { IsoDate } from '@/domain/date';
@@ -139,7 +139,15 @@ export interface ListedExpense {
   isBigPurchase: boolean;
   categoryName: string;
   categoryEmoji: string;
+  /**
+   * Whether the API has it (BR-OFF-04): `synced`, `pending` until the next
+   * sync, or `failed` when the API rejected it.
+   */
+  sync: SyncState;
 }
+
+/** Whether a record's latest change reached the API (BR-OFF-04). */
+export type SyncState = 'synced' | 'pending' | 'failed';
 
 /**
  * Reads the expenses of the period containing a date, newest first by when
@@ -167,6 +175,8 @@ export const readPeriodExpenses = (db: Database, date: IsoDate): ListedExpense[]
         isBigPurchase: expenses.isBigPurchase,
         categoryName: categories.name,
         categoryEmoji: categories.emoji,
+        pending: expenses.pending,
+        syncError: expenses.syncError,
       })
       .from(expenses)
       .innerJoin(categories, eq(categories.id, expenses.categoryId))
@@ -180,6 +190,10 @@ export const readPeriodExpenses = (db: Database, date: IsoDate): ListedExpense[]
       // IDs are UUIDv7s, so two expenses at the same moment list the later-recorded first.
       .orderBy(desc(expenses.spentAt), desc(expenses.id))
       .all()
+      .map(({ pending, syncError, ...expense }) => ({
+        ...expense,
+        sync: syncError !== null ? 'failed' : pending ? 'pending' : 'synced',
+      }))
   );
 };
 
@@ -350,12 +364,29 @@ export const ensureCurrentPeriod = (db: Database, today: IsoDate, now: number): 
 
 /**
  * Counts the changes the API hasn't confirmed yet, across every table
- * (BR-OFF-04).
+ * (BR-OFF-04), including the ones it rejected.
  * @returns The number of pending rows: 0 when everything is synced.
  */
 export const countPendingChanges = (db: Database): number =>
   syncedTables.reduce(
     (total, table) =>
       total + (db.select({ n: count() }).from(table).where(eq(table.pending, true)).get()?.n ?? 0),
+    0,
+  );
+
+/**
+ * Counts the changes the API rejected, across every table (BR-OFF-04). They
+ * stay on the device until the user changes them.
+ * @returns The number of rejected rows.
+ */
+export const countFailedChanges = (db: Database): number =>
+  syncedTables.reduce(
+    (total, table) =>
+      total +
+      (db
+        .select({ n: count() })
+        .from(table)
+        .where(and(eq(table.pending, true), isNotNull(table.syncError)))
+        .get()?.n ?? 0),
     0,
   );

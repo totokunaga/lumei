@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/store';
 import i18n from '@/i18n';
 
 import { finishedSetup } from '../helpers/account';
-import { json, mockApi, offline, requestBody, signedIn } from '../helpers/api';
+import { json, mockApi, offline, requestBody, signedIn, syncApi } from '../helpers/api';
 import { routes } from '../helpers/routes';
 
 // Apple's button is native; the stand-in is a plain button with its label.
@@ -50,7 +50,7 @@ describe('SignInScreen (BR-ACC-01)', () => {
     },
   ])('signs in with $name and opens home', async ({ button, setup, expected }) => {
     setup();
-    const fetch = mockApi({ 'POST /auth/sign-in': signedIn() });
+    const fetch = mockApi({ ...syncApi, 'POST /auth/sign-in': signedIn() });
     await openSignIn();
 
     await fireEvent.press(await screen.findByText(button));
@@ -61,7 +61,7 @@ describe('SignInScreen (BR-ACC-01)', () => {
   });
 
   it('signs in as a developer with an email address', async () => {
-    const fetch = mockApi({ 'POST /auth/sign-in': signedIn() });
+    const fetch = mockApi({ ...syncApi, 'POST /auth/sign-in': signedIn() });
     await openSignIn();
 
     await fireEvent.changeText(screen.getByLabelText('Email address'), ' dev@example.com ');
@@ -96,7 +96,7 @@ describe('SignInScreen (BR-ACC-01)', () => {
         identityToken: 'apple-id-token',
       } as AppleAuthentication.AppleAuthenticationCredential);
     }
-    mockApi({ 'POST /auth/sign-in': respond });
+    mockApi({ ...syncApi, 'POST /auth/sign-in': respond });
     await openSignIn();
 
     await fireEvent.press(await screen.findByText('Sign in with Apple'));
@@ -109,7 +109,7 @@ describe('SignInScreen (BR-ACC-01)', () => {
     jest
       .mocked(AppleAuthentication.signInAsync)
       .mockRejectedValue(Object.assign(new Error('canceled'), { code: 'ERR_REQUEST_CANCELED' }));
-    const fetch = mockApi({});
+    const fetch = mockApi({ ...syncApi });
     await openSignIn();
 
     await fireEvent.press(await screen.findByText('Sign in with Apple'));

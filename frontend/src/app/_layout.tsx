@@ -13,6 +13,7 @@ import { PressableScale } from '@/components/pressable-scale';
 import { useLocalData } from '@/db/store';
 import { queryClient } from '@/lib/query-client';
 import { useSetupDraft } from '@/setup/draft';
+import { useSync } from '@/sync/scheduler';
 
 // Keep the splash screen up until the stored session and the account's data
 // have been read, so neither the sign-in screen nor setup flashes for a user
@@ -24,8 +25,10 @@ void SplashScreen.preventAutoHideAsync();
  * (TanStack Query). Signed-out users reach only the sign-in screen. Signed-in
  * users reach setup until they finish it, and then every other screen
  * (BR-ACC-03, BR-ACC-06). It opens the account's database on sign-in and
- * closes it on sign-out or expiry. It renders nothing while the session or
- * the database is being read, and a retry if the database can't be opened.
+ * closes it on sign-out or expiry, and syncs it while it is open (BR-OFF-03).
+ * It renders nothing while the session or the database is being read, and a
+ * retry if the database can't be opened, or a new device can't download the
+ * account's data (BR-ACC-06).
  */
 export default function RootLayout() {
   const { t } = useTranslation();
@@ -47,8 +50,10 @@ export default function RootLayout() {
     }
   }, [status, userId]);
 
+  useSync(status === 'signedIn' && data === 'ready');
+
   const loading =
-    status === 'restoring' || (status === 'signedIn' && data !== 'ready' && data !== 'failed');
+    status === 'restoring' || (status === 'signedIn' && (data === 'closed' || data === 'opening'));
 
   useEffect(() => {
     if (!loading) {
@@ -60,11 +65,11 @@ export default function RootLayout() {
     return null;
   }
 
-  if (status === 'signedIn' && data === 'failed') {
+  if (status === 'signedIn' && (data === 'failed' || data === 'unreachable')) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-white px-8 dark:bg-black">
         <Text accessibilityRole="alert" className="text-center text-lg text-black dark:text-white">
-          {t('data.openFailed')}
+          {data === 'failed' ? t('data.openFailed') : t('data.unreachable')}
         </Text>
         <PressableScale
           accessibilityRole="button"

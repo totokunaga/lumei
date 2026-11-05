@@ -14,8 +14,8 @@ export const noContent = () => Promise.resolve(new Response(null, { status: 204 
 /** Fails like fetch does without a network. */
 export const offline = () => Promise.reject(new TypeError('Network request failed'));
 
-/** Answers one request. */
-type Responder = () => Promise<Response>;
+/** Answers one request, which it may read. */
+type Responder = (init: RequestInit | undefined, url: URL) => Promise<Response>;
 
 /**
  * Answers fetch by `METHOD /path`, e.g. `'GET /me'`, and fails the test on
@@ -26,7 +26,8 @@ type Responder = () => Promise<Response>;
 export const mockApi = (routes: Partial<Record<string, Responder | Responder[]>>) => {
   const calls = new Map<string, number>();
   return jest.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
-    const route = `${init?.method ?? 'GET'} ${new URL(String(input)).pathname}`;
+    const url = new URL(String(input));
+    const route = `${init?.method ?? 'GET'} ${url.pathname}`;
     const responders = routes[route];
     if (!responders) {
       throw new Error(`unexpected request: ${route}`);
@@ -34,7 +35,7 @@ export const mockApi = (routes: Partial<Record<string, Responder | Responder[]>>
     const list = Array.isArray(responders) ? responders : [responders];
     const call = calls.get(route) ?? 0;
     calls.set(route, call + 1);
-    return list[Math.min(call, list.length - 1)]();
+    return list[Math.min(call, list.length - 1)](init, url);
   });
 };
 
@@ -93,3 +94,20 @@ export const storedSessionFor = (expiresInMs = 15 * 60_000) => ({
   refreshToken: 'stored-refresh',
   user: testUser,
 });
+
+/** Answers a push by applying every row, as the API does for new changes. */
+export const applyPush: Responder = (init) => {
+  const { rows } = JSON.parse(String(init?.body)) as { rows: { table: string; id: string }[] };
+  return json(200, {
+    results: rows.map((row) => ({ table: row.table, id: row.id, outcome: 'applied' })),
+  })();
+};
+
+/** Answers a pull with no changes. */
+export const emptyPull = json(200, { rows: [], cursor: 0, has_more: false });
+
+/**
+ * The sync API of an account with no data on the server: pushes apply,
+ * pulls bring nothing. Spread it into `mockApi` for a signed-in test.
+ */
+export const syncApi = { 'POST /sync/push': applyPush, 'GET /sync/pull': emptyPull };

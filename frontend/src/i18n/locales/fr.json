@@ -28,7 +28,10 @@
     "expenseLabelBig": "{{category}}, {{amount}}, {{when}}, gros achat",
     "periodDetails": "Détail de la période",
     "spentOfAllowance": "Dépensé aujourd'hui / Budget du jour",
-    "pair": "{{first}}, {{second}}"
+    "pair": "{{first}}, {{second}}",
+    "notSynced": "Pas encore synchronisé",
+    "syncFailed": "Synchronisation impossible",
+    "withSync": "{{label}}, {{status}}"
   },
   "account": {
     "title": "Compte",
@@ -37,7 +40,13 @@
     "signOutTitle": "Se déconnecter ?",
     "cancel": "Annuler",
     "signOutUnsynced_one": "{{count}} modification n'est pas encore synchronisée. Elle sera perdue si vous vous déconnectez.",
-    "signOutUnsynced_other": "{{count}} modifications ne sont pas encore synchronisées. Elles seront perdues si vous vous déconnectez."
+    "signOutUnsynced_other": "{{count}} modifications ne sont pas encore synchronisées. Elles seront perdues si vous vous déconnectez.",
+    "allSynced": "Toutes les modifications sont synchronisées",
+    "syncing": "Synchronisation…",
+    "unsynced_one": "{{count}} modification pas encore synchronisée",
+    "unsynced_other": "{{count}} modifications pas encore synchronisées",
+    "failed_one": "{{count}} modification n'a pas pu être synchronisée.",
+    "failed_other": "{{count}} modifications n'ont pas pu être synchronisées."
   },
   "expense": {
     "title": "Nouvelle dépense",
@@ -72,7 +81,8 @@
   },
   "data": {
     "openFailed": "Impossible d'ouvrir vos données sur cet appareil.",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "unreachable": "Impossible de charger vos données. Vérifiez votre connexion et réessayez."
   },
   "setup": {
     "progress": "Étape {{step}} sur {{total}}",

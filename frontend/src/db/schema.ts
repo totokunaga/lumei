@@ -1,13 +1,14 @@
 // The on-device database (see docs/architecture/offline-sync.md). Screens read
-// and write only these tables; the sync engine (phase 5) sends the rows marked
-// pending to the API. One database file holds one account's data.
+// and write only these tables; the sync engine (`src/sync/`) sends the rows
+// marked pending to the API. One database file holds one account's data.
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Returns the sync columns every table has, so the sync engine can push,
  * pull, and resolve conflicts the same way for every record (BR-OFF-03 to
  * BR-OFF-05).
- * @returns Column builders for `id`, `updated_at`, `deleted_at`, `pending`, and `local_rev`.
+ * @returns Column builders for `id`, `updated_at`, `deleted_at`, `pending`,
+ *   `local_rev`, and `sync_error`.
  */
 const syncColumns = () => ({
   /** A UUID made on the device (UUIDv7, or UUIDv5 for records every device must agree on). */
@@ -20,6 +21,12 @@ const syncColumns = () => ({
   pending: integer('pending', { mode: 'boolean' }).notNull().default(true),
   /** Increases with every local change, so a late confirmation can't clear a newer edit. */
   localRev: integer('local_rev').notNull().default(1),
+  /**
+   * Why the API rejected the latest change (e.g. `invalid_row`), or null. A
+   * rejected row stays pending but isn't pushed again until the user changes
+   * it (BR-OFF-04).
+   */
+  syncError: text('sync_error'),
 });
 
 /** The account's settings: one row, whose ID is the user ID. */
@@ -113,6 +120,16 @@ export const expenses = sqliteTable(
   },
   (table) => [index('expenses_date').on(table.date)],
 );
+
+/**
+ * The sync engine's own state, on the device only: one row, whose `id` is 1.
+ * Not synced.
+ */
+export const syncState = sqliteTable('sync_state', {
+  id: integer('id').primaryKey(),
+  /** The highest change number pulled from the API; 0 before the first pull. */
+  cursor: integer('cursor').notNull(),
+});
 
 /** Every synced table, for code that treats them alike (e.g. counting pending rows). */
 export const syncedTables = [

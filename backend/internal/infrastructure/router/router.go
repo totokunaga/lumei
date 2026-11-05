@@ -69,6 +69,11 @@ func (r *Router) setup() {
 
 		generated.RegisterHandlersWithOptions(r.engine, r.controller, generated.GinServerOptions{
 			Middlewares: []generated.MiddlewareFunc{Authenticate(r.auth, r.logger)},
+			// A missing or malformed parameter, e.g. `since` on GET /sync/pull,
+			// gets the API's usual error body.
+			ErrorHandler: func(c *gin.Context, err error, status int) {
+				c.JSON(status, generated.ErrorResponse{Code: "invalid_request", Message: err.Error()})
+			},
 		})
 	})
 }

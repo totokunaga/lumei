@@ -7,7 +7,12 @@ import { newId } from '@/db/ids';
 import { addExpense, readCategories } from '@/db/records';
 import i18n from '@/i18n';
 
-import { type ExpenseFixture, finishedSetup, savedExpenses } from '../helpers/account';
+import {
+  type ExpenseFixture,
+  finishedSetup,
+  savedExpenses,
+  syncedRecords,
+} from '../helpers/account';
 import { testUser } from '../helpers/api';
 
 // Only the clock is fake, at noon on Nov 15, 2026: the period is November, with 16 days left.
@@ -169,12 +174,15 @@ describe('HomeScreen', () => {
       { amount: 2_000, date: '2026-11-15' },
       { amount: 800, date: '2026-11-14' },
     ]);
+    await syncedRecords();
     await openUserDatabase(testUser.id);
 
     await renderHome();
 
     // Each is one element to screen readers, read in list order.
-    expect(screen.getAllByLabelText(/^Eat Out, /).map((row) => row.props.accessibilityLabel)).toEqual([
+    expect(
+      screen.getAllByLabelText(/^Eat Out, /).map((row) => row.props.accessibilityLabel),
+    ).toEqual([
       'Eat Out, ¥2,000, Today, 12:00 PM',
       'Eat Out, ¥800, Yesterday, 12:00 PM',
       'Eat Out, ¥32,000, Nov 12, 12:00 PM, big purchase',
@@ -199,8 +207,34 @@ describe('HomeScreen', () => {
     );
 
     // FlashList lays rows out by position, not by tree order, so the order is checked above.
-    expect(await screen.findByLabelText('Konbini, ¥450, Today, 12:00 PM')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Eat Out, ¥800, Yesterday, 12:00 PM')).toBeOnTheScreen();  });
+    expect(
+      await screen.findByLabelText('Konbini, ¥450, Today, 12:00 PM, Not synced yet'),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Eat Out, ¥800, Yesterday, 12:00 PM, Not synced yet'),
+    ).toBeOnTheScreen();
+  });
+
+  it('marks the expenses that haven’t synced, and the ones that couldn’t (BR-OFF-04)', async () => {
+    await finishedSetup();
+    const [failed] = await savedExpenses([
+      { amount: 700, date: '2026-11-13' },
+      { amount: 800, date: '2026-11-14' },
+    ]);
+    await syncedRecords({ failedId: failed });
+    await savedExpenses([{ amount: 2_000, date: '2026-11-15' }]);
+    await openUserDatabase(testUser.id);
+
+    await renderHome();
+
+    expect(
+      screen.getAllByLabelText(/^Eat Out, /).map((row) => row.props.accessibilityLabel),
+    ).toEqual([
+      'Eat Out, ¥2,000, Today, 12:00 PM, Not synced yet',
+      'Eat Out, ¥800, Yesterday, 12:00 PM',
+      "Eat Out, ¥700, Nov 13, 12:00 PM, Couldn't sync",
+    ]);
+  });
 
   it('says so when the period has no expenses yet', async () => {
     await finishedSetup();

@@ -16,7 +16,7 @@ import i18n from '@/i18n';
 import { queryClient } from '@/lib/query-client';
 import { useSetupDraft } from '@/setup/draft';
 
-import { json, mockApi, offline, storedSessionFor, testUser } from '../helpers/api';
+import { json, mockApi, offline, storedSessionFor, syncApi, testUser } from '../helpers/api';
 import { categorySets } from '../helpers/category-sets';
 import { routes } from '../helpers/routes';
 
@@ -33,6 +33,7 @@ const sets = json(200, { sets: categorySets });
 const openSetup = async (categorySetsResponse = sets) => {
   await SecureStore.setItemAsync('lumei.session', JSON.stringify(storedSessionFor()));
   mockApi({
+      ...syncApi,
     'GET /me': json(200, testUser),
     'GET /category-sets': categorySetsResponse,
   });
@@ -260,7 +261,7 @@ describe('Setup (BR-ACC-06)', () => {
     await openSetup(offline);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Couldn't load the regions/);
-    mockApi({ 'GET /category-sets': sets });
+    mockApi({ ...syncApi, 'GET /category-sets': sets });
     await press('Try again');
 
     expect(await screen.findByText('Japan')).toBeOnTheScreen();

@@ -9,6 +9,7 @@ import "./health.tsp";
 import "./auth.tsp";
 import "./users.tsp";
 import "./categories.tsp";
+import "./sync.tsp";
 
 using Http;
 using OpenAPI;

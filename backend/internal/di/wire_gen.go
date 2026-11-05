@@ -43,7 +43,9 @@ func InitializeApp() (*App, func(), error) {
 	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer)
 	categorySetRepository := ProvideCategorySetRepository(connector)
 	categorySetLister := ProvideCategorySetLister(categorySetRepository)
-	apiController := ProvideAPIController(healthChecker, authenticator, categorySetLister, logger)
+	syncRepository := ProvideSyncRepository(connector)
+	syncer := ProvideSyncer(syncRepository)
+	apiController := ProvideAPIController(healthChecker, authenticator, categorySetLister, syncer, logger)
 	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
@@ -78,7 +80,9 @@ func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
 	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer)
 	categorySetRepository := ProvideCategorySetRepository(connector)
 	categorySetLister := ProvideCategorySetLister(categorySetRepository)
-	apiController := ProvideAPIController(healthChecker, authenticator, categorySetLister, logger)
+	syncRepository := ProvideSyncRepository(connector)
+	syncer := ProvideSyncer(syncRepository)
+	apiController := ProvideAPIController(healthChecker, authenticator, categorySetLister, syncer, logger)
 	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
@@ -107,6 +111,8 @@ var appSet = wire.NewSet(
 	ProvideAuthenticator,
 	ProvideCategorySetRepository,
 	ProvideCategorySetLister,
+	ProvideSyncRepository,
+	ProvideSyncer,
 	ProvideAPIController,
 	ProvideRouter,
 	ProvideApp,

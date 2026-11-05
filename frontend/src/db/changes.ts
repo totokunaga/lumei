@@ -1,19 +1,42 @@
 // Tells screens when the account's records change, so every number updates as
 // soon as an expense, income, fixed expense, or target is saved, online or
 // offline (BR-DSH-04, BR-NFR-04). Every write in `records.ts` announces
-// itself here, and so will the sync engine's (phase 5), since it writes
-// through the same functions.
+// itself here, and so does the sync engine's (`src/sync/`), so changes pulled
+// from other devices show too.
 import { useSyncExternalStore } from 'react';
+
+/** Who made a change: the user on this device, or the sync engine. */
+export type ChangeOrigin = 'local' | 'sync';
 
 let version = 0;
 const listeners = new Set<() => void>();
+const localListeners = new Set<() => void>();
 
-/** Announces that records changed, so screens showing them read them again. */
-export const notifyChange = (): void => {
+/**
+ * Announces that records changed, so screens showing them read them again.
+ * @param origin `'local'` for the user's own change, which the sync engine
+ *   then pushes; `'sync'` for the engine's writes, which start no new sync.
+ */
+export const notifyChange = (origin: ChangeOrigin = 'local'): void => {
   version += 1;
   for (const listener of listeners) {
     listener();
   }
+  if (origin === 'local') {
+    for (const listener of localListeners) {
+      listener();
+    }
+  }
+};
+
+/**
+ * Calls `listener` after every change the user makes on this device, e.g. so
+ * the sync engine pushes it soon (BR-OFF-03).
+ * @returns A function that stops calling it.
+ */
+export const subscribeToLocalChanges = (listener: () => void): (() => void) => {
+  localListeners.add(listener);
+  return () => localListeners.delete(listener);
 };
 
 /**

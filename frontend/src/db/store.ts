@@ -4,21 +4,28 @@
 import { create } from 'zustand';
 
 import { localToday } from '@/domain/date';
+import { syncOnce } from '@/sync/engine';
 
 import { closeUserDatabase, deleteUserDatabase, openUserDatabase } from './client';
 import { ensureCurrentPeriod, readSettings } from './records';
 
 /** The state of the account's database on the device. */
 interface LocalDataState {
-  /** `opening` until the database is open and migrated; `failed` if that didn't work. */
-  status: 'closed' | 'opening' | 'ready' | 'failed';
+  /**
+   * `opening` until the database is open and migrated, and holds the
+   * account's data; `failed` if it couldn't be opened; `unreachable` if a
+   * new device couldn't download the account's data (BR-ACC-06).
+   */
+  status: 'closed' | 'opening' | 'ready' | 'failed' | 'unreachable';
   /** The account whose database is open or opening. */
   userId: string | null;
   /** True once the account has finished setup on this device (BR-ACC-06). */
   setupCompleted: boolean;
   /**
    * Opens the account's database, creates any period that started since the
-   * app was last open (BR-PER-03), and reads whether setup has finished.
+   * app was last open (BR-PER-03), and reads whether setup has finished. A
+   * database without setup first downloads the account's data, so signing in
+   * on a new device skips setup when another device finished it (BR-ACC-06).
    */
   open: (userId: string) => Promise<void>;
   /** Closes the database, keeping its file, e.g. when the session expires. */
@@ -39,12 +46,19 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
   setupCompleted: false,
 
   open: async (userId) => {
-    if (get().userId === userId && get().status !== 'failed') {
+    const { status } = get();
+    if (get().userId === userId && status !== 'failed' && status !== 'unreachable') {
       return;
     }
     set({ status: 'opening', userId, setupCompleted: false });
     try {
       const db = await openUserDatabase(userId);
+      if (readSettings(db) === null && (await syncOnce(db)) !== 'synced') {
+        if (get().userId === userId) {
+          set({ status: 'unreachable' });
+        }
+        return;
+      }
       if (get().userId === userId) {
         // A period that ended while the app was closed gets its successors first (BR-PER-03).
         ensureCurrentPeriod(db, localToday(), Date.now());

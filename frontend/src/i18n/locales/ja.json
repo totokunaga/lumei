@@ -28,7 +28,10 @@
     "expenseLabelBig": "{{category}}、{{amount}}、{{when}}、大きな買い物",
     "periodDetails": "今期の詳細",
     "spentOfAllowance": "今日の支出 / 1日の予算",
-    "pair": "{{first}}、{{second}}"
+    "pair": "{{first}}、{{second}}",
+    "notSynced": "未同期",
+    "syncFailed": "同期できませんでした",
+    "withSync": "{{label}}、{{status}}"
   },
   "account": {
     "title": "アカウント",
@@ -37,7 +40,13 @@
     "signOutTitle": "サインアウトしますか？",
     "cancel": "キャンセル",
     "signOutUnsynced_one": "{{count}}件の変更がまだ同期されていません。サインアウトすると失われます。",
-    "signOutUnsynced_other": "{{count}}件の変更がまだ同期されていません。サインアウトすると失われます。"
+    "signOutUnsynced_other": "{{count}}件の変更がまだ同期されていません。サインアウトすると失われます。",
+    "allSynced": "すべての変更が同期済みです",
+    "syncing": "同期中…",
+    "unsynced_one": "{{count}}件の変更が未同期です",
+    "unsynced_other": "{{count}}件の変更が未同期です",
+    "failed_one": "{{count}}件の変更を同期できませんでした。",
+    "failed_other": "{{count}}件の変更を同期できませんでした。"
   },
   "expense": {
     "title": "新しい支出",
@@ -72,7 +81,8 @@
   },
   "data": {
     "openFailed": "この端末のデータを開けませんでした。",
-    "retry": "再試行"
+    "retry": "再試行",
+    "unreachable": "データを読み込めませんでした。接続を確認して、もう一度お試しください。"
   },
   "setup": {
     "progress": "ステップ {{step}}/{{total}}",

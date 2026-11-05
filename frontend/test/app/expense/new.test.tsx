@@ -10,7 +10,7 @@ import { useLocalData } from '@/db/store';
 import i18n from '@/i18n';
 
 import { finishedSetup, savedExpenses } from '../../helpers/account';
-import { json, mockApi, storedSessionFor, testUser } from '../../helpers/api';
+import { json, mockApi, storedSessionFor, syncApi, testUser } from '../../helpers/api';
 import { routes } from '../../helpers/routes';
 
 jest.mock('expo-haptics', () => ({
@@ -41,7 +41,7 @@ const TIMERS = [
 /** Opens the app signed in, on the home screen, then the new expense sheet. */
 const openSheet = async () => {
   await SecureStore.setItemAsync('lumei.session', JSON.stringify(storedSessionFor()));
-  mockApi({ 'GET /me': json(200, testUser) });
+  mockApi({ ...syncApi, 'GET /me': json(200, testUser) });
   await renderRouter(routes, { initialUrl: '/' });
   await fireEvent.press(await screen.findByLabelText('Add expense'));
   await screen.findByText('New expense');

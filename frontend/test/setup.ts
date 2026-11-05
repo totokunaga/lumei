@@ -33,6 +33,20 @@ jest.mock('expo-sqlite/kv-store', () => ({
 }));
 beforeEach(() => mockKvStore.clear());
 
+// No test reaches the network: without `mockApi`, every request fails as if
+// offline, so the sync engine stops quietly.
+beforeEach(() =>
+  jest
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.reject(new TypeError('Network request failed'))),
+);
+
+// The network listener the sync engine uses; tests call `syncOnce` or
+// `requestSync` themselves.
+jest.mock('expo-network', () => ({
+  addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
 // FlashList measures its views natively; its setup gives them fixed sizes.
 require('@shopify/flash-list/jestSetup');
 

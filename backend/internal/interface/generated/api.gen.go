@@ -4,14 +4,163 @@
 package generated
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 )
 
 const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
+
+// Defines values for CategoryRowTable.
+const (
+	Categories CategoryRowTable = "categories"
+)
+
+// Valid indicates whether the value is a known member of the CategoryRowTable enum.
+func (e CategoryRowTable) Valid() bool {
+	switch e {
+	case Categories:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExpenseRowTable.
+const (
+	Expenses ExpenseRowTable = "expenses"
+)
+
+// Valid indicates whether the value is a known member of the ExpenseRowTable enum.
+func (e ExpenseRowTable) Valid() bool {
+	switch e {
+	case Expenses:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FixedExpenseRowTable.
+const (
+	FixedExpenses FixedExpenseRowTable = "fixed_expenses"
+)
+
+// Valid indicates whether the value is a known member of the FixedExpenseRowTable enum.
+func (e FixedExpenseRowTable) Valid() bool {
+	switch e {
+	case FixedExpenses:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IncomeRowTable.
+const (
+	Incomes IncomeRowTable = "incomes"
+)
+
+// Valid indicates whether the value is a known member of the IncomeRowTable enum.
+func (e IncomeRowTable) Valid() bool {
+	switch e {
+	case Incomes:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PeriodRowTable.
+const (
+	Periods PeriodRowTable = "periods"
+)
+
+// Valid indicates whether the value is a known member of the PeriodRowTable enum.
+func (e PeriodRowTable) Valid() bool {
+	switch e {
+	case Periods:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PushOutcome.
+const (
+	Applied    PushOutcome = "applied"
+	Rejected   PushOutcome = "rejected"
+	Superseded PushOutcome = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the PushOutcome enum.
+func (e PushOutcome) Valid() bool {
+	switch e {
+	case Applied:
+		return true
+	case Rejected:
+		return true
+	case Superseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavingTargetRowTable.
+const (
+	SavingTargets SavingTargetRowTable = "saving_targets"
+)
+
+// Valid indicates whether the value is a known member of the SavingTargetRowTable enum.
+func (e SavingTargetRowTable) Valid() bool {
+	switch e {
+	case SavingTargets:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingsRowBigPurchaseSpread.
+const (
+	DaysLeft    SettingsRowBigPurchaseSpread = "daysLeft"
+	WholePeriod SettingsRowBigPurchaseSpread = "wholePeriod"
+)
+
+// Valid indicates whether the value is a known member of the SettingsRowBigPurchaseSpread enum.
+func (e SettingsRowBigPurchaseSpread) Valid() bool {
+	switch e {
+	case DaysLeft:
+		return true
+	case WholePeriod:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingsRowTable.
+const (
+	Settings SettingsRowTable = "settings"
+)
+
+// Valid indicates whether the value is a known member of the SettingsRowTable enum.
+func (e SettingsRowTable) Valid() bool {
+	switch e {
+	case Settings:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for SignInProvider.
 const (
@@ -38,6 +187,30 @@ func (e SignInProvider) Valid() bool {
 type BasicHealthResponse struct {
 	Status string `json:"status"`
 }
+
+// CategoryRow A category (BR-CAT-01 to BR-CAT-03).
+type CategoryRow struct {
+	// ArchivedAt When the user archived it (BR-CAT-03), or null while active.
+	ArchivedAt *int64 `json:"archived_at"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+	Emoji     string `json:"emoji"`
+
+	// Id A UUID made on the device.
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Position Display order when recording an expense, from 0 (BR-CAT-02).
+	Position int32            `json:"position"`
+	Table    CategoryRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// CategoryRowTable defines model for CategoryRow.Table.
+type CategoryRowTable string
 
 // CategorySet The default categories of one region (BR-CAT-07).
 type CategorySet struct {
@@ -84,6 +257,66 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
+// ExpenseRow An expense (BR-EXP-01 to BR-EXP-05).
+type ExpenseRow struct {
+	// Amount Greater than 0 (BR-EXP-08).
+	Amount     int64  `json:"amount"`
+	CategoryId string `json:"category_id"`
+
+	// Date The calendar date in the device's time zone when it happened (BR-EXP-02).
+	Date string `json:"date"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+
+	// Description The optional description (BR-EXP-03).
+	Description *string `json:"description"`
+
+	// Id A UUID made on the device.
+	Id string `json:"id"`
+
+	// IsBigPurchase Whether it is a big purchase (BR-EXP-05).
+	IsBigPurchase bool `json:"is_big_purchase"`
+
+	// Latitude Where it was recorded (BR-EXP-04), or null without a location.
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+
+	// SpentAt When it happened.
+	SpentAt int64           `json:"spent_at"`
+	Table   ExpenseRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// ExpenseRowTable defines model for ExpenseRow.Table.
+type ExpenseRowTable string
+
+// FixedExpenseRow A fixed expense item of a period (BR-INC-02).
+type FixedExpenseRow struct {
+	Amount int64 `json:"amount"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+
+	// Id A UUID made on the device.
+	Id       string  `json:"id"`
+	Name     string  `json:"name"`
+	Note     *string `json:"note"`
+	PeriodId string  `json:"period_id"`
+
+	// Position Display order in the period, from 0.
+	Position int32                `json:"position"`
+	Table    FixedExpenseRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// FixedExpenseRowTable defines model for FixedExpenseRow.Table.
+type FixedExpenseRowTable string
+
 // HealthCheckEntry Result of one dependency's health check.
 type HealthCheckEntry struct {
 	// Critical Whether a failure of this check makes the whole service unhealthy (503).
@@ -106,6 +339,29 @@ type HealthResponse struct {
 	Status string                      `json:"status"`
 }
 
+// IncomeRow An income item of a period (BR-INC-01).
+type IncomeRow struct {
+	Amount int64 `json:"amount"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+
+	// Id A UUID made on the device.
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	PeriodId string `json:"period_id"`
+
+	// Position Display order in the period, from 0.
+	Position int32          `json:"position"`
+	Table    IncomeRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// IncomeRowTable defines model for IncomeRow.Table.
+type IncomeRowTable string
+
 // LocalizedText A text in every language the app supports (BR-SET-01).
 type LocalizedText struct {
 	En string `json:"en"`
@@ -113,11 +369,99 @@ type LocalizedText struct {
 	Ja string `json:"ja"`
 }
 
+// PeriodRow A saving period (BR-PER-01). Both dates are inclusive.
+type PeriodRow struct {
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+	EndDate   string `json:"end_date"`
+
+	// Id A UUID made on the device.
+	Id        string         `json:"id"`
+	StartDate string         `json:"start_date"`
+	Table     PeriodRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// PeriodRowTable defines model for PeriodRow.Table.
+type PeriodRowTable string
+
+// PullResponse defines model for PullResponse.
+type PullResponse struct {
+	// Cursor Send as `since` in the next pull.
+	Cursor int64 `json:"cursor"`
+
+	// HasMore True when more rows are waiting: pull again with the new cursor.
+	HasMore bool `json:"has_more"`
+
+	// Rows The user's rows changed after `since`, oldest change first, deleted ones included.
+	Rows []SyncRow `json:"rows"`
+}
+
+// PushOutcome What happened to a pushed row:
+// - `applied`: the API now has this change.
+// - `superseded`: the API already has a newer change, or a deletion; the next pull brings it.
+// - `rejected`: the row is invalid; `code` says why.
+type PushOutcome string
+
+// PushRequest defines model for PushRequest.
+type PushRequest struct {
+	// Rows Up to 200 rows, oldest change first.
+	Rows []SyncRow `json:"rows"`
+}
+
+// PushResponse defines model for PushResponse.
+type PushResponse struct {
+	// Results One result per pushed row, in the order they were sent.
+	Results []PushResult `json:"results"`
+}
+
+// PushResult defines model for PushResult.
+type PushResult struct {
+	// Code Why the row was rejected: `invalid_row` (a field is missing or out of
+	// range), `not_owned` (the ID belongs to another user's record),
+	// `future_change` (`updated_at` is more than 5 minutes ahead of the API's
+	// clock, BR-OFF-05), or `currency_change` (BR-SET-04).
+	Code *string `json:"code,omitempty"`
+
+	// Id The ID of the pushed row.
+	Id string `json:"id"`
+
+	// Outcome What happened to a pushed row:
+	// - `applied`: the API now has this change.
+	// - `superseded`: the API already has a newer change, or a deletion; the next pull brings it.
+	// - `rejected`: the row is invalid; `code` says why.
+	Outcome PushOutcome `json:"outcome"`
+
+	// Table The table of the pushed row.
+	Table string `json:"table"`
+}
+
 // RefreshSessionRequest defines model for RefreshSessionRequest.
 type RefreshSessionRequest struct {
 	// RefreshToken The refresh token from the last sign-in or refresh.
 	RefreshToken string `json:"refresh_token"`
 }
+
+// SavingTargetRow The saving target of a period (BR-TGT-01).
+type SavingTargetRow struct {
+	Amount int64 `json:"amount"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+
+	// Id A UUID made on the device.
+	Id       string               `json:"id"`
+	PeriodId string               `json:"period_id"`
+	Table    SavingTargetRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// SavingTargetRowTable defines model for SavingTargetRow.Table.
+type SavingTargetRowTable string
 
 // SessionResponse defines model for SessionResponse.
 type SessionResponse struct {
@@ -137,6 +481,40 @@ type SessionResponse struct {
 	User User `json:"user"`
 }
 
+// SettingsRow The account's settings: one row, whose ID is the user ID.
+type SettingsRow struct {
+	// BigPurchaseSpread How big purchases are spread (BR-SET-05).
+	BigPurchaseSpread SettingsRowBigPurchaseSpread `json:"big_purchase_spread"`
+
+	// Currency The account currency (BR-SET-03), an ISO 4217 code. It can't change (BR-SET-04).
+	Currency string `json:"currency"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+
+	// Id A UUID made on the device.
+	Id string `json:"id"`
+
+	// PeriodStartDay The day of the month periods start on, 1–31 (BR-PER-01).
+	PeriodStartDay int32 `json:"period_start_day"`
+
+	// Region The region of the default categories (BR-SET-06), e.g. `jp`.
+	Region string `json:"region"`
+
+	// SetupCompletedAt When setup finished (BR-ACC-06).
+	SetupCompletedAt int64            `json:"setup_completed_at"`
+	Table            SettingsRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// SettingsRowBigPurchaseSpread How big purchases are spread (BR-SET-05).
+type SettingsRowBigPurchaseSpread string
+
+// SettingsRowTable defines model for SettingsRow.Table.
+type SettingsRowTable string
+
 // SignInProvider The service a user signs in with (BR-ACC-01). `dev` works only where the server enables it.
 type SignInProvider string
 
@@ -146,6 +524,11 @@ type SignInRequest struct {
 	// the email address to sign in as.
 	IdToken  string         `json:"id_token"`
 	Provider SignInProvider `json:"provider"`
+}
+
+// SyncRow One record, whole, of any synced table. `table` says which.
+type SyncRow struct {
+	union json.RawMessage
 }
 
 // User A Lumei account.
@@ -158,11 +541,258 @@ type User struct {
 // bearerAuthContextKey is the context key for BearerAuth security scheme
 type bearerAuthContextKey string
 
+// PullChangesParams defines parameters for PullChanges.
+type PullChangesParams struct {
+	Since int64 `form:"since" json:"since"`
+}
+
 // RefreshSessionJSONRequestBody defines body for RefreshSession for application/json ContentType.
 type RefreshSessionJSONRequestBody = RefreshSessionRequest
 
 // SignInJSONRequestBody defines body for SignIn for application/json ContentType.
 type SignInJSONRequestBody = SignInRequest
+
+// PushChangesJSONRequestBody defines body for PushChanges for application/json ContentType.
+type PushChangesJSONRequestBody = PushRequest
+
+// AsSettingsRow returns the union data inside the SyncRow as a SettingsRow
+func (t SyncRow) AsSettingsRow() (SettingsRow, error) {
+	var body SettingsRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSettingsRow overwrites any union data inside the SyncRow as the provided SettingsRow
+func (t *SyncRow) FromSettingsRow(v SettingsRow) error {
+	v.Table = "settings"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSettingsRow performs a merge with any union data inside the SyncRow, using the provided SettingsRow
+func (t *SyncRow) MergeSettingsRow(v SettingsRow) error {
+	v.Table = "settings"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCategoryRow returns the union data inside the SyncRow as a CategoryRow
+func (t SyncRow) AsCategoryRow() (CategoryRow, error) {
+	var body CategoryRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCategoryRow overwrites any union data inside the SyncRow as the provided CategoryRow
+func (t *SyncRow) FromCategoryRow(v CategoryRow) error {
+	v.Table = "categories"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCategoryRow performs a merge with any union data inside the SyncRow, using the provided CategoryRow
+func (t *SyncRow) MergeCategoryRow(v CategoryRow) error {
+	v.Table = "categories"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeriodRow returns the union data inside the SyncRow as a PeriodRow
+func (t SyncRow) AsPeriodRow() (PeriodRow, error) {
+	var body PeriodRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeriodRow overwrites any union data inside the SyncRow as the provided PeriodRow
+func (t *SyncRow) FromPeriodRow(v PeriodRow) error {
+	v.Table = "periods"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeriodRow performs a merge with any union data inside the SyncRow, using the provided PeriodRow
+func (t *SyncRow) MergePeriodRow(v PeriodRow) error {
+	v.Table = "periods"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIncomeRow returns the union data inside the SyncRow as a IncomeRow
+func (t SyncRow) AsIncomeRow() (IncomeRow, error) {
+	var body IncomeRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIncomeRow overwrites any union data inside the SyncRow as the provided IncomeRow
+func (t *SyncRow) FromIncomeRow(v IncomeRow) error {
+	v.Table = "incomes"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIncomeRow performs a merge with any union data inside the SyncRow, using the provided IncomeRow
+func (t *SyncRow) MergeIncomeRow(v IncomeRow) error {
+	v.Table = "incomes"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFixedExpenseRow returns the union data inside the SyncRow as a FixedExpenseRow
+func (t SyncRow) AsFixedExpenseRow() (FixedExpenseRow, error) {
+	var body FixedExpenseRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFixedExpenseRow overwrites any union data inside the SyncRow as the provided FixedExpenseRow
+func (t *SyncRow) FromFixedExpenseRow(v FixedExpenseRow) error {
+	v.Table = "fixed_expenses"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFixedExpenseRow performs a merge with any union data inside the SyncRow, using the provided FixedExpenseRow
+func (t *SyncRow) MergeFixedExpenseRow(v FixedExpenseRow) error {
+	v.Table = "fixed_expenses"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSavingTargetRow returns the union data inside the SyncRow as a SavingTargetRow
+func (t SyncRow) AsSavingTargetRow() (SavingTargetRow, error) {
+	var body SavingTargetRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSavingTargetRow overwrites any union data inside the SyncRow as the provided SavingTargetRow
+func (t *SyncRow) FromSavingTargetRow(v SavingTargetRow) error {
+	v.Table = "saving_targets"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSavingTargetRow performs a merge with any union data inside the SyncRow, using the provided SavingTargetRow
+func (t *SyncRow) MergeSavingTargetRow(v SavingTargetRow) error {
+	v.Table = "saving_targets"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsExpenseRow returns the union data inside the SyncRow as a ExpenseRow
+func (t SyncRow) AsExpenseRow() (ExpenseRow, error) {
+	var body ExpenseRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExpenseRow overwrites any union data inside the SyncRow as the provided ExpenseRow
+func (t *SyncRow) FromExpenseRow(v ExpenseRow) error {
+	v.Table = "expenses"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExpenseRow performs a merge with any union data inside the SyncRow, using the provided ExpenseRow
+func (t *SyncRow) MergeExpenseRow(v ExpenseRow) error {
+	v.Table = "expenses"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t SyncRow) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"table"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t SyncRow) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "categories":
+		return t.AsCategoryRow()
+	case "expenses":
+		return t.AsExpenseRow()
+	case "fixed_expenses":
+		return t.AsFixedExpenseRow()
+	case "incomes":
+		return t.AsIncomeRow()
+	case "periods":
+		return t.AsPeriodRow()
+	case "saving_targets":
+		return t.AsSavingTargetRow()
+	case "settings":
+		return t.AsSettingsRow()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t SyncRow) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *SyncRow) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -187,6 +817,12 @@ type ServerInterface interface {
 	// Get the signed-in user
 	// (GET /me)
 	GetMe(c *gin.Context)
+	// Pull changes from the user's other devices
+	// (GET /sync/pull)
+	PullChanges(c *gin.Context, params PullChangesParams)
+	// Push the device's changes
+	// (POST /sync/push)
+	PushChanges(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -295,6 +931,50 @@ func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
 	siw.Handler.GetMe(c)
 }
 
+// PullChanges operation middleware
+func (siw *ServerInterfaceWrapper) PullChanges(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	c.Set(string(BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PullChangesParams
+
+	// ------------- Required query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", false, true, "since", c.Request.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter since: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PullChanges(c, params)
+}
+
+// PushChanges operation middleware
+func (siw *ServerInterfaceWrapper) PushChanges(c *gin.Context) {
+
+	c.Set(string(BearerAuthScopes), []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PushChanges(c)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -329,4 +1009,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/health/full", wrapper.GetHealthFull)
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)
+	router.GET(options.BaseURL+"/sync/pull", wrapper.PullChanges)
+	router.POST(options.BaseURL+"/sync/push", wrapper.PushChanges)
 }

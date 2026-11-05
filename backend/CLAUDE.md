@@ -139,6 +139,7 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 | `auth` | `auth_test.go` | `TestSignIn` (`POST /auth/sign-in`), `TestRefreshSession` (`POST /auth/refresh`), `TestSignOut` (`POST /auth/sign-out`) |
 | `users` | `users_test.go` | `TestGetMe` (`GET /me`) |
 | `categories` | `categories_test.go` | `TestListCategorySets` (`GET /category-sets`) |
+| `sync` | `sync_test.go` | `TestPushChanges` (`POST /sync/push`), `TestPullChanges` (`GET /sync/pull`) |
 
 Update this table when you add a tag or an endpoint.
 
@@ -147,7 +148,7 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 | Field | Purpose |
 |-------|---------|
 | `name` | Subtest name, starting with the expected status, e.g. `"503 when the database goes away after startup"`. |
-| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `refreshReq`, `meReq`, and `signOutReq`. |
+| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `refreshReq`, `meReq`, `signOutReq`, `pushReq`, and `pullReq`. Build sync rows with `expenseSyncRow` and the other `*SyncRow` helpers, change fields with `row.with(syncRow{...})`, and give every stored row a `newRowID()`: row IDs are unique across all users, so cases that share one collide. |
 | `configure func(cfg)` | Changes the case's own `*config.Config` before the server is built, e.g. `func(cfg *config.Config) { cfg.Server.HealthCheckTimeout = time.Nanosecond }`. |
 | `setupFunc func(t, cfg) (afterStart func())` | Runs before the server is built and may also change `cfg`. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` points `cfg` at a new database and drops it there. |
 | `prepare func(t, ts) (req, assertFunc)` | Replaces `req` and `assertFunc` when the request depends on earlier requests, e.g. one that needs a session. It runs after the server starts, may send those requests (`signIn`, `newGoogleSession`, `refresh`), and returns the request and an assertion that can close over their results, e.g. the first sign-in's user ID. Start it with `t.Helper()`. |

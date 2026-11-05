@@ -6,6 +6,7 @@ import { type Database, openUserDatabase } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
 import {
   addExpense,
+  countFailedChanges,
   countPendingChanges,
   ensureCurrentPeriod,
   readCategories,
@@ -111,6 +112,16 @@ describe('countPendingChanges (BR-OFF-04)', () => {
 
     expect(countPendingChanges(db)).toBe(expected);
   });
+
+  it('counts the rejected rows too, and countFailedChanges only them', async () => {
+    const db = await saveFinishedSetup();
+    db.update(categories).set({ pending: false }).run();
+    db.update(periods).set({ syncError: 'invalid_row' }).run();
+
+    // Settings, the period, the income, the fixed expense, and the target.
+    expect(countPendingChanges(db)).toBe(5);
+    expect(countFailedChanges(db)).toBe(1);
+  });
 });
 
 /** Saves an expense at noon on a date in the first category, as the expense sheet does. */
@@ -142,6 +153,7 @@ describe('addExpense (BR-EXP-01, BR-OFF-01)', () => {
         deletedAt: null,
         pending: true,
         localRev: 1,
+        syncError: null,
       },
     ]);
     expect(countPendingChanges(db)).toBe(8);
@@ -283,7 +295,20 @@ describe('readPeriodExpenses (BR-DSH-06)', () => {
       isBigPurchase: true,
       categoryName: 'Eat Out',
       categoryEmoji: '🍔',
+      sync: 'pending',
     });
+  });
+
+  it.each([
+    { name: 'synced once the API confirmed it', pending: false, syncError: null, sync: 'synced' },
+    { name: 'pending until then', pending: true, syncError: null, sync: 'pending' },
+    { name: 'failed when the API rejected it', pending: true, syncError: 'invalid_row', sync: 'failed' },
+  ])('says the expense is $name (BR-OFF-04)', async ({ pending, syncError, sync }) => {
+    const db = await saveFinishedSetup();
+    const id = spend(db, '2026-10-28', 500);
+    db.update(expenses).set({ pending, syncError }).where(eq(expenses.id, id)).run();
+
+    expect(readPeriodExpenses(db, '2026-10-29')).toMatchObject([{ id, sync }]);
   });
 
   it('returns nothing when no period contains the date', async () => {

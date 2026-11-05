@@ -8,6 +8,7 @@ tags:
   - name: auth
   - name: users
   - name: categories
+  - name: sync
 paths:
   /auth/refresh:
     post:
@@ -210,6 +211,89 @@ paths:
         - users
       security:
         - BearerAuth: []
+  /sync/pull:
+    get:
+      operationId: pullChanges
+      summary: Pull changes from the user's other devices
+      description: |-
+        Returns up to 500 of the user's rows changed after the cursor, oldest
+        change first. A device that has never pulled sends 0.
+
+        Errors: 400 `invalid_request` when `since` is missing or negative.
+      parameters:
+        - name: since
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullResponse'
+        '400':
+          description: The request is malformed or names something unsupported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - sync
+      security:
+        - BearerAuth: []
+  /sync/push:
+    post:
+      operationId: pushChanges
+      summary: Push the device's changes
+      description: |-
+        Stores the device's changes. Each row goes through the conflict rules
+        (BR-OFF-05): a deletion wins over any edit; otherwise the later
+        `updated_at` wins; on a tie, the stored version stays. Pushing the same
+        rows again changes nothing, so a lost response can be retried
+        (BR-OFF-03).
+
+        Errors: 400 `invalid_request` when the body isn't a list of up to 200
+        rows of the known tables.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushResponse'
+        '400':
+          description: The request is malformed or names something unsupported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - sync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushRequest'
+      security:
+        - BearerAuth: []
 components:
   schemas:
     BasicHealthResponse:
@@ -221,6 +305,52 @@ components:
           type: string
           example: ok
       description: Minimal health payload returned by the basic health check.
+    CategoryRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - name
+        - emoji
+        - position
+        - archived_at
+      properties:
+        table:
+          type: string
+          enum:
+            - categories
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        name:
+          type: string
+          example: Eat Out
+        emoji:
+          type: string
+          example: 🍔
+        position:
+          type: integer
+          format: int32
+          description: Display order when recording an expense, from 0 (BR-CAT-02).
+        archived_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user archived it (BR-CAT-03), or null while active.
+      description: A category (BR-CAT-01 to BR-CAT-03).
     CategorySet:
       type: object
       required:
@@ -302,6 +432,120 @@ components:
           type: string
           description: "A description for developers. Don't show it to users: it isn't translated."
       description: An error the client can act on.
+    ExpenseRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - amount
+        - category_id
+        - date
+        - spent_at
+        - is_big_purchase
+        - description
+        - latitude
+        - longitude
+      properties:
+        table:
+          type: string
+          enum:
+            - expenses
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        amount:
+          type: integer
+          format: int64
+          description: Greater than 0 (BR-EXP-08).
+          example: 1200
+        category_id:
+          type: string
+        date:
+          type: string
+          description: The calendar date in the device's time zone when it happened (BR-EXP-02).
+          example: '2026-11-05'
+        spent_at:
+          type: integer
+          format: int64
+          description: When it happened.
+        is_big_purchase:
+          type: boolean
+          description: Whether it is a big purchase (BR-EXP-05).
+        description:
+          type: string
+          nullable: true
+          description: The optional description (BR-EXP-03).
+        latitude:
+          type: number
+          format: double
+          nullable: true
+          description: Where it was recorded (BR-EXP-04), or null without a location.
+        longitude:
+          type: number
+          format: double
+          nullable: true
+      description: An expense (BR-EXP-01 to BR-EXP-05).
+    FixedExpenseRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - period_id
+        - name
+        - amount
+        - note
+        - position
+      properties:
+        table:
+          type: string
+          enum:
+            - fixed_expenses
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        period_id:
+          type: string
+        name:
+          type: string
+          example: Rent
+        amount:
+          type: integer
+          format: int64
+          example: 85000
+        note:
+          type: string
+          nullable: true
+        position:
+          type: integer
+          format: int32
+          description: Display order in the period, from 0.
+      description: A fixed expense item of a period (BR-INC-02).
     HealthCheckEntry:
       type: object
       required:
@@ -347,6 +591,50 @@ components:
         Detailed health payload with one entry per dependency.
         `status` is `unhealthy` (503) when a critical check fails, `degraded` (200) when
         only non-critical checks fail, and `healthy` otherwise.
+    IncomeRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - period_id
+        - name
+        - amount
+        - position
+      properties:
+        table:
+          type: string
+          enum:
+            - incomes
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        period_id:
+          type: string
+        name:
+          type: string
+          example: Salary
+        amount:
+          type: integer
+          format: int64
+          example: 640808
+        position:
+          type: integer
+          format: int32
+          description: Display order in the period, from 0.
+      description: An income item of a period (BR-INC-01).
     LocalizedText:
       type: object
       required:
@@ -364,6 +652,116 @@ components:
           type: string
           example: Restaurant
       description: A text in every language the app supports (BR-SET-01).
+    PeriodRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - start_date
+        - end_date
+      properties:
+        table:
+          type: string
+          enum:
+            - periods
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        start_date:
+          type: string
+          example: '2026-10-25'
+        end_date:
+          type: string
+          example: '2026-11-24'
+      description: A saving period (BR-PER-01). Both dates are inclusive.
+    PullResponse:
+      type: object
+      required:
+        - rows
+        - cursor
+        - has_more
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRow'
+          description: The user's rows changed after `since`, oldest change first, deleted ones included.
+        cursor:
+          type: integer
+          format: int64
+          description: Send as `since` in the next pull.
+          example: 42
+        has_more:
+          type: boolean
+          description: 'True when more rows are waiting: pull again with the new cursor.'
+    PushOutcome:
+      type: string
+      enum:
+        - applied
+        - superseded
+        - rejected
+      description: |-
+        What happened to a pushed row:
+        - `applied`: the API now has this change.
+        - `superseded`: the API already has a newer change, or a deletion; the next pull brings it.
+        - `rejected`: the row is invalid; `code` says why.
+    PushRequest:
+      type: object
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRow'
+          maxItems: 200
+          description: Up to 200 rows, oldest change first.
+    PushResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PushResult'
+          description: One result per pushed row, in the order they were sent.
+    PushResult:
+      type: object
+      required:
+        - table
+        - id
+        - outcome
+      properties:
+        table:
+          type: string
+          description: The table of the pushed row.
+          example: expenses
+        id:
+          type: string
+          description: The ID of the pushed row.
+        outcome:
+          $ref: '#/components/schemas/PushOutcome'
+        code:
+          type: string
+          description: |-
+            Why the row was rejected: `invalid_row` (a field is missing or out of
+            range), `not_owned` (the ID belongs to another user's record),
+            `future_change` (`updated_at` is more than 5 minutes ahead of the API's
+            clock, BR-OFF-05), or `currency_change` (BR-SET-04).
     RefreshSessionRequest:
       type: object
       required:
@@ -372,6 +770,41 @@ components:
         refresh_token:
           type: string
           description: The refresh token from the last sign-in or refresh.
+    SavingTargetRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - period_id
+        - amount
+      properties:
+        table:
+          type: string
+          enum:
+            - saving_targets
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        period_id:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          example: 100000
+      description: The saving target of a period (BR-TGT-01).
     SessionResponse:
       type: object
       required:
@@ -397,6 +830,61 @@ components:
             (BR-ACC-03). Keep it in the device's secure storage.
         user:
           $ref: '#/components/schemas/User'
+    SettingsRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - region
+        - currency
+        - period_start_day
+        - big_purchase_spread
+        - setup_completed_at
+      properties:
+        table:
+          type: string
+          enum:
+            - settings
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        region:
+          type: string
+          description: The region of the default categories (BR-SET-06), e.g. `jp`.
+          example: jp
+        currency:
+          type: string
+          description: The account currency (BR-SET-03), an ISO 4217 code. It can't change (BR-SET-04).
+          example: JPY
+        period_start_day:
+          type: integer
+          format: int32
+          description: The day of the month periods start on, 1–31 (BR-PER-01).
+          example: 25
+        big_purchase_spread:
+          type: string
+          enum:
+            - daysLeft
+            - wholePeriod
+          description: How big purchases are spread (BR-SET-05).
+        setup_completed_at:
+          type: integer
+          format: int64
+          description: When setup finished (BR-ACC-06).
+      description: "The account's settings: one row, whose ID is the user ID."
     SignInProvider:
       type: string
       enum:
@@ -419,6 +907,49 @@ components:
           description: |-
             The ID token Sign in with Apple or Google returned to the app. For `dev`,
             the email address to sign in as.
+    SyncColumns:
+      type: object
+      required:
+        - id
+        - updated_at
+        - deleted_at
+      properties:
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+      description: The sync columns every record has.
+    SyncRow:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/SettingsRow'
+        - $ref: '#/components/schemas/CategoryRow'
+        - $ref: '#/components/schemas/PeriodRow'
+        - $ref: '#/components/schemas/IncomeRow'
+        - $ref: '#/components/schemas/FixedExpenseRow'
+        - $ref: '#/components/schemas/SavingTargetRow'
+        - $ref: '#/components/schemas/ExpenseRow'
+      discriminator:
+        propertyName: table
+        mapping:
+          settings: '#/components/schemas/SettingsRow'
+          categories: '#/components/schemas/CategoryRow'
+          periods: '#/components/schemas/PeriodRow'
+          incomes: '#/components/schemas/IncomeRow'
+          fixed_expenses: '#/components/schemas/FixedExpenseRow'
+          saving_targets: '#/components/schemas/SavingTargetRow'
+          expenses: '#/components/schemas/ExpenseRow'
+      description: One record, whole, of any synced table. `table` says which.
     User:
       type: object
       required:

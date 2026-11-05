@@ -162,11 +162,22 @@ func ProvideCategorySetLister(sets application.CategorySetRepository) applicatio
 	return application.NewCategorySetLister(sets)
 }
 
+// ProvideSyncRepository provides the synced records repository.
+func ProvideSyncRepository(connector *rdb.Connector) application.SyncRepository {
+	return repository.NewSyncRepository(connector.DB())
+}
+
+// ProvideSyncer provides the sync use case.
+func ProvideSyncer(records application.SyncRepository) application.Syncer {
+	return application.NewSyncer(records, time.Now)
+}
+
 // ProvideAPIController provides the API controller.
 func ProvideAPIController(
 	healthChecker application.HealthChecker,
 	auth application.Authenticator,
 	categorySets application.CategorySetLister,
+	sync application.Syncer,
 	log *slog.Logger,
 ) *controller.APIController {
 
@@ -174,6 +185,7 @@ func ProvideAPIController(
 		HealthChecker: healthChecker,
 		Auth:          auth,
 		CategorySets:  categorySets,
+		Sync:          sync,
 		Logger:        log,
 	})
 }

@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -526,4 +527,154 @@ func assertErrorCode(code string) func(t *testing.T, resp response) {
 
 		assert.Equal(t, code, decode[generated.ErrorResponse](t, resp.body).Code)
 	}
+}
+
+// syncRow is a pushed or pulled row as JSON, so a case can also send fields
+// the API must reject.
+type syncRow map[string]any
+
+// with returns a copy of the row with fields replaced; a nil value removes the field.
+func (r syncRow) with(fields syncRow) syncRow {
+	out := syncRow{}
+	maps.Copy(out, r)
+	for k, v := range fields {
+		if v == nil {
+			delete(out, k)
+		} else {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// syncBaseTime is a fixed moment in the past every row is dated from, well
+// within the API's clock.
+var syncBaseTime = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC).UnixMilli()
+
+// newRowID returns a lower-case UUIDv7 no other case uses.
+func newRowID() string {
+	return uuid.Must(uuid.NewV7()).String()
+}
+
+// settingsSyncRow builds the settings row of a user.
+func settingsSyncRow(userID string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "settings", "id": userID, "updated_at": updatedAt, "deleted_at": nil,
+		"region": "jp", "currency": "JPY", "period_start_day": 25,
+		"big_purchase_spread": "daysLeft", "setup_completed_at": updatedAt,
+	}
+}
+
+// categorySyncRow builds a category row.
+func categorySyncRow(id string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "categories", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"name": "Eat Out", "emoji": "🍔", "position": 0, "archived_at": nil,
+	}
+}
+
+// periodSyncRow builds a period row for Oct 25 – Nov 24.
+func periodSyncRow(id string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "periods", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"start_date": "2026-10-25", "end_date": "2026-11-24",
+	}
+}
+
+// incomeSyncRow builds an income row of a period.
+func incomeSyncRow(id, periodID string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "incomes", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"period_id": periodID, "name": "Salary", "amount": 640808, "position": 0,
+	}
+}
+
+// fixedExpenseSyncRow builds a fixed expense row of a period.
+func fixedExpenseSyncRow(id, periodID string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "fixed_expenses", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"period_id": periodID, "name": "Rent", "amount": 85000, "note": "Originally ¥90,000", "position": 0,
+	}
+}
+
+// savingTargetSyncRow builds a saving target row of a period.
+func savingTargetSyncRow(id, periodID string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "saving_targets", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"period_id": periodID, "amount": 100000,
+	}
+}
+
+// expenseSyncRow builds an expense row with a location.
+func expenseSyncRow(id, categoryID string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "expenses", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"amount": 1200, "category_id": categoryID, "date": "2026-11-05", "spent_at": updatedAt,
+		"is_big_purchase": false, "description": "Lunch", "latitude": 35.6812, "longitude": 139.7671,
+	}
+}
+
+// pushReq builds a POST /sync/push request authenticated with accessToken.
+func pushReq(accessToken string, rows ...syncRow) req {
+	if rows == nil {
+		rows = []syncRow{}
+	}
+	return req{
+		method: http.MethodPost, path: "/sync/push", headers: bearer(accessToken),
+		body: map[string]any{"rows": rows},
+	}
+}
+
+// pullReq builds a GET /sync/pull request authenticated with accessToken.
+func pullReq(accessToken string, since int64) req {
+	return req{method: http.MethodGet, path: fmt.Sprintf("/sync/pull?since=%d", since), headers: bearer(accessToken)}
+}
+
+// push sends rows to ts and returns each row's outcome.
+func push(t *testing.T, ts *TestServer, accessToken string, rows ...syncRow) []generated.PushResult {
+	t.Helper()
+
+	resp := do(t, ts, pushReq(accessToken, rows...))
+	require.Equal(t, http.StatusOK, resp.status, "body: %s", resp.body)
+	return decode[generated.PushResponse](t, resp.body).Results
+}
+
+// pull reads the changes after since from ts.
+func pull(t *testing.T, ts *TestServer, accessToken string, since int64) pulled {
+	t.Helper()
+
+	resp := do(t, ts, pullReq(accessToken, since))
+	require.Equal(t, http.StatusOK, resp.status, "body: %s", resp.body)
+	return decodePull(t, resp.body)
+}
+
+// pulled is a pull's response with its rows as plain JSON, to compare with
+// what was pushed.
+type pulled struct {
+	Rows    []syncRow `json:"rows"`
+	Cursor  int64     `json:"cursor"`
+	HasMore bool      `json:"has_more"`
+}
+
+// decodePull decodes a pull's response, keeping numbers as they were sent.
+func decodePull(t *testing.T, body []byte) pulled {
+	t.Helper()
+
+	// Check the contract first, then decode again into plain JSON.
+	_ = decode[generated.PullResponse](t, body)
+	var out pulled
+	require.NoError(t, json.Unmarshal(body, &out))
+	return out
+}
+
+// normalized returns rows as they look after a JSON round trip, so pushed
+// rows compare equal to pulled ones.
+func normalized(t *testing.T, rows ...syncRow) []syncRow {
+	t.Helper()
+
+	encoded, err := json.Marshal(rows)
+	require.NoError(t, err)
+	var out []syncRow
+	require.NoError(t, json.Unmarshal(encoded, &out))
+	return out
 }

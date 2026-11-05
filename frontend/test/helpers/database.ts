@@ -67,3 +67,15 @@ export const resetDatabases = (): void => {
  * @returns True until `deleteUserDatabase` removes it.
  */
 export const hasDatabase = (userId: string): boolean => databases.has(userId);
+
+/**
+ * Opens a migrated in-memory database that no account owns, e.g. to stand in
+ * for one of a user's devices in a sync test.
+ * @returns The database.
+ */
+export const openDeviceDatabase = async (): Promise<Database> => {
+  sqlJs ??= initSqlJs();
+  const db = drizzle(new (await sqlJs).Database(), { schema });
+  migrate(db, { migrationsFolder: 'drizzle' });
+  return db;
+};
