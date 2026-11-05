@@ -40,11 +40,12 @@ interface TodayCardProps {
 /**
  * Renders today's numbers (BR-DSH-01, BR-DSH-02): remaining today as the hero,
  * with spent today against the daily allowance under it, and the period's
- * budget left (BR-CALC-08) beside them, shown as an overspend below 0. Remaining today below 0
- * shows as an overspend, e.g. "¥1,200 over". While the whole period is
- * overspent, the allowance shows 0 and the period's overspend becomes the
- * hero. Each amount counts to its new value, and the card eases from green to
- * red as today goes over.
+ * budget left (BR-CALC-08) beside them. Remaining today and the budget left
+ * below 0 show as negative amounts in red, e.g. "-¥1,200". While the whole
+ * period is overspent, the allowance shows 0 and the period's overspend
+ * becomes the hero, as a negative amount under "Over for this period". Each
+ * amount counts to its new value, and the card eases from green to red as
+ * today goes over.
  *
  * It starts collapsed. Tapping the card, or the chevron at its top right,
  * expands it to the period summary under today's numbers (BR-DSH-03):
@@ -76,35 +77,19 @@ export function TodayCard({ status, summary, money }: TodayCardProps) {
     backgroundColor: interpolateColor(progress.get(), [0, 1], [fill[0], fill[1]]),
   }));
 
-  const overspent = status.periodOverspend > 0;
-  const remaining = status.remainingToday ?? 0;
-  let mode: 'periodOver' | 'todayOver' | 'remaining' = 'remaining';
-  if (overspent) {
-    mode = 'periodOver';
-  } else if (remaining < 0) {
-    mode = 'todayOver';
-  }
-  const hero = {
-    periodOver: {
-      label: t('home.periodOver'),
-      value: status.periodOverspend,
-      format: (amount: Minor) => t('home.overAmount', { amount: money(amount) }),
-    },
-    todayOver: {
-      label: t('home.remainingToday'),
-      value: -remaining,
-      format: (amount: Minor) => t('home.overAmount', { amount: money(amount) }),
-    },
-    remaining: { label: t('home.remainingToday'), value: remaining, format: money },
-  }[mode];
+  // Below 0, remaining today and the period's overspend show as negative amounts (BR-DSH-02).
+  const mode: 'periodOver' | 'remaining' = status.periodOverspend > 0 ? 'periodOver' : 'remaining';
+  const hero =
+    mode === 'periodOver'
+      ? { label: t('home.periodOver'), value: -status.periodOverspend }
+      : { label: t('home.remainingToday'), value: status.remainingToday ?? 0 };
   const accent = over ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-300';
 
   // Budget left shows next to today's numbers, so it isn't among the details.
   const budgetLeft = {
     label: t('home.budgetLeft'),
     value: summary.budgetLeft,
-    format: (value: Minor) =>
-      value < 0 ? t('home.overAmount', { amount: money(-value) }) : money(value),
+    format: money,
   };
   const details: { label: string; value: Minor; format: (value: Minor) => string }[] = [
     { label: t('home.income'), value: summary.income, format: money },
@@ -128,16 +113,16 @@ export function TodayCard({ status, summary, money }: TodayCardProps) {
             accessible
             accessibilityLabel={t('home.labelled', {
               label: hero.label,
-              value: hero.format(hero.value),
+              value: money(hero.value),
             })}
             className="flex-1 gap-1"
           >
             <Text className={`text-sm font-medium uppercase ${accent}`}>{hero.label}</Text>
-            {/* Keyed by mode, so it doesn't count between, e.g., remaining and an overspend. */}
+            {/* Keyed by mode, so it doesn't count from remaining today to the period's overspend. */}
             <CountingText
               key={mode}
               value={hero.value}
-              format={hero.format}
+              format={money}
               adjustsFontSizeToFit
               numberOfLines={1}
               className={`text-6xl font-bold ${accent}`}

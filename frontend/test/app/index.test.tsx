@@ -90,9 +90,9 @@ describe('HomeScreen', () => {
       },
     },
     {
-      name: 'remaining today below 0 as an overspend (BR-DSH-02)',
+      name: 'remaining today below 0 as a negative amount (BR-DSH-02)',
       expenses: [{ amount: 10_000, date: '2026-11-15' }],
-      expected: { 'Remaining today': '¥625 over', 'Spent today': '¥10,000' },
+      expected: { 'Remaining today': '-¥625', 'Spent today': '¥10,000' },
     },
     {
       name: 'the period’s overspend instead of remaining today, and no allowance (BR-DSH-02)',
@@ -101,9 +101,9 @@ describe('HomeScreen', () => {
         { amount: 15_000, date: '2026-11-15' },
       ],
       expected: {
-        'Over for this period': '¥5,000 over',
+        'Over for this period': '-¥5,000',
         'Daily allowance': '¥0',
-        'Budget left': '¥5,000 over',
+        'Budget left': '-¥5,000',
       },
     },
   ])('shows $name', async ({ expenses, expected }) => {

@@ -95,7 +95,7 @@ describe('NewExpenseScreen (BR-EXP-01, BR-EXP-09)', () => {
       earlier: [],
       expected: {
         row: { amount: 10_000, isBigPurchase: false },
-        shown: ['Remaining today: ¥625 over'],
+        shown: ['Remaining today: -¥625'],
         haptic: 'warning',
       },
     },

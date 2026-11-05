@@ -50,6 +50,10 @@ describe('formatMoney (BR-SET-02)', () => {
     { locale: 'en', amount: 500, currency: 'USD', expected: '$5.00' },
     { locale: 'fr', amount: 123_450, currency: 'EUR', expected: '1 234,50 €' },
     { locale: 'ja', amount: 7, currency: 'GBP', expected: '£0.07' },
+    // Negative amounts, e.g. remaining today when it is overspent (BR-DSH-02), each language's way.
+    { locale: 'en', amount: -1_234, currency: 'JPY', expected: '-¥1,234' },
+    { locale: 'ja', amount: -1_234, currency: 'JPY', expected: '-￥1,234' },
+    { locale: 'fr', amount: -1_234, currency: 'JPY', expected: '-1 234 ¥' },
   ])('formats $amount $currency in $locale', ({ locale, amount, currency, expected }) => {
     expect(formatMoney(amount, currency, locale)).toBe(expected);
   });
