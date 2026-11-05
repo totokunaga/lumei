@@ -185,7 +185,7 @@ export function TodayCard({ status, summary, money }: TodayCardProps) {
               format={budgetLeft.format}
               numberOfLines={1}
               adjustsFontSizeToFit
-              className={`text-2xl font-semibold ${
+              className={`text-2xl font-normal ${
                 budgetLeft.value < 0
                   ? 'text-red-600 dark:text-red-400'
                   : 'text-black dark:text-white'
@@ -252,7 +252,7 @@ function SpentOfAllowance({
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
-        className="text-2xl font-semibold text-black dark:text-white"
+        className="text-2xl font-normal text-black dark:text-white"
       >
         <CountingText value={spent} format={money} />
         <Text className="text-gray-500 dark:text-gray-400">
