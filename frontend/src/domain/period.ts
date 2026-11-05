@@ -100,10 +100,25 @@ export const formatPeriodLabel = (period: Period, t: TFunction, locale: string):
   if (isCalendarMonth(period)) {
     return month;
   }
-  const day = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  return t('period.labelWithRange', {
-    month,
-    start: day.format(toUtcDate(period.start)),
-    end: day.format(toUtcDate(period.end)),
-  });
+  return t('period.labelWithRange', { month, ...rangeParts(period, locale) });
 };
+
+/**
+ * Formats a period's first and last days as a short month and day each.
+ * @returns e.g. `{ start: 'Oct 25', end: 'Nov 24' }` in English.
+ */
+const rangeParts = (period: Period, locale: string): { start: string; end: string } => {
+  const day = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return { start: day.format(toUtcDate(period.start)), end: day.format(toUtcDate(period.end)) };
+};
+
+/**
+ * Formats a period as its first and last days, as the home screen's title
+ * shows it.
+ * @param t Translates the range pattern into the app language.
+ * @param locale Formats the dates, e.g. `'en'`.
+ * @returns E.g. "Oct 25 – Nov 24" in English, "10月25日～11月24日" in
+ *   Japanese, and "25 oct. – 24 nov." in French.
+ */
+export const formatPeriodRange = (period: Period, t: TFunction, locale: string): string =>
+  t('period.range', rangeParts(period, locale));

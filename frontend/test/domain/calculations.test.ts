@@ -1,6 +1,7 @@
 import {
   daysLeft,
   periodResult,
+  periodSummary,
   progressChart,
   spendingBudget,
   todayStatus,
@@ -229,6 +230,39 @@ describe('periodResult (BR-CALC-07)', () => {
     },
   ])('returns $name', ({ records, expected }) => {
     expect(periodResult(records)).toEqual(expected);
+  });
+});
+
+describe('periodSummary (BR-CALC-08, BR-DSH-03)', () => {
+  it.each([
+    {
+      name: 'the worked example’s totals',
+      records: workedExample,
+      today,
+      expected: {
+        income: 640_808,
+        fixedExpenses: 70_577,
+        bigPurchases: 28_000,
+        savingTarget: 400_000,
+        spentToDate: 43_007,
+        budgetLeft: 127_224,
+        daysLeft: 27,
+      },
+    },
+    {
+      name: 'a negative budget left once the period is overspent',
+      records: usd([expense('2026-11-01', 6_000, true), expense('2026-11-02', 4_500)]),
+      today: '2026-11-02',
+      expected: expect.objectContaining({ spentToDate: 10_500, budgetLeft: -500, daysLeft: 9 }),
+    },
+    {
+      name: 'only the period’s expenses',
+      records: usd([expense('2026-10-31', 9_999), expense('2026-11-01', 100)]),
+      today: '2026-11-01',
+      expected: expect.objectContaining({ spentToDate: 100, budgetLeft: 9_900 }),
+    },
+  ])('returns $name', ({ records, today: date, expected }) => {
+    expect(periodSummary(records, date)).toEqual(expected);
   });
 });
 

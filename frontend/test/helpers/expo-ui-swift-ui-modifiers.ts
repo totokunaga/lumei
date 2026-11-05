@@ -6,3 +6,6 @@ export const tag = (value: unknown) => ({ tag: value });
 
 /** Does nothing: the stand-in picker has one look. */
 export const pickerStyle = () => ({});
+
+/** Does nothing: the stand-in date picker has no label to hide. */
+export const labelsHidden = () => ({});

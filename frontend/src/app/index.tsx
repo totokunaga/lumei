@@ -1,99 +1,134 @@
+import { FlashList } from '@shopify/flash-list';
+import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useGetHealth } from '@/api/generated';
-import { signOutOfDevice, unsyncedChanges } from '@/auth/sign-out';
-import { useAuth } from '@/auth/store';
-import { riseIn } from '@/components/motion';
-import { CountingText } from '@/components/counting-text';
+import { ExpenseRow } from '@/components/expense-row';
 import { PressableScale } from '@/components/pressable-scale';
+import { QuickAddButton } from '@/components/quick-add-button';
+import { TodayCard } from '@/components/today-card';
+import { useDataVersion } from '@/db/changes';
 import { database } from '@/db/client';
-import { readPeriodRecords, readSettings } from '@/db/records';
-import { spendingBudget } from '@/domain/calculations';
-import { localToday } from '@/domain/date';
-import { type CurrencyCode, formatMoney } from '@/domain/money';
-import { formatPeriodLabel } from '@/domain/period';
+import { readPeriodExpenses, readPeriodRecords, readSettings } from '@/db/records';
+import { useToday } from '@/db/use-today';
+import { periodSummary, todayStatus } from '@/domain/calculations';
+import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
+import { formatPeriodRange } from '@/domain/period';
 
 /**
- * Renders the home screen: the current period and its spending budget
- * (BR-CALC-02), whether the API is reachable, and the signed-in account with
- * a sign-out button (BR-ACC-04). Signing out with unsynced changes asks for
- * confirmation first, since they would be lost.
+ * Renders the home screen: the current period's dates as its title, today's
+ * numbers (BR-DSH-01, BR-DSH-02) in a card that expands to the period
+ * summary (BR-DSH-03), the period's expenses newest first (BR-DSH-06), and
+ * the button that records an expense (BR-EXP-09). Every number is worked out on the device from the
+ * account's records (BR-OFF-02), and updates as soon as a record changes
+ * (BR-DSH-04, BR-NFR-04) and at local midnight (BR-DSH-05). The account
+ * button opens the account sheet, which signs out.
  */
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const health = useGetHealth();
-  const email = useAuth((s) => s.session?.user.email);
+  const today = useToday();
+  const version = useDataVersion();
 
-  const db = database();
-  const currency = (readSettings(db)?.currency ?? 'USD') as CurrencyCode;
-  const records = readPeriodRecords(db, localToday());
+  const data = useMemo(() => {
+    const db = database();
+    const records = readPeriodRecords(db, today);
+    return {
+      currency: (readSettings(db)?.currency ?? 'USD') as CurrencyCode,
+      records,
+      expenses: readPeriodExpenses(db, today),
+      status: records && todayStatus(records, today),
+      summary: records && periodSummary(records, today),
+    };
+    // `version` changes with every write, so the records are read again then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today, version]);
+  const money = (amount: Minor) => formatMoney(amount, data.currency, i18n.language);
 
-  let apiStatus = t('home.apiChecking');
-  if (health.isError) {
-    apiStatus = t('home.apiUnreachable');
-  } else if (health.data) {
-    apiStatus = t('home.apiStatus', { status: health.data.data.status });
-  }
-
-  /** Signs out, after a confirmation when unsynced changes would be lost. */
-  const signOut = () => {
-    const count = unsyncedChanges();
-    if (count === 0) {
-      void signOutOfDevice();
-      return;
-    }
-    Alert.alert(t('home.signOutTitle'), t('home.signOutUnsynced', { count }), [
-      { text: t('home.cancel'), style: 'cancel' },
-      { text: t('home.signOut'), style: 'destructive', onPress: () => void signOutOfDevice() },
-    ]);
-  };
-
-  return (
-    <View
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }}
-      className="flex-1 justify-between bg-white px-6 dark:bg-black"
-    >
-      <Animated.View entering={riseIn()} className="gap-6">
-        <Text className="text-3xl font-bold text-black dark:text-white">{t('home.title')}</Text>
-        {records ? (
-          <View className="gap-2 rounded-3xl bg-emerald-50 p-6 dark:bg-emerald-950">
-            <Text className="text-sm font-medium uppercase text-emerald-700 dark:text-emerald-300">
-              {t('home.period')}
-            </Text>
-            <Text className="text-xl font-semibold text-black dark:text-white">
-              {formatPeriodLabel(records.period, t, i18n.language)}
-            </Text>
-            <Text className="pt-2 text-sm font-medium uppercase text-emerald-700 dark:text-emerald-300">
-              {t('home.budget')}
-            </Text>
-            <CountingText
-              value={spendingBudget(records)}
-              format={(amount) => formatMoney(amount, currency, i18n.language)}
-              className="text-5xl font-bold text-emerald-700 dark:text-emerald-300"
-            />
-          </View>
-        ) : (
-          <Text className="text-base text-gray-500">{t('home.noPeriod')}</Text>
-        )}
-      </Animated.View>
-
-      <View className="items-center gap-2">
-        <Text className="text-sm text-gray-500">{apiStatus}</Text>
-        {email && <Text className="text-sm text-gray-500">{t('home.signedInAs', { email })}</Text>}
+  const header = (
+    <View className="gap-6 pb-3">
+      <View className="flex-row items-center justify-between gap-4">
+        <Text
+          accessibilityRole="header"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          className="flex-shrink text-3xl font-bold text-black dark:text-white"
+        >
+          {data.records
+            ? formatPeriodRange(data.records.period, t, i18n.language)
+            : t('home.today')}
+        </Text>
         <PressableScale
           accessibilityRole="button"
-          onPress={signOut}
-          className="mt-2 rounded-full bg-gray-100 px-5 py-3 dark:bg-gray-900"
+          accessibilityLabel={t('account.title')}
+          onPress={() => router.push('/account')}
+          className="h-11 w-11 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-900"
         >
-          <Text className="text-base font-semibold text-black dark:text-white">
-            {t('home.signOut')}
-          </Text>
+          <SymbolView
+            name={{ ios: 'person.crop.circle', android: 'account_circle' }}
+            size={24}
+            tintColor="#6B7280"
+          />
         </PressableScale>
       </View>
+
+      {data.records && data.status && data.summary ? (
+        <>
+          <TodayCard status={data.status} summary={data.summary} money={money} />
+          <Text
+            accessibilityRole="header"
+            className="px-1 pt-2 text-xl font-bold text-black dark:text-white"
+          >
+            {t('home.expenses')}
+          </Text>
+        </>
+      ) : (
+        <Text className="text-base text-gray-500">{t('home.noPeriod')}</Text>
+      )}
     </View>
   );
+
+  return (
+    <View className="flex-1 bg-white dark:bg-black">
+      {/* One list for the whole screen, so the cards scroll away with the expenses (BR-DSH-06). */}
+      <FlashList
+        data={data.expenses}
+        keyExtractor={(expense) => expense.id}
+        renderItem={({ item }) => <ExpenseRow expense={item} today={today} money={money} />}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          data.records ? (
+            <Text className="px-1 py-3 text-base text-gray-500 dark:text-gray-400">
+              {t('home.noExpenses')}
+            </Text>
+          ) : null
+        }
+        ItemSeparatorComponent={Separator}
+        contentContainerStyle={{
+          paddingTop: insets.top + 16,
+          paddingBottom: insets.bottom + 112,
+          paddingHorizontal: 24,
+        }}
+      />
+
+      {data.records && (
+        <View
+          pointerEvents="box-none"
+          style={{ bottom: insets.bottom + 24 }}
+          className="absolute right-6"
+        >
+          <QuickAddButton onPress={() => router.push('/expense/new')} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** Renders the hairline between two expenses, starting under their text rather than the emoji. */
+function Separator() {
+  return <View className="ml-[60px] h-px bg-gray-200 dark:bg-gray-800" />;
 }

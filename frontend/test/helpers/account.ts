@@ -1,7 +1,7 @@
 // An account that has finished setup, as if set up in an earlier session.
 import { closeUserDatabase, openUserDatabase } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
-import { saveSetup } from '@/db/records';
+import { addExpense, readCategories, saveSetup } from '@/db/records';
 import { localToday } from '@/domain/date';
 import { buildSetupRecords, type SetupChoices } from '@/domain/setup';
 
@@ -37,5 +37,30 @@ export const finishedSetup = async (
     ),
     now,
   );
+  closeUserDatabase();
+};
+
+/** An expense as `savedExpenses` takes it: on a date, at noon, in the first category unless set. */
+export interface ExpenseFixture {
+  amount: number;
+  date: string;
+  isBigPurchase?: boolean;
+}
+
+/**
+ * Saves expenses in the account's database and closes it, as an earlier
+ * session would have. Call it after `finishedSetup`.
+ */
+export const savedExpenses = async (
+  expenses: ExpenseFixture[],
+  userId: string = testUser.id,
+): Promise<void> => {
+  const db = await openUserDatabase(userId);
+  const [category] = readCategories(db);
+  for (const { amount, date, isBigPurchase = false } of expenses) {
+    const [year, month, day] = date.split('-').map(Number);
+    const spentAt = new Date(year, month - 1, day, 12).getTime();
+    addExpense(db, { amount, categoryId: category.id, spentAt, isBigPurchase }, newId(), spentAt);
+  }
   closeUserDatabase();
 };

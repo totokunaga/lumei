@@ -33,6 +33,9 @@ jest.mock('expo-sqlite/kv-store', () => ({
 }));
 beforeEach(() => mockKvStore.clear());
 
+// FlashList measures its views natively; its setup gives them fixed sizes.
+require('@shopify/flash-list/jestSetup');
+
 // Native views: Skia draws the region map, and @expo/ui the dropdowns. The
 // stand-ins in test/helpers/ render plain views instead.
 jest.mock('@shopify/react-native-skia', () => require('./helpers/skia'));

@@ -3,8 +3,10 @@
 // screen (BR-ACC-06).
 import { create } from 'zustand';
 
+import { localToday } from '@/domain/date';
+
 import { closeUserDatabase, deleteUserDatabase, openUserDatabase } from './client';
-import { readSettings } from './records';
+import { ensureCurrentPeriod, readSettings } from './records';
 
 /** The state of the account's database on the device. */
 interface LocalDataState {
@@ -14,7 +16,10 @@ interface LocalDataState {
   userId: string | null;
   /** True once the account has finished setup on this device (BR-ACC-06). */
   setupCompleted: boolean;
-  /** Opens the account's database and reads whether setup has finished. */
+  /**
+   * Opens the account's database, creates any period that started since the
+   * app was last open (BR-PER-03), and reads whether setup has finished.
+   */
   open: (userId: string) => Promise<void>;
   /** Closes the database, keeping its file, e.g. when the session expires. */
   close: () => void;
@@ -41,6 +46,8 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
     try {
       const db = await openUserDatabase(userId);
       if (get().userId === userId) {
+        // A period that ended while the app was closed gets its successors first (BR-PER-03).
+        ensureCurrentPeriod(db, localToday(), Date.now());
         set({ status: 'ready', setupCompleted: readSettings(db) !== null });
       }
     } catch {

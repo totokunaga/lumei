@@ -35,7 +35,6 @@ const openSetup = async (categorySetsResponse = sets) => {
   mockApi({
     'GET /me': json(200, testUser),
     'GET /category-sets': categorySetsResponse,
-    'GET /health': json(200, { status: 'ok' }),
   });
   await renderRouter(routes, { initialUrl: '/' });
   await screen.findByText(categorySetsResponse === sets ? 'Japan' : /Couldn't load the regions/);
@@ -119,9 +118,9 @@ describe('Setup (BR-ACC-06)', () => {
     }
     await press('Start using Lumei');
 
-    await screen.findByText('Sign out');
+    await screen.findByLabelText('Add expense');
     expect(screen).toHavePathname('/');
-    expect(screen.getByText('¥420,808')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Budget left: ¥420,808')).toBeOnTheScreen();
 
     const period = periodContaining(localToday(), 25);
     expect(records.readSettings(database())).toMatchObject({
@@ -155,7 +154,7 @@ describe('Setup (BR-ACC-06)', () => {
     expect(screen.getAllByText('Not set')).toHaveLength(3);
     await press('Start using Lumei');
 
-    await screen.findByText('Sign out');
+    await screen.findByLabelText('Add expense');
     // Skipping the start day keeps day 1, calendar months (BR-PER-01).
     expect(records.readSettings(database())).toMatchObject({ periodStartDay: 1 });
     expect(rows(incomes)).toEqual([]);
@@ -346,7 +345,7 @@ describe('Setup (BR-ACC-06)', () => {
     }
     await press('Lumei を始める');
 
-    await screen.findByText('サインアウト');
+    await screen.findByLabelText('支出を追加');
     expect(rows(categories)).toMatchObject([{ name: '外食' }, { name: 'コンビニ' }]);
     // The language is remembered on the device for the next launch (BR-SET-01).
     expect(Storage.setItemSync).toHaveBeenCalledWith('lumei.language', 'ja');

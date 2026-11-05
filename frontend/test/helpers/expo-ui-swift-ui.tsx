@@ -55,3 +55,15 @@ export const Text = ({
     </NativeText>
   );
 };
+
+/**
+ * Renders a view named by `title`, whose `dateChange` event picks a date:
+ * `fireEvent(screen.getByLabelText('Date and time'), 'dateChange', date)`.
+ */
+export const DatePicker = ({
+  title,
+  onDateChange,
+}: {
+  title?: string;
+  onDateChange?: (date: Date) => void;
+}) => <View accessibilityLabel={title} {...{ onDateChange }} />;

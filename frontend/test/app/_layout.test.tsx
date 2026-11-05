@@ -14,8 +14,6 @@ import { categorySets } from '../helpers/category-sets';
 import { hasDatabase } from '../helpers/database';
 import { routes } from '../helpers/routes';
 
-const health = json(200, { status: 'ok' });
-
 /** Stores a session on the device, as an earlier sign-in would have. */
 const storeSession = () =>
   SecureStore.setItemAsync('lumei.session', JSON.stringify(storedSessionFor()));
@@ -45,7 +43,7 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
       name: 'home for an account that has finished setup',
       session: true,
       setup: true,
-      expected: { path: '/', text: 'Sign out' },
+      expected: { path: '/', text: 'Remaining today' },
     },
   ])('opens $name', async ({ session, setup, expected }) => {
     if (session) {
@@ -56,7 +54,6 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     }
     mockApi({
       'GET /me': json(200, testUser),
-      'GET /health': health,
       'GET /category-sets': json(200, { sets: categorySets }),
     });
 
@@ -70,12 +67,12 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     await storeSession();
     await finishedSetup();
     jest.spyOn(client, 'openUserDatabase').mockRejectedValueOnce(new Error('disk full'));
-    mockApi({ 'GET /me': json(200, testUser), 'GET /health': health });
+    mockApi({ 'GET /me': json(200, testUser) });
     await renderRouter(routes, { initialUrl: '/' });
 
     await fireEvent.press(await screen.findByText('Try again'));
 
-    await screen.findByText('Sign out');
+    await screen.findByLabelText('Add expense');
     expect(screen).toHavePathname('/');
   });
 
@@ -103,11 +100,11 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     const alert = jest.spyOn(Alert, 'alert');
     mockApi({
       'GET /me': json(200, testUser),
-      'GET /health': health,
       'POST /auth/sign-out': noContent,
     });
     await renderRouter(routes, { initialUrl: '/' });
 
+    await fireEvent.press(await screen.findByLabelText('Account'));
     await fireEvent.press(await screen.findByText('Sign out'));
     if (confirm) {
       expect(alert).toHaveBeenCalledWith(
@@ -130,14 +127,15 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     await storeSession();
     await finishedSetup();
     const alert = jest.spyOn(Alert, 'alert');
-    const fetch = mockApi({ 'GET /me': json(200, testUser), 'GET /health': health });
+    const fetch = mockApi({ 'GET /me': json(200, testUser) });
     await renderRouter(routes, { initialUrl: '/' });
 
+    await fireEvent.press(await screen.findByLabelText('Account'));
     await fireEvent.press(await screen.findByText('Sign out'));
     const buttons = alert.mock.calls[0][2] as AlertButton[];
     buttons.find((button) => button.style === 'cancel')?.onPress?.();
 
-    expect(screen).toHavePathname('/');
+    expect(screen).toHavePathname('/account');
     expect(hasDatabase(testUser.id)).toBe(true);
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/auth/sign-out'), expect.anything());
   });

@@ -86,6 +86,15 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={signedIn && setupCompleted}>
           <Stack.Screen name="index" />
+          <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="account"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: 'fitToContents',
+              sheetGrabberVisible: true,
+            }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={signedIn && !setupCompleted}>
           <Stack.Screen name="setup" options={{ animation: 'fade' }} />

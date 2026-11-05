@@ -1,4 +1,5 @@
 import * as client from '@/db/client';
+import { readPeriodRecords } from '@/db/records';
 import { useLocalData } from '@/db/store';
 
 import { finishedSetup } from '../helpers/account';
@@ -31,6 +32,21 @@ describe('useLocalData.open (BR-ACC-06)', () => {
     await useLocalData.getState().open('user-1');
 
     expect(useLocalData.getState()).toMatchObject(expected);
+  });
+
+  it('creates the periods that started while the app was closed (BR-PER-03)', async () => {
+    // Set up in October; opened again in December. Only the clock is faked.
+    jest.useFakeTimers({ now: new Date(2026, 9, 15, 12), doNotFake: ['setTimeout', 'setImmediate', 'nextTick', 'queueMicrotask'] });
+    await finishedSetup({}, 'user-1');
+    jest.setSystemTime(new Date(2026, 11, 3, 9));
+
+    await useLocalData.getState().open('user-1');
+    jest.useRealTimers();
+
+    expect(readPeriodRecords(client.database(), '2026-12-03')).toMatchObject({
+      period: { start: '2026-12-01', end: '2026-12-31' },
+      income: [300_000],
+    });
   });
 
   it('opens the account once, however often it is asked to', async () => {

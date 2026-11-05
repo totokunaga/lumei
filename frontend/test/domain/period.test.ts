@@ -1,4 +1,7 @@
-import { formatPeriodLabel, isCalendarMonth, periodContaining, periodDays } from '@/domain/period';
+import {
+  formatPeriodLabel,
+  formatPeriodRange,
+  isCalendarMonth, periodContaining, periodDays } from '@/domain/period';
 import i18n from '@/i18n';
 
 jest.mock('expo-localization', () => ({ getLocales: () => [] }));
@@ -95,5 +98,16 @@ describe('formatPeriodLabel (BR-PER-06)', () => {
     { language: 'fr', period: shifted, expected: 'novembre 2026 (25 oct. – 24 nov.)' },
   ])('labels $period.start – $period.end in $language', ({ language, period, expected }) => {
     expect(formatPeriodLabel(period, i18n.getFixedT(language), language)).toBe(expected);
+  });
+});
+
+describe('formatPeriodRange', () => {
+  it.each([
+    { language: 'en', period: { start: '2026-10-25', end: '2026-11-24' }, expected: 'Oct 25 – Nov 24' },
+    { language: 'en', period: { start: '2026-11-01', end: '2026-11-30' }, expected: 'Nov 1 – Nov 30' },
+    { language: 'ja', period: { start: '2026-10-25', end: '2026-11-24' }, expected: '10月25日～11月24日' },
+    { language: 'fr', period: { start: '2026-10-25', end: '2026-11-24' }, expected: '25 oct. – 24 nov.' },
+  ])('formats $period.start – $period.end in $language', ({ language, period, expected }) => {
+    expect(formatPeriodRange(period, i18n.getFixedT(language), language)).toBe(expected);
   });
 });

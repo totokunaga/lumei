@@ -13,8 +13,6 @@ import { routes } from '../helpers/routes';
 // Apple's button is native; the stand-in is a plain button with its label.
 jest.mock('expo-apple-authentication', () => require('../helpers/apple-authentication'));
 
-const health = json(200, { status: 'ok' });
-
 /** Opens the app signed out, on the sign-in screen. */
 const openSignIn = async () => {
   await renderRouter(routes, { initialUrl: '/sign-in' });
@@ -52,24 +50,24 @@ describe('SignInScreen (BR-ACC-01)', () => {
     },
   ])('signs in with $name and opens home', async ({ button, setup, expected }) => {
     setup();
-    const fetch = mockApi({ 'POST /auth/sign-in': signedIn(), 'GET /health': health });
+    const fetch = mockApi({ 'POST /auth/sign-in': signedIn() });
     await openSignIn();
 
     await fireEvent.press(await screen.findByText(button));
 
-    await screen.findByText('Signed in as user@example.com');
+    await screen.findByLabelText('Add expense');
     expect(requestBody(fetch)).toEqual(expected);
     expect(screen).toHavePathname('/');
   });
 
   it('signs in as a developer with an email address', async () => {
-    const fetch = mockApi({ 'POST /auth/sign-in': signedIn(), 'GET /health': health });
+    const fetch = mockApi({ 'POST /auth/sign-in': signedIn() });
     await openSignIn();
 
     await fireEvent.changeText(screen.getByLabelText('Email address'), ' dev@example.com ');
     await fireEvent.press(screen.getByText('Sign in'));
 
-    await screen.findByText('Signed in as user@example.com');
+    await screen.findByLabelText('Add expense');
     expect(requestBody(fetch)).toEqual({ provider: 'dev', id_token: 'dev@example.com' });
   });
 

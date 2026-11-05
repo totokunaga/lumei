@@ -2,7 +2,7 @@
 
 How the mobile app saves changes on the device first and syncs them with the Go API, so the app works offline (BR-OFF-01 to BR-OFF-06, BR-NFR-04, BR-NFR-05).
 
-- **Status:** the on-device database is implemented (`frontend/src/db/`): every table has the sync columns, and every write marks its rows pending. The sync engine and the sync endpoints aren't implemented yet, so changes stay on the device for now.
+- **Status:** the on-device database is implemented (`frontend/src/db/`), including expenses: every table has the sync columns, and every write marks its rows pending. Screens update after every write through a change notifier (`frontend/src/db/changes.ts`) rather than SQLite live queries; the sync engine will write through the same functions. The sync engine and the sync endpoints aren't implemented yet, so changes stay on the device for now.
 - **Stack:** the app keeps every record in SQLite on the device (`expo-sqlite` with Drizzle). Screens read and write only that database. A sync engine in the app pushes local changes to the API and pulls changes from other devices. The API stores the records in PostgreSQL on RDS and resolves conflicts. The sync protocol is our own: two endpoints, no third-party sync service.
 - **Scope:** all user data: settings, categories, periods, income, fixed expenses, targets, and expenses. Each one uses the same mechanism, so BR-OFF-06 comes with BR-OFF-01. Signing in, account deletion, and the network layout are out of scope; see [`authentication.md`](authentication.md) and [`aws-infrastructure.md`](aws-infrastructure.md).
 - **Code paths (planned):**
@@ -14,7 +14,7 @@ How the mobile app saves changes on the device first and syncs them with the Go 
 ```mermaid
 flowchart LR
   subgraph device["User device"]
-    ui["Screens<br/>live queries"]
+    ui["Screens<br/>re-read on change"]
     sqlite[("SQLite<br/>records + pending flags + cursor")]
     engine["Sync engine<br/>push, then pull"]
   end
@@ -43,7 +43,7 @@ flowchart LR
   alb -->|"7. HTTP :8080"| api
   api -->|"8. PostgreSQL :5432<br/>read changes after cursor"| rds
   engine -->|"9. SQLite write: apply changes, save cursor"| sqlite
-  sqlite -->|"10. Live query: screens update"| ui
+  sqlite -->|"10. Change notice: screens re-read"| ui
 ```
 
 Solid arrows show calls in order: 1 is the user's change, which never waits for the network; 2–5 push it; 6–9 pull other devices' changes; 10 updates the screens. There are no configuration links.
@@ -52,7 +52,7 @@ Solid arrows show calls in order: 1 is the user's change, which never waits for 
 
 | ID       | Resource                       | Placement      | Responsibility |
 |----------|--------------------------------|----------------|----------------|
-| `ui`     | Screens (React Native)         | User device    | Write records to SQLite and read them back with live queries, so a saved expense shows on the home screen within a second, online or offline (BR-NFR-04). Never call the sync endpoints. |
+| `ui`     | Screens (React Native)         | User device    | Write records to SQLite and read them again after every change notice, so a saved expense shows on the home screen within a second, online or offline (BR-NFR-04). Never call the sync endpoints. |
 | `sqlite` | SQLite database (`expo-sqlite`) | User device   | The app's only source of data. One database file per signed-in account. Holds the records, which rows haven't synced (BR-OFF-04), and the pull cursor. |
 | `engine` | Sync engine (`src/sync/`)      | User device    | Runs a sync cycle (push, then pull) when it is triggered. Only one cycle runs at a time. |
 | `alb`    | Application Load Balancer      | Public subnet  | Ends TLS and forwards requests to the ECS task (see [`aws-infrastructure.md`](aws-infrastructure.md)) |
@@ -72,7 +72,7 @@ Solid arrows show calls in order: 1 is the user's change, which never waits for 
 | `alb`    | `api`    | HTTP / 8080       | Forward the pull |
 | `api`    | `rds`    | PostgreSQL / 5432 | Read the user's rows changed after the cursor, oldest first |
 | `engine` | `sqlite` | In-process (SQLite) | Apply the pulled rows and save the new cursor, in one transaction |
-| `sqlite` | `ui`     | In-process (live query) | Re-render the screens whose data changed |
+| `sqlite` | `ui`     | In-process (change notice) | Re-render the screens showing records, which read them again |
 
 ## Security groups
 
@@ -141,7 +141,7 @@ Pushing the same rows again is harmless: a row that's already applied has the sa
    - A row that isn't pending on the device is overwritten.
    - A row that is pending goes through the same conflict rules as on the API. If the pulled version wins, it overwrites the local one and clears `pending`. If the local change wins, it stays pending, and the next push sends it.
 4. The engine saves the new cursor in the same transaction, then pulls again while more rows are waiting.
-5. Live queries update every screen showing a changed row (arrow 10).
+5. A change notice makes every screen showing records read them again (arrow 10).
 
 A device that signs in for the first time starts with cursor 0 and so pulls everything.
 

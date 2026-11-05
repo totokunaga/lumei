@@ -1,7 +1,7 @@
 // The on-device database (see docs/architecture/offline-sync.md). Screens read
 // and write only these tables; the sync engine (phase 5) sends the rows marked
 // pending to the API. One database file holds one account's data.
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Returns the sync columns every table has, so the sync engine can push,
@@ -83,6 +83,37 @@ export const savingTargets = sqliteTable('saving_targets', {
   amount: integer('amount').notNull(),
 });
 
+/**
+ * The user's expenses (BR-EXP-01 to BR-EXP-05). An expense has no period ID:
+ * it belongs to the period containing its date (BR-EXP-07), so changing the
+ * date moves it without touching other rows.
+ */
+export const expenses = sqliteTable(
+  'expenses',
+  {
+    ...syncColumns(),
+    /** In minor units, greater than 0 (BR-EXP-08, BR-NFR-06). */
+    amount: integer('amount').notNull(),
+    categoryId: text('category_id').notNull(),
+    /**
+     * The calendar date in the device's time zone when it happened,
+     * `YYYY-MM-DD` (BR-EXP-02). The calculations go by it, so it stays the
+     * same day if the user later changes time zone.
+     */
+    date: text('date').notNull(),
+    /** When it happened, in milliseconds since the epoch (BR-EXP-02). */
+    spentAt: integer('spent_at').notNull(),
+    /** Whether it is a big purchase (BR-EXP-05), which the allowance spreads over the days left. */
+    isBigPurchase: integer('is_big_purchase', { mode: 'boolean' }).notNull().default(false),
+    /** An optional description (BR-EXP-03); null when empty. */
+    description: text('description'),
+    /** Where it was recorded (BR-EXP-04), or null without a location. */
+    latitude: real('latitude'),
+    longitude: real('longitude'),
+  },
+  (table) => [index('expenses_date').on(table.date)],
+);
+
 /** Every synced table, for code that treats them alike (e.g. counting pending rows). */
 export const syncedTables = [
   settings,
@@ -91,4 +122,5 @@ export const syncedTables = [
   incomes,
   fixedExpenses,
   savingTargets,
+  expenses,
 ] as const;

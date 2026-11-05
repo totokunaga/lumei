@@ -1,4 +1,4 @@
-// The calculations of the business requirements (BR-CALC-01 to BR-CALC-07).
+// The calculations of the business requirements (BR-CALC-01 to BR-CALC-08).
 // They run on the device, so today's status and the chart work offline
 // (BR-OFF-02).
 import { addDays, daysBetween, type IsoDate } from '@/domain/date';
@@ -130,6 +130,39 @@ export const periodResult = (records: PeriodRecords): PeriodResult => {
     sum(records.fixedExpenses) -
     sum(expensesIn(records).map((e) => e.amount));
   return { saved, targetMet: saved >= records.savingTarget };
+};
+
+export interface PeriodSummary {
+  income: Minor;
+  fixedExpenses: Minor;
+  bigPurchases: Minor;
+  savingTarget: Minor;
+  /** Every expense in the period so far, big purchases included (BR-CALC-08). */
+  spentToDate: Minor;
+  /** `budget − spentToDate`, negative once the period is overspent (BR-CALC-08). */
+  budgetLeft: Minor;
+  daysLeft: number;
+}
+
+/**
+ * Works out the home screen's period summary (BR-DSH-03): the period's
+ * totals, the spending to date and budget left (BR-CALC-08), and the days
+ * left (BR-CALC-01).
+ * @returns The summary; see `PeriodSummary` for each field.
+ * @throws RangeError if today is outside the period.
+ */
+export const periodSummary = (records: PeriodRecords, today: IsoDate): PeriodSummary => {
+  const expenses = expensesIn(records);
+  const spentToDate = sum(expenses.map((e) => e.amount));
+  return {
+    income: sum(records.income),
+    fixedExpenses: sum(records.fixedExpenses),
+    bigPurchases: sum(expenses.filter((e) => e.isBigPurchase).map((e) => e.amount)),
+    savingTarget: records.savingTarget,
+    spentToDate,
+    budgetLeft: spendingBudget(records) - spentToDate,
+    daysLeft: daysLeft(records.period, today),
+  };
 };
 
 export interface ChartDay {
