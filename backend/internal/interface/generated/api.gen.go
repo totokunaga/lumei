@@ -495,6 +495,11 @@ type SettingsRow struct {
 	// Id A UUID made on the device.
 	Id string `json:"id"`
 
+	// NextPeriodEnd The end date of the next period, `YYYY-MM-DD`, when a start-day change
+	// added the days before the new start to it (BR-PER-05); null otherwise.
+	// Older app versions leave it out.
+	NextPeriodEnd *string `json:"next_period_end,omitempty"`
+
 	// PeriodStartDay The day of the month periods start on, 1–31 (BR-PER-01).
 	PeriodStartDay int32 `json:"period_start_day"`
 

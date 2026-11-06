@@ -180,5 +180,40 @@
     "THB": "Baht thaïlandais",
     "USD": "Dollar américain",
     "ZAR": "Rand sud-africain"
+  },
+  "tabs": {
+    "home": "Accueil",
+    "settings": "Réglages"
+  },
+  "settings": {
+    "title": "Réglages",
+    "budget": "Budget",
+    "app": "Application",
+    "spread": {
+      "label": "Gros achats",
+      "daysLeft": "Répartis sur les jours restants",
+      "wholePeriod": "Répartis sur toute la période",
+      "daysLeftHint": "Sur le graphique, chaque gros achat est réparti sur les jours de sa date à la fin de sa période. Les budgets du jour ne changent pas.",
+      "wholePeriodHint": "Sur le graphique, chaque gros achat est réparti sur tous les jours de sa période. Les budgets du jour ne changent pas."
+    },
+    "startDay": {
+      "title": "Début de période",
+      "label": "Début de période",
+      "description": "Les périodes après la période actuelle commenceront ce jour-là. Les périodes passées gardent leurs dates.",
+      "current": "Période actuelle",
+      "rangeDays_one": "{{range}} ({{count}} jour)",
+      "rangeDays_other": "{{range}} ({{count}} jours)",
+      "nextAligned": "Période suivante : {{range}}",
+      "gapQuestion": "Que faire des jours {{range}} ?",
+      "choice": {
+        "current": "Les ajouter à cette période",
+        "next": "Les ajouter à la période suivante",
+        "own": "En faire une période à part"
+      },
+      "currentDetail": "Cette période devient {{range}}. Choisissez-le si l'argent de cette période doit durer jusqu'au {{date}}.",
+      "nextDetail": "La période suivante devient {{range}}. Choisissez-le si vous êtes payé le {{date}} pour toute cette durée.",
+      "ownDetail": "La période suivante est {{range}}. Elle reprend les revenus et dépenses fixes de cette période, que vous voudrez peut-être réduire.",
+      "save": "Enregistrer"
+    }
   }
 }

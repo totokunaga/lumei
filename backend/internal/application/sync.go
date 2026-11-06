@@ -74,6 +74,9 @@ type SettingsRecord struct {
 	PeriodStartDay    int
 	BigPurchaseSpread string
 	SetupCompletedAt  int64
+	// NextPeriodEnd is the end date of the next period a start-day change
+	// chose (BR-PER-05), or nil.
+	NextPeriodEnd *string
 }
 
 // CategoryRecord is a category (BR-CAT-01 to BR-CAT-03).
@@ -358,7 +361,8 @@ func (r SettingsRecord) Validate() error {
 		isCurrencyCode(r.Currency) &&
 		r.PeriodStartDay >= 1 && r.PeriodStartDay <= 31 &&
 		(r.BigPurchaseSpread == "daysLeft" || r.BigPurchaseSpread == "wholePeriod") &&
-		r.SetupCompletedAt > 0)
+		r.SetupCompletedAt > 0 &&
+		(r.NextPeriodEnd == nil || isDate(*r.NextPeriodEnd)))
 }
 
 // Table implements SyncRecord.

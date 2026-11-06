@@ -47,6 +47,8 @@ type settingsModel struct {
 	PeriodStartDay    int    `bun:"period_start_day"`
 	BigPurchaseSpread string `bun:"big_purchase_spread"`
 	SetupCompletedAt  int64  `bun:"setup_completed_at"`
+	// NextPeriodEnd is a date column, or null.
+	NextPeriodEnd *time.Time `bun:"next_period_end,type:date"`
 }
 
 func (m *settingsModel) record() application.SyncRecord {
@@ -56,6 +58,7 @@ func (m *settingsModel) record() application.SyncRecord {
 		PeriodStartDay:    m.PeriodStartDay,
 		BigPurchaseSpread: m.BigPurchaseSpread,
 		SetupCompletedAt:  m.SetupCompletedAt,
+		NextPeriodEnd:     formatOptionalDate(m.NextPeriodEnd),
 	}
 }
 
@@ -187,9 +190,14 @@ func toModel(row application.SyncRow, userID uuid.UUID, seq int64) (syncModel, e
 	}
 	switch r := row.Record.(type) {
 	case application.SettingsRecord:
+		nextEnd, err := parseOptionalDate(r.NextPeriodEnd)
+		if err != nil {
+			return nil, err
+		}
 		return &settingsModel{
 			syncBase: base, Region: r.Region, Currency: r.Currency, PeriodStartDay: r.PeriodStartDay,
 			BigPurchaseSpread: r.BigPurchaseSpread, SetupCompletedAt: r.SetupCompletedAt,
+			NextPeriodEnd: nextEnd,
 		}, nil
 	case application.CategoryRecord:
 		return &categoryModel{
@@ -445,4 +453,25 @@ func parseDate(s string) (time.Time, error) {
 // formatDate formats a date as `YYYY-MM-DD`.
 func formatDate(d time.Time) string {
 	return d.Format(time.DateOnly)
+}
+
+// parseOptionalDate parses a `YYYY-MM-DD` date, or returns nil for nil.
+func parseOptionalDate(s *string) (*time.Time, error) {
+	if s == nil {
+		return nil, nil //nolint:nilnil // no date is not an error
+	}
+	d, err := parseDate(*s)
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+// formatOptionalDate formats a date as `YYYY-MM-DD`, or returns nil for nil.
+func formatOptionalDate(d *time.Time) *string {
+	if d == nil {
+		return nil
+	}
+	s := formatDate(*d)
+	return &s
 }

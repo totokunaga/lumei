@@ -81,3 +81,47 @@ describe('nextPeriods (BR-PER-03)', () => {
     expect(next.savingTarget).toBeNull();
   });
 });
+
+describe('nextPeriods after a start-day change (BR-PER-05)', () => {
+  it.each([
+    {
+      name: 'the next period on its chosen end, then the new start day',
+      nextPeriodEnd: '2026-12-31',
+      periods: [
+        ['2026-11-25', '2026-12-31'],
+        ['2027-01-01', '2027-01-31'],
+      ],
+    },
+    {
+      name: 'the gap as its own period without a chosen end',
+      nextPeriodEnd: null,
+      periods: [
+        ['2026-11-25', '2026-11-30'],
+        ['2026-12-01', '2026-12-31'],
+        ['2027-01-01', '2027-01-31'],
+      ],
+    },
+  ])('creates $name', ({ nextPeriodEnd, periods }) => {
+    const created = nextPeriods(october, {
+      userId: 'u',
+      startDay: 1,
+      today: '2027-01-15',
+      derivedId,
+      nextPeriodEnd,
+    });
+
+    expect(created.map(({ period }) => [period.startDate, period.endDate])).toEqual(periods);
+  });
+
+  it('ignores a chosen end the periods have already passed', () => {
+    const created = nextPeriods(october, {
+      userId: 'u',
+      startDay: 25,
+      today: '2026-11-25',
+      derivedId,
+      nextPeriodEnd: '2026-10-31',
+    });
+
+    expect(created.map(({ period }) => period.endDate)).toEqual(['2026-12-24']);
+  });
+});

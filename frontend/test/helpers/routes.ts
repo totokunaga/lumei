@@ -1,9 +1,12 @@
 // Every route file, for `renderRouter`, so tests cover the real layouts and
 // their guards.
 import RootLayout from '@/app/_layout';
-import AccountScreen from '@/app/account';
+import TabsLayout from '@/app/(tabs)/_layout';
+import HomeScreen from '@/app/(tabs)/index';
+import SettingsLayout from '@/app/(tabs)/settings/_layout';
+import SettingsScreen from '@/app/(tabs)/settings/index';
+import StartDayScreen from '@/app/(tabs)/settings/start-day';
 import NewExpenseScreen from '@/app/expense/new';
-import HomeScreen from '@/app/index';
 import SignInScreen from '@/app/sign-in';
 import SetupLayout from '@/app/setup/_layout';
 import ConfirmStep from '@/app/setup/confirm';
@@ -16,9 +19,12 @@ import TargetStep from '@/app/setup/target';
 
 export const routes = {
   _layout: RootLayout,
-  index: HomeScreen,
+  '(tabs)/_layout': TabsLayout,
+  '(tabs)/index': HomeScreen,
+  '(tabs)/settings/_layout': SettingsLayout,
+  '(tabs)/settings/index': SettingsScreen,
+  '(tabs)/settings/start-day': StartDayScreen,
   'sign-in': SignInScreen,
-  account: AccountScreen,
   'expense/new': NewExpenseScreen,
   'setup/_layout': SetupLayout,
   'setup/index': RegionStep,

@@ -231,10 +231,12 @@ func TestPushChanges(t *testing.T) {
 						settings.with(syncRow{"period_start_day": 0}),
 						settings.with(syncRow{"big_purchase_spread": "sometimes"}),
 						settings.with(syncRow{"setup_completed_at": 0}),
+						settings.with(syncRow{"next_period_end": "2026-12-32"}),
 					), assertOutcomes(
 						"rejected:invalid_row", "rejected:invalid_row",
 						"rejected:invalid_row", "rejected:invalid_row",
-						"rejected:invalid_row", "rejected:invalid_row", "rejected:invalid_row",
+						"rejected:invalid_row", "rejected:invalid_row",
+						"rejected:invalid_row", "rejected:invalid_row",
 					)
 			},
 			expectedStatus: http.StatusOK,
@@ -383,7 +385,8 @@ func TestPullChanges(t *testing.T) {
 				period, category := newRowID(), newRowID()
 				expense := expenseSyncRow(newRowID(), category, syncBaseTime)
 				rows := []syncRow{
-					settingsSyncRow(session.User.Id, syncBaseTime),
+					settingsSyncRow(session.User.Id, syncBaseTime).
+						with(syncRow{"next_period_end": "2026-12-31"}),
 					categorySyncRow(category, syncBaseTime).with(syncRow{"archived_at": syncBaseTime}),
 					periodSyncRow(period, syncBaseTime),
 					incomeSyncRow(newRowID(), period, syncBaseTime),

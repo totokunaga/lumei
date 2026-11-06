@@ -6,17 +6,21 @@ import { type Database, openUserDatabase } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
 import {
   addExpense,
+  changeStartDay,
   countFailedChanges,
   countPendingChanges,
   ensureCurrentPeriod,
   readCategories,
   readFirstPeriodStart,
   readPeriodExpenses,
+  readPeriodOn,
   readPeriodRecords,
   readSettings,
   saveSetup,
+  setBigPurchaseSpread,
 } from '@/db/records';
-import { categories, expenses, incomes, periods, savingTargets } from '@/db/schema';
+import { categories, expenses, incomes, periods, savingTargets, settings } from '@/db/schema';
+import { addDays } from '@/domain/date';
 import { buildSetupRecords, type SetupChoices } from '@/domain/setup';
 
 import { japanSet } from '../helpers/category-sets';
@@ -315,5 +319,74 @@ describe('readPeriodExpenses (BR-DSH-06)', () => {
     const db = await saveFinishedSetup();
 
     expect(readPeriodExpenses(db, '2027-01-01')).toEqual([]);
+  });
+});
+
+describe('changeStartDay (BR-PER-05)', () => {
+  // Setup on Oct 29 with start day 25: the current period is Oct 25 – Nov 24.
+  it.each([
+    {
+      name: 'this period to the day before the next new start',
+      choice: 'current' as const,
+      current: { start: '2026-10-25', end: '2026-11-30' },
+      next: { start: '2026-12-01', end: '2026-12-31' },
+    },
+    {
+      name: 'the next period over the gap and the period after it',
+      choice: 'next' as const,
+      current: { start: '2026-10-25', end: '2026-11-24' },
+      next: { start: '2026-11-25', end: '2026-12-31' },
+    },
+    {
+      name: 'the gap into a period of its own',
+      choice: 'own' as const,
+      current: { start: '2026-10-25', end: '2026-11-24' },
+      next: { start: '2026-11-25', end: '2026-11-30' },
+    },
+  ])('moves $name', async ({ choice, current, next }) => {
+    const db = await saveFinishedSetup();
+
+    changeStartDay(db, 1, choice, '2026-10-29', 2_000);
+
+    expect(readPeriodOn(db, '2026-10-29')).toMatchObject(current);
+    // The next period appears when this one ends, and the ones after it follow the new day.
+    ensureCurrentPeriod(db, addDays(current.end, 1), 3_000);
+    expect(readPeriodOn(db, addDays(current.end, 1))).toMatchObject(next);
+    ensureCurrentPeriod(db, addDays(next.end, 1), 4_000);
+    expect(readPeriodOn(db, addDays(next.end, 1))?.start).toBe(addDays(next.end, 1));
+    expect(readSettings(db)?.periodStartDay).toBe(1);
+  });
+
+  it('marks what it changed for sync, at the next revision', async () => {
+    const db = await saveFinishedSetup();
+    db.update(settings).set({ pending: false, syncError: 'invalid_row' }).run();
+    db.update(periods).set({ pending: false }).run();
+
+    changeStartDay(db, 1, 'current', '2026-10-29', 2_000);
+
+    const sync = { updatedAt: 2_000, pending: true, syncError: null, localRev: 2 };
+    expect(db.select().from(settings).get()).toMatchObject({ ...sync, nextPeriodEnd: null });
+    expect(db.select().from(periods).get()).toMatchObject(sync);
+  });
+
+  it('fails without a period containing today', async () => {
+    const db = await saveFinishedSetup();
+
+    expect(() => changeStartDay(db, 1, 'own', '2027-06-01', 2_000)).toThrow('No period contains today');
+  });
+});
+
+describe('setBigPurchaseSpread (BR-SET-05)', () => {
+  it('saves the spread, pending sync at the next revision', async () => {
+    const db = await saveFinishedSetup();
+
+    setBigPurchaseSpread(db, 'wholePeriod', 2_000);
+
+    expect(readSettings(db)).toMatchObject({
+      bigPurchaseSpread: 'wholePeriod',
+      updatedAt: 2_000,
+      pending: true,
+      localRev: 2,
+    });
   });
 });

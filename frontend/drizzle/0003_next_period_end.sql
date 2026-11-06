@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `next_period_end` text;

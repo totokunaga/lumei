@@ -3,12 +3,14 @@ import * as SecureStore from 'expo-secure-store';
 import { renderRouter } from 'expo-router/testing-library';
 
 import { useAuth } from '@/auth/store';
+import { database } from '@/db/client';
+import { readSettings } from '@/db/records';
 import { useLocalData } from '@/db/store';
 import i18n from '@/i18n';
 
-import { finishedSetup } from '../helpers/account';
-import { applyPush, json, mockApi, offline, storedSessionFor, syncApi, testUser } from '../helpers/api';
-import { routes } from '../helpers/routes';
+import { finishedSetup } from '../../../helpers/account';
+import { applyPush, json, mockApi, offline, storedSessionFor, syncApi, testUser } from '../../../helpers/api';
+import { routes } from '../../../helpers/routes';
 
 /** Answers a push by rejecting the period and applying every other row. */
 const rejectPeriod = (init: RequestInit | undefined, url: URL) => {
@@ -25,7 +27,7 @@ const rejectPeriod = (init: RequestInit | undefined, url: URL) => {
   })();
 };
 
-describe('AccountScreen (BR-OFF-04)', () => {
+describe('SettingsScreen (BR-OFF-04)', () => {
   beforeAll(() => i18n.changeLanguage('en'));
   beforeEach(() => {
     useAuth.setState({ status: 'restoring', session: null });
@@ -53,12 +55,31 @@ describe('AccountScreen (BR-OFF-04)', () => {
     await SecureStore.setItemAsync('lumei.session', JSON.stringify(storedSessionFor()));
     await finishedSetup();
     mockApi({ ...sync, 'GET /me': json(200, testUser) });
-    await renderRouter(routes, { initialUrl: '/' });
-
-    await fireEvent.press(await screen.findByLabelText('Account'));
+    await renderRouter(routes, { initialUrl: '/settings' });
 
     for (const text of expected) {
       expect(await screen.findByText(text)).toBeOnTheScreen();
     }
+  });
+});
+
+describe('SettingsScreen (BR-SET-05)', () => {
+  beforeAll(() => i18n.changeLanguage('en'));
+  beforeEach(() => {
+    useAuth.setState({ status: 'restoring', session: null });
+    useLocalData.setState({ status: 'closed', userId: null, setupCompleted: false });
+  });
+
+  it('changes how big purchases are spread on the charts', async () => {
+    await SecureStore.setItemAsync('lumei.session', JSON.stringify(storedSessionFor()));
+    await finishedSetup();
+    mockApi({ ...syncApi, 'GET /me': json(200, testUser) });
+    await renderRouter(routes, { initialUrl: '/settings' });
+    expect(await screen.findByText(/each big purchase is spread over the days from its date/)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText('Spread over whole period'));
+
+    expect(await screen.findByText(/each big purchase is spread over every day/)).toBeOnTheScreen();
+    expect(readSettings(database())?.bigPurchaseSpread).toBe('wholePeriod');
   });
 });

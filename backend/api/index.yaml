@@ -884,6 +884,14 @@ components:
           type: integer
           format: int64
           description: When setup finished (BR-ACC-06).
+        next_period_end:
+          type: string
+          nullable: true
+          description: |-
+            The end date of the next period, `YYYY-MM-DD`, when a start-day change
+            added the days before the new start to it (BR-PER-05); null otherwise.
+            Older app versions leave it out.
+          example: '2026-12-31'
       description: "The account's settings: one row, whose ID is the user ID."
     SignInProvider:
       type: string

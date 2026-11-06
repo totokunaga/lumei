@@ -23,12 +23,15 @@ export interface PeriodRows {
  * Works out the periods to create after the latest one, up to the one
  * containing today (BR-PER-03). Each starts the day after the one before
  * ends, so periods never leave a gap, and ends where the start day says
- * (BR-PER-01, BR-PER-02). Each copies the income, fixed expenses, and saving
+ * (BR-PER-01, BR-PER-02), or on `nextPeriodEnd` when a start-day change set
+ * it (BR-PER-05). Each copies the income, fixed expenses, and saving
  * target of the one before. Every ID derives from what it copies (see
  * docs/architecture/offline-sync.md), so two devices rolling over offline
  * create the same records.
  * @param latest The latest period the account has, with its items.
  * @param derivedId Derives the same ID from the same parts on every device (`src/db/ids.ts`).
+ * @param nextPeriodEnd The end a start-day change chose for the period after
+ *   `latest` (BR-PER-05), or null.
  * @returns The new periods, oldest first: none while `latest` hasn't ended,
  *   and more than one if the app wasn't opened for a whole period.
  */
@@ -39,11 +42,13 @@ export const nextPeriods = (
     startDay,
     today,
     derivedId,
+    nextPeriodEnd = null,
   }: {
     userId: string;
     startDay: StartDay;
     today: IsoDate;
     derivedId: (...parts: string[]) => string;
+    nextPeriodEnd?: IsoDate | null;
   },
 ): PeriodRows[] => {
   const created: PeriodRows[] = [];
@@ -52,7 +57,15 @@ export const nextPeriods = (
     const startDate = addDays(previous.period.endDate, 1);
     const periodId = derivedId(userId, 'period', startDate);
     const next: PeriodRows = {
-      period: { id: periodId, startDate, endDate: periodContaining(startDate, startDay).end },
+      period: {
+        id: periodId,
+        startDate,
+        // Only the period a start-day change lengthened ends on its chosen date.
+        endDate:
+          nextPeriodEnd !== null && startDate <= nextPeriodEnd
+            ? nextPeriodEnd
+            : periodContaining(startDate, startDay).end,
+      },
       incomes: previous.incomes.map((item) => ({
         ...item,
         id: derivedId(periodId, item.id),

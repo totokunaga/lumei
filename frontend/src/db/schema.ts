@@ -42,6 +42,11 @@ export const settings = sqliteTable('settings', {
   bigPurchaseSpread: text('big_purchase_spread').notNull(),
   /** When setup finished (BR-ACC-06), in milliseconds since the epoch. */
   setupCompletedAt: integer('setup_completed_at').notNull(),
+  /**
+   * The end date of the next period, when a start-day change added the days
+   * before the new start to it (BR-PER-05); null otherwise.
+   */
+  nextPeriodEnd: text('next_period_end'),
 });
 
 /** The user's categories (BR-CAT-01 to BR-CAT-03). */

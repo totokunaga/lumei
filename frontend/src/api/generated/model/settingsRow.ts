@@ -32,4 +32,11 @@ export interface SettingsRow {
   big_purchase_spread: SettingsRowBigPurchaseSpread;
   /** When setup finished (BR-ACC-06). */
   setup_completed_at: number;
+  /**
+   * The end date of the next period, `YYYY-MM-DD`, when a start-day change
+   * added the days before the new start to it (BR-PER-05); null otherwise.
+   * Older app versions leave it out.
+   * @nullable
+   */
+  next_period_end?: string | null;
 }

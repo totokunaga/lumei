@@ -1,13 +1,15 @@
 // Reads and writes the account's records. Every write marks its rows pending,
 // so the sync engine uploads them (BR-OFF-03, BR-OFF-04).
-import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
-import type { PeriodRecords } from '@/domain/calculations';
+import type { BigPurchaseSpread, PeriodRecords } from '@/domain/calculations';
 import type { IsoDate } from '@/domain/date';
 import { expenseDate } from '@/domain/expense';
 import type { Minor } from '@/domain/money';
+import type { Period, StartDay } from '@/domain/period';
 import { nextPeriods, type PeriodRows } from '@/domain/rollover';
 import type { SetupRecords } from '@/domain/setup';
+import { type GapChoice, startDayChange } from '@/domain/start-day';
 
 import { notifyChange } from './changes';
 import type { Database } from './client';
@@ -32,6 +34,19 @@ export type Settings = typeof settings.$inferSelect;
  * @returns `updatedAt` set to `now`, marked pending, at revision 1.
  */
 const created = (now: number) => ({ updatedAt: now, pending: true, localRev: 1 });
+
+/**
+ * Returns the sync columns of a row the user changed: pending again, at the
+ * next revision, and with any earlier rejection cleared, so it is pushed
+ * again (see docs/architecture/offline-sync.md).
+ * @param now When the user made the change, in milliseconds since the epoch.
+ */
+const changed = (table: (typeof syncedTables)[number], now: number) => ({
+  updatedAt: now,
+  pending: true,
+  syncError: null,
+  localRev: sql`${table.localRev} + 1`,
+});
 
 /**
  * Saves everything setup creates in one transaction, so a failure leaves no
@@ -327,6 +342,7 @@ export const ensureCurrentPeriod = (db: Database, today: IsoDate, now: number): 
     startDay: account.periodStartDay,
     today,
     derivedId,
+    nextPeriodEnd: account.nextPeriodEnd,
   });
   if (newPeriods.length === 0) {
     return 0;
@@ -390,3 +406,71 @@ export const countFailedChanges = (db: Database): number =>
         .get()?.n ?? 0),
     0,
   );
+
+/**
+ * Chooses how big purchases are spread on the charts (BR-SET-05). Daily
+ * allowances and period results don't change.
+ * @param now When the user changed it, in milliseconds since the epoch.
+ */
+export const setBigPurchaseSpread = (
+  db: Database,
+  spread: BigPurchaseSpread,
+  now: number,
+): void => {
+  db.update(settings)
+    .set({ bigPurchaseSpread: spread, ...changed(settings, now) })
+    .run();
+  notifyChange();
+};
+
+/**
+ * Reads the period containing a date.
+ * @returns Its ID and dates, or null if no period contains the date.
+ */
+export const readPeriodOn = (db: Database, date: IsoDate): (Period & { id: string }) | null => {
+  const period = db
+    .select({ id: periods.id, start: periods.startDate, end: periods.endDate })
+    .from(periods)
+    .where(and(lte(periods.startDate, date), gte(periods.endDate, date), isNull(periods.deletedAt)))
+    .get();
+  return period ?? null;
+};
+
+/**
+ * Changes the period start day (BR-PER-05). Past periods and the current
+ * period's start keep their dates. The days between the current period's
+ * end and the next new start go where `choice` says: the current period then
+ * ends later, or the next period, created when this one ends, does.
+ * @param today Today's date, which decides the current period.
+ * @param now When the user changed it, in milliseconds since the epoch.
+ * @throws If no period contains today, or a write fails; nothing is saved then.
+ */
+export const changeStartDay = (
+  db: Database,
+  startDay: StartDay,
+  choice: GapChoice,
+  today: IsoDate,
+  now: number,
+): void => {
+  const current = readPeriodOn(db, today);
+  if (!current) {
+    throw new Error('No period contains today');
+  }
+  const change = startDayChange(current, startDay, choice);
+  db.transaction((tx) => {
+    tx.update(settings)
+      .set({
+        periodStartDay: startDay,
+        nextPeriodEnd: change.nextPeriodEnd,
+        ...changed(settings, now),
+      })
+      .run();
+    if (change.currentEnd !== current.end) {
+      tx.update(periods)
+        .set({ endDate: change.currentEnd, ...changed(periods, now) })
+        .where(eq(periods.id, current.id))
+        .run();
+    }
+  });
+  notifyChange();
+};

@@ -44,6 +44,13 @@ model SettingsRow {
 
   /** When setup finished (BR-ACC-06). */
   setup_completed_at: int64;
+
+  /**
+   * The end date of the next period, `YYYY-MM-DD`, when a start-day change
+   * added the days before the new start to it (BR-PER-05); null otherwise.
+   * Older app versions leave it out.
+   */
+  @example("2026-12-31") next_period_end?: string | null;
 }
 
 /** A category (BR-CAT-01 to BR-CAT-03). */

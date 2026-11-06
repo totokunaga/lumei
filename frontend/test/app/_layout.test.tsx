@@ -129,9 +129,8 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
       'GET /me': json(200, testUser),
       'POST /auth/sign-out': noContent,
     });
-    await renderRouter(routes, { initialUrl: '/' });
+    await renderRouter(routes, { initialUrl: '/settings' });
 
-    await fireEvent.press(await screen.findByLabelText('Account'));
     await fireEvent.press(await screen.findByText('Sign out'));
     if (confirm) {
       await waitFor(() =>
@@ -157,15 +156,14 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
     await finishedSetup();
     const alert = jest.spyOn(Alert, 'alert');
     const fetch = mockApi({ 'GET /me': json(200, testUser), 'POST /sync/push': offline, 'GET /sync/pull': offline });
-    await renderRouter(routes, { initialUrl: '/' });
+    await renderRouter(routes, { initialUrl: '/settings' });
 
-    await fireEvent.press(await screen.findByLabelText('Account'));
     await fireEvent.press(await screen.findByText('Sign out'));
     await waitFor(() => expect(alert).toHaveBeenCalled());
     const buttons = alert.mock.calls[0][2] as AlertButton[];
     buttons.find((button) => button.style === 'cancel')?.onPress?.();
 
-    expect(screen).toHavePathname('/account');
+    expect(screen).toHavePathname('/settings');
     expect(hasDatabase(testUser.id)).toBe(true);
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/auth/sign-out'), expect.anything());
   });

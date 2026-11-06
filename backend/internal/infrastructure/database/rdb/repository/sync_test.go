@@ -31,6 +31,9 @@ type unknownRecord struct{}
 func (unknownRecord) Table() application.SyncTable { return "budgets" }
 func (unknownRecord) Validate() error              { return nil }
 
+// ptr returns a pointer to v.
+func ptr[T any](v T) *T { return &v }
+
 const syncRowID = "0199a6c5-3f4e-7c2a-9b1d-5e8f2a4c6d20"
 
 // expectLocked expects Apply's transaction to start and lock the user's change
@@ -168,6 +171,19 @@ func TestSyncRepository_Apply(t *testing.T) {
 				m.db.ExpectRollback()
 			},
 			expectedErrMsg: `invalid date "Nov 24"`,
+			assertFunc:     assertErrorOnly[struct{}],
+		},
+		{
+			name: "fails to save settings with an invalid next period end",
+			input: saving(application.SyncRow{
+				ID: syncRowID, UpdatedAt: 1,
+				Record: application.SettingsRecord{NextPeriodEnd: ptr("Dec 31")},
+			}),
+			setupMocks: func(m syncRepoMocks) {
+				expectLocked(m)
+				m.db.ExpectRollback()
+			},
+			expectedErrMsg: `invalid date "Dec 31"`,
 			assertFunc:     assertErrorOnly[struct{}],
 		},
 		{

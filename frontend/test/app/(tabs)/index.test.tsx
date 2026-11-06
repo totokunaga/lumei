@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import HomeScreen from '@/app/index';
+import HomeScreen from '@/app/(tabs)/index';
 import { database, openUserDatabase } from '@/db/client';
 import { newId } from '@/db/ids';
 import { addExpense, readCategories } from '@/db/records';
@@ -12,8 +12,8 @@ import {
   finishedSetup,
   savedExpenses,
   syncedRecords,
-} from '../helpers/account';
-import { testUser } from '../helpers/api';
+} from '../../helpers/account';
+import { testUser } from '../../helpers/api';
 
 // Only the clock is fake, at noon on Nov 15, 2026: the period is November, with 16 days left.
 const NOW = new Date(2026, 10, 15, 12);

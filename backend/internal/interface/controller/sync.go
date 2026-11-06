@@ -93,6 +93,7 @@ func fromSyncRow(row generated.SyncRow) (application.SyncRow, error) {
 				PeriodStartDay:    int(v.PeriodStartDay),
 				BigPurchaseSpread: string(v.BigPurchaseSpread),
 				SetupCompletedAt:  v.SetupCompletedAt,
+				NextPeriodEnd:     v.NextPeriodEnd,
 			},
 		}, nil
 	case generated.CategoryRow:
@@ -157,6 +158,7 @@ func toSyncRow(row application.SyncRow) (generated.SyncRow, error) {
 			PeriodStartDay:    int32(r.PeriodStartDay), //nolint:gosec // 1 to 31
 			BigPurchaseSpread: generated.SettingsRowBigPurchaseSpread(r.BigPurchaseSpread),
 			SetupCompletedAt:  r.SetupCompletedAt,
+			NextPeriodEnd:     r.NextPeriodEnd,
 		})
 	case application.CategoryRecord:
 		err = out.FromCategoryRow(generated.CategoryRow{

@@ -180,5 +180,40 @@
     "THB": "タイバーツ",
     "USD": "米ドル",
     "ZAR": "南アフリカランド"
+  },
+  "tabs": {
+    "home": "ホーム",
+    "settings": "設定"
+  },
+  "settings": {
+    "title": "設定",
+    "budget": "予算",
+    "app": "アプリ",
+    "spread": {
+      "label": "大きな買い物",
+      "daysLeft": "残りの日数で分ける",
+      "wholePeriod": "期間全体で分ける",
+      "daysLeftHint": "グラフでは、大きな買い物をその日から期間の終わりまでの日数で分けて表示します。1日の予算は変わりません。",
+      "wholePeriodHint": "グラフでは、大きな買い物を期間のすべての日で分けて表示します。1日の予算は変わりません。"
+    },
+    "startDay": {
+      "title": "期間の開始日",
+      "label": "期間の開始日",
+      "description": "現在の期間の次の期間から、この日に始まります。過去の期間の日付は変わりません。",
+      "current": "現在の期間",
+      "rangeDays_one": "{{range}}（{{count}}日間）",
+      "rangeDays_other": "{{range}}（{{count}}日間）",
+      "nextAligned": "次の期間：{{range}}",
+      "gapQuestion": "{{range}}をどうしますか？",
+      "choice": {
+        "current": "現在の期間に含める",
+        "next": "次の期間に含める",
+        "own": "独立した期間にする"
+      },
+      "currentDetail": "現在の期間が{{range}}になります。{{date}}まで今の期間のお金でやりくりする場合に選びます。",
+      "nextDetail": "次の期間が{{range}}になります。{{date}}にその期間全体のお金を受け取る場合に選びます。",
+      "ownDetail": "次の期間は{{range}}です。現在の期間の収入と固定費がコピーされるので、必要に応じて減らしてください。",
+      "save": "保存"
+    }
   }
 }

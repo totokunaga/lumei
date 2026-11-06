@@ -107,10 +107,19 @@ export const formatPeriodLabel = (period: Period, t: TFunction, locale: string):
  * Formats a period's first and last days as a short month and day each.
  * @returns e.g. `{ start: 'Oct 25', end: 'Nov 24' }` in English.
  */
-const rangeParts = (period: Period, locale: string): { start: string; end: string } => {
-  const day = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  return { start: day.format(toUtcDate(period.start)), end: day.format(toUtcDate(period.end)) };
-};
+const rangeParts = (period: Period, locale: string): { start: string; end: string } => ({
+  start: formatShortDate(period.start, locale),
+  end: formatShortDate(period.end, locale),
+});
+
+/**
+ * Formats a date as a short month and day, as period ranges show them.
+ * @returns e.g. "Nov 25" in English, "11月25日" in Japanese, "25 nov." in French.
+ */
+export const formatShortDate = (date: IsoDate, locale: string): string =>
+  new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
+    toUtcDate(date),
+  );
 
 /**
  * Formats a period as its first and last days, as the home screen's title

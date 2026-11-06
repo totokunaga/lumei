@@ -180,5 +180,40 @@
     "THB": "Thai baht",
     "USD": "US dollar",
     "ZAR": "South African rand"
+  },
+  "tabs": {
+    "home": "Home",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "budget": "Budget",
+    "app": "App",
+    "spread": {
+      "label": "Big purchases",
+      "daysLeft": "Spread over days left",
+      "wholePeriod": "Spread over whole period",
+      "daysLeftHint": "On the chart, each big purchase is spread over the days from its date to the end of its period. Daily allowances don't change.",
+      "wholePeriodHint": "On the chart, each big purchase is spread over every day of its period. Daily allowances don't change."
+    },
+    "startDay": {
+      "title": "Period start day",
+      "label": "Period start day",
+      "description": "Periods after the current one will start on this day. Past periods keep their dates.",
+      "current": "This period",
+      "rangeDays_one": "{{range}} ({{count}} day)",
+      "rangeDays_other": "{{range}} ({{count}} days)",
+      "nextAligned": "Next period: {{range}}",
+      "gapQuestion": "What should happen to {{range}}?",
+      "choice": {
+        "current": "Add them to this period",
+        "next": "Add them to the next period",
+        "own": "Make them a period of their own"
+      },
+      "currentDetail": "This period becomes {{range}}. Choose this if this period's money has to last until {{date}}.",
+      "nextDetail": "The next period becomes {{range}}. Choose this if you're paid on {{date}} for that whole time.",
+      "ownDetail": "The next period is {{range}}. It copies this period's income and fixed expenses, which you may want to lower.",
+      "save": "Save"
+    }
   }
 }

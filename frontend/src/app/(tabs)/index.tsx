@@ -1,13 +1,11 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExpenseRow } from '@/components/expense-row';
-import { PressableScale } from '@/components/pressable-scale';
 import { QuickAddButton } from '@/components/quick-add-button';
 import { TodayCard } from '@/components/today-card';
 import { useDataVersion } from '@/db/changes';
@@ -17,6 +15,7 @@ import { useToday } from '@/db/use-today';
 import { periodSummary, todayStatus } from '@/domain/calculations';
 import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
 import { formatPeriodRange } from '@/domain/period';
+import { TAB_BAR_CLEARANCE } from '@/lib/layout';
 
 /**
  * Renders the home screen: the current period's dates as its title, today's
@@ -24,8 +23,8 @@ import { formatPeriodRange } from '@/domain/period';
  * summary (BR-DSH-03), the period's expenses newest first (BR-DSH-06), and
  * the button that records an expense (BR-EXP-09). Every number is worked out on the device from the
  * account's records (BR-OFF-02), and updates as soon as a record changes
- * (BR-DSH-04, BR-NFR-04) and at local midnight (BR-DSH-05). The account
- * button opens the account sheet, which signs out.
+ * (BR-DSH-04, BR-NFR-04) and at local midnight (BR-DSH-05). It is the
+ * Home tab.
  */
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
@@ -51,30 +50,14 @@ export default function HomeScreen() {
 
   const header = (
     <View className="gap-6 pb-3">
-      <View className="flex-row items-center justify-between gap-4">
-        <Text
-          accessibilityRole="header"
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          className="flex-shrink text-3xl font-bold text-black dark:text-white"
-        >
-          {data.records
-            ? formatPeriodRange(data.records.period, t, i18n.language)
-            : t('home.today')}
-        </Text>
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel={t('account.title')}
-          onPress={() => router.push('/account')}
-          className="h-11 w-11 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-900"
-        >
-          <SymbolView
-            name={{ ios: 'person.crop.circle', android: 'account_circle' }}
-            size={24}
-            tintColor="#6B7280"
-          />
-        </PressableScale>
-      </View>
+      <Text
+        accessibilityRole="header"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        className="text-3xl font-bold text-black dark:text-white"
+      >
+        {data.records ? formatPeriodRange(data.records.period, t, i18n.language) : t('home.today')}
+      </Text>
 
       {data.records && data.status && data.summary ? (
         <>
@@ -110,7 +93,7 @@ export default function HomeScreen() {
         ItemSeparatorComponent={Separator}
         contentContainerStyle={{
           paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 112,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + 88,
           paddingHorizontal: 24,
         }}
       />
@@ -118,7 +101,7 @@ export default function HomeScreen() {
       {data.records && (
         <View
           pointerEvents="box-none"
-          style={{ bottom: insets.bottom + 24 }}
+          style={{ bottom: insets.bottom + TAB_BAR_CLEARANCE + 16 }}
           className="absolute right-6"
         >
           <QuickAddButton onPress={() => router.push('/expense/new')} />
