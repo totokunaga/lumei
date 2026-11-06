@@ -73,7 +73,7 @@ describe('NewExpenseScreen (BR-EXP-01, BR-EXP-09)', () => {
       earlier: [],
       expected: {
         row: { amount: 1_200, isBigPurchase: false },
-        shown: ['Spent today: ¥1,200, Daily allowance: ¥9,375', 'Remaining today: ¥8,175'],
+        shown: ['Spent today: ¥1,200, Daily allowance: ¥9,375, 13%', 'Remaining today: ¥8,175'],
         haptic: 'success',
       },
     },
@@ -84,7 +84,7 @@ describe('NewExpenseScreen (BR-EXP-01, BR-EXP-09)', () => {
       earlier: [],
       expected: {
         row: { amount: 32_000, isBigPurchase: true },
-        shown: ['Spent today: ¥0, Daily allowance: ¥7,375', 'Remaining today: ¥7,375'],
+        shown: ['Spent today: ¥0, Daily allowance: ¥7,375, 0%', 'Remaining today: ¥7,375'],
         haptic: 'success',
       },
     },

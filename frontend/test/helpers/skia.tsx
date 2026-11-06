@@ -24,6 +24,7 @@ const makeBuilder = () => {
     moveTo: () => ((counts.moves += 1), builder),
     lineTo: () => ((counts.lines += 1), builder),
     addRRect: () => ((counts.rrects += 1), builder),
+    addCircle: () => builder,
     detach: () => ({ ...counts }),
     build: () => ({ ...counts }),
   };

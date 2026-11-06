@@ -1,5 +1,6 @@
 import type { TodayStatus } from '@/domain/calculations';
 import {
+  allowanceUse,
   clampSpentAt,
   expenseDate,
   formatDayHeading,
@@ -7,6 +8,8 @@ import {
   formatExpenseTime,
   groupByDay,
   isOverToday,
+  limitUse,
+  todayUse,
 } from '@/domain/expense';
 import i18n from '@/i18n';
 
@@ -111,5 +114,50 @@ describe('formatExpenseClock (BR-DSH-06)', () => {
     { language: 'fr', expected: '12:30' },
   ])('shows the time only in $language', ({ language, expected }) => {
     expect(formatExpenseClock(new Date(2026, 10, 15, 12, 30).getTime(), language)).toBe(expected);
+  });
+});
+
+describe('allowanceUse (BR-DSH-01)', () => {
+  it.each([
+    { name: 'low with nothing spent', spent: 0, allowance: 10_000, use: 'low' },
+    { name: 'low just under 65%', spent: 6_499, allowance: 10_000, use: 'low' },
+    { name: 'high from 65%', spent: 6_500, allowance: 10_000, use: 'high' },
+    { name: 'high just under 80%', spent: 7_999, allowance: 10_000, use: 'high' },
+    { name: 'critical from 80%', spent: 8_000, allowance: 10_000, use: 'critical' },
+    { name: 'critical over the allowance', spent: 12_000, allowance: 10_000, use: 'critical' },
+    { name: 'critical without an allowance (BR-DSH-02)', spent: 0, allowance: 0, use: 'critical' },
+  ])('is $name', ({ spent, allowance, use }) => {
+    expect(allowanceUse(spent, allowance)).toBe(use);
+  });
+});
+
+describe('limitUse (BR-CHT-02)', () => {
+  it.each([
+    { name: 'low below 90% of the limit', spent: 8_999, limit: 10_000, use: 'low' },
+    { name: 'high from 90%', spent: 9_000, limit: 10_000, use: 'high' },
+    { name: 'high at the limit', spent: 10_000, limit: 10_000, use: 'high' },
+    { name: 'critical over the limit', spent: 10_001, limit: 10_000, use: 'critical' },
+    { name: 'low with nothing spent against no limit', spent: 0, limit: 0, use: 'low' },
+    { name: 'critical with spending against no limit', spent: 1, limit: 0, use: 'critical' },
+  ])('is $name', ({ spent, limit, use }) => {
+    expect(limitUse(spent, limit)).toBe(use);
+  });
+});
+
+describe('todayUse (BR-DSH-01)', () => {
+  const status = (spentToday: number, allowance: number, periodOverspend = 0) => ({
+    daysLeft: 10,
+    allowance,
+    spentToday,
+    remainingToday: periodOverspend > 0 ? null : allowance - spentToday,
+    periodOverspend,
+  });
+
+  it.each([
+    { name: 'the allowance band', status: status(7_000, 10_000), use: 'high' },
+    { name: 'critical over the allowance', status: status(11_000, 10_000), use: 'critical' },
+    { name: 'critical while the period is overspent', status: status(0, 0, 2_000), use: 'critical' },
+  ])('is $name', ({ status: today, use }) => {
+    expect(todayUse(today)).toBe(use);
   });
 });

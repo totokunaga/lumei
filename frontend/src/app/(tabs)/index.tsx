@@ -39,7 +39,7 @@ import {
   todayStatus,
 } from '@/domain/calculations';
 import type { IsoDate } from '@/domain/date';
-import { formatDayHeading, groupByDay } from '@/domain/expense';
+import { formatDayHeading, groupByDay, todayUse } from '@/domain/expense';
 import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
 import { formatPeriodName, inPeriod } from '@/domain/period';
 import { TAB_BAR_CLEARANCE } from '@/lib/layout';
@@ -285,6 +285,7 @@ export default function HomeScreen() {
           className="absolute right-6"
         >
           <QuickAddButton
+            use={data.status ? todayUse(data.status) : 'low'}
             label={list === 'income' ? t('home.addIncome') : t('home.addExpense')}
             onPress={() => router.push(list === 'income' ? '/income/new' : '/expense/new')}
           />

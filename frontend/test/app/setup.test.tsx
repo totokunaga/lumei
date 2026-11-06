@@ -121,6 +121,7 @@ describe('Setup (BR-ACC-06)', () => {
 
     await screen.findByLabelText('Add expense');
     expect(screen).toHavePathname('/');
+    await fireEvent.press(screen.getByLabelText('Period details'));
     expect(screen.getByLabelText('Budget left: ¥420,808')).toBeOnTheScreen();
 
     const period = periodContaining(localToday(), 25);

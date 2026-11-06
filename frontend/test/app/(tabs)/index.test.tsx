@@ -132,23 +132,25 @@ describe('HomeScreen', () => {
     expect(screen.queryByLabelText('Next period')).toBeNull();
   });
 
-  it('shows only today’s numbers and the budget left until the card is expanded', async () => {
+  it('shows only today’s numbers until the card is expanded, budget left included (BR-DSH-03)', async () => {
     await finishedSetup();
     await openUserDatabase(testUser.id);
     await renderHome();
     const toggle = screen.getByRole('button', { name: 'Period details' });
 
     expectShown('Remaining today', '¥9,375');
-    expectShown('Budget left', '¥150,000');
+    expectShown('Spent today', '¥0');
+    expect(screen.queryByLabelText(/^Budget left/)).toBeNull();
     expect(screen.queryByText('Planned income')).toBeNull();
     expect(toggle).not.toBeExpanded();
 
     await fireEvent.press(toggle);
     expectShown('Planned income', '¥300,000');
+    expectShown('Budget left', '¥150,000');
     expect(toggle).toBeExpanded();
 
     // Tapping anywhere on the card collapses it too.
-    await fireEvent.press(screen.getByText('Spent today / Daily allowance'));
+    await fireEvent.press(screen.getByText('Remaining today'));
     expect(screen.queryByText('Planned income')).toBeNull();
     expect(toggle).not.toBeExpanded();
   });

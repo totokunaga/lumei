@@ -14,6 +14,7 @@ import Animated, {
 
 import type { ProgressChart as ChartData } from '@/domain/calculations';
 import type { Minor } from '@/domain/money';
+import { limitUse } from '@/domain/expense';
 import { formatShortDate } from '@/domain/period';
 import { useScreenFocused } from '@/lib/use-screen-focused';
 
@@ -33,27 +34,35 @@ const AMOUNT_WIDTH = 72;
 /** The width of the date under today's dot, which keeps the period's first and last dates clear. */
 const DATE_WIDTH = 56;
 
-/** The series' colors in light and dark mode; shapes tell them apart too (BR-CHT-05). */
+/**
+ * The series' colors in light and dark mode; shapes tell them apart too
+ * (BR-CHT-05). In each band, the spending line, today's dot, and the axis
+ * labels take the heading's deeper shade, and the bars a brighter one, so
+ * both stand out on the gray card.
+ */
 const COLORS = {
   light: {
     limit: '#9CA3AF',
-    under: '#10B981',
-    over: '#EF4444',
-    bar: '#A7F3D0',
+    // Emerald 600, amber 600, and red 600, as the heading's text.
+    line: { low: '#059669', high: '#D97706', critical: '#DC2626' },
+    // Emerald 400, amber 400, and red 300: red's bars a step lighter, so the
+    // line stands apart from them.
+    bar: { low: '#34D399', high: '#FBBF24', critical: '#FCA5A5' },
     ring: '#FFFFFF',
     axis: '#D1D5DB',
   },
   dark: {
     limit: '#6B7280',
-    under: '#34D399',
-    over: '#F87171',
-    bar: '#065F46',
+    // Emerald 300, amber 300, and red 400, as the heading's text in dark mode.
+    line: { low: '#6EE7B7', high: '#FCD34D', critical: '#F87171' },
+    // Emerald 400, amber 400, and red 500, each apart from the line's shade.
+    bar: { low: '#34D399', high: '#FBBF24', critical: '#EF4444' },
     ring: '#111827',
     axis: '#374151',
   },
 } as const;
 
-const drawIn = { duration: 1100, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
+const drawIn = { duration: 1500, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
 const morph = { duration: 400, easing: EASE_IN_OUT, reduceMotion: ReduceMotion.System };
 
 /** One radar ring around today's dot: it grows from the dot and fades out, eased, never bouncing. */
@@ -69,6 +78,13 @@ interface Marks {
   cumulative: number[];
 }
 
+/** The heading's color for each band. */
+const STATUS_TEXT = {
+  low: 'text-emerald-600 dark:text-emerald-300',
+  high: 'text-amber-600 dark:text-amber-300',
+  critical: 'text-red-600 dark:text-red-400',
+} as const;
+
 /** Props of `ProgressChart`. */
 interface ProgressChartProps {
   chart: ChartData;
@@ -82,7 +98,9 @@ interface ProgressChartProps {
  * Renders the period's progress chart (BR-CHT-01 to BR-CHT-03, BR-CHT-05):
  * a bar for each day's spending, a solid line for spending so far, a dashed
  * line for the spending limit, and a dot at today, with how far today is
- * under or over the limit above it. Bars and the spending line stop at
+ * under or over the limit above it. The heading, the spending line, the
+ * dot, and the bars are green below 90% of today's limit, amber from 90%,
+ * and red over it. Bars and the spending line stop at
  * today; later days show only the limit. The series differ in shape, not
  * only color, and a legend names them. On first show the lines draw in and
  * the bars rise; when the numbers change, the marks move to their new
@@ -100,7 +118,12 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
 
   const under = chart.today ? chart.today.underLimit.round() : 0;
   const over = under < 0;
-  const line = over ? colors.over : colors.under;
+  // Colored by spending so far against today's limit: green, amber from 90%, red over it.
+  const use = chart.today
+    ? limitUse(chart.today.cumulative.toNumber(), chart.today.limit.toNumber())
+    : 'low';
+  const line = colors.line[use];
+  const bar = colors.bar[use];
 
   // The marks ease from their last heights to the new ones (`progress` 0 → 1),
   // and the whole chart draws in once (`reveal` 0 → 1).
@@ -137,14 +160,17 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
     }
     return path.detach();
   });
-  /** Builds a line through the days up to `count`, between the old and new heights. */
-  const linePath = (key: 'limit' | 'cumulative', count: number) => {
+  /**
+   * Builds a line through the days up to `count`, `t` of the way from the old
+   * heights `a` to the new ones `b`. It reads no shared values itself: a
+   * derived value redraws only when a shared value read in its own body
+   * changes, so each caller reads `from`, `to`, and `progress` and passes them.
+   */
+  const linePath = (a: number[], b: number[], t: number, count: number) => {
     'worklet';
     const path = Skia.PathBuilder.Make();
-    const a = from.get()[key];
-    const b = to.get()[key];
     for (let i = 0; i < count; i++) {
-      const value = (a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * progress.get();
+      const value = (a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * t;
       if (i === 0) {
         path.moveTo(x[i], baseline - value);
       } else {
@@ -153,8 +179,12 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
     }
     return path.detach();
   };
-  const limit = useDerivedValue(() => linePath('limit', x.length));
-  const spent = useDerivedValue(() => linePath('cumulative', shown));
+  const limit = useDerivedValue(() =>
+    linePath(from.get().limit, to.get().limit, progress.get(), x.length),
+  );
+  const spent = useDerivedValue(() =>
+    linePath(from.get().cumulative, to.get().cumulative, progress.get(), shown),
+  );
   const markerX = shown > 0 ? x[shown - 1] : 0;
   const markerY = useDerivedValue(() => {
     const a = from.get().cumulative[shown - 1] ?? 0;
@@ -231,15 +261,7 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
       accessibilityLabel={label}
       className="gap-3 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900"
     >
-      {status && (
-        <Text
-          className={`text-base font-semibold ${
-            over ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-300'
-          }`}
-        >
-          {status}
-        </Text>
-      )}
+      {status && <Text className={`text-base font-semibold ${STATUS_TEXT[use]}`}>{status}</Text>}
       <View className="flex-row" style={{ height: HEIGHT }}>
         <View
           testID="chart-plot"
@@ -277,7 +299,7 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
                   </Line>
                 </>
               )}
-              <Path path={bars} color={colors.bar} />
+              <Path path={bars} color={bar} />
               <Path path={limit} style="stroke" strokeWidth={1.5} color={colors.limit}>
                 <DashPathEffect intervals={[5, 4]} />
               </Path>
@@ -358,7 +380,7 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
           />
         </Legend>
         <Legend label={t('chart.daily')}>
-          <View style={{ backgroundColor: colors.bar }} className="h-3 w-1.5 rounded-full" />
+          <View style={{ backgroundColor: bar }} className="h-3 w-1.5 rounded-full" />
         </Legend>
       </View>
     </View>

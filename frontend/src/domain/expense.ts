@@ -131,3 +131,61 @@ export const formatDayHeading = (
  */
 export const formatExpenseClock = (spentAt: number, locale: string): string =>
   new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(new Date(spentAt));
+
+/**
+ * How much of today's allowance is used, in bands that color today's card
+ * (BR-DSH-01): `low` below 65%, `high` from 65%, and `critical` from 80%,
+ * over 100% included.
+ */
+export type AllowanceUse = 'low' | 'high' | 'critical';
+
+/** Where each band starts, as a share of the allowance. */
+export const ALLOWANCE_USE_FROM = { high: 0.65, critical: 0.8 } as const;
+
+/**
+ * Works out how much of today's allowance is used (BR-DSH-01).
+ * @returns The band; `critical` without an allowance, while the period is
+ *   overspent (BR-DSH-02).
+ */
+export const allowanceUse = (spent: Minor, allowance: Minor): AllowanceUse => {
+  if (allowance <= 0) {
+    return 'critical';
+  }
+  const share = spent / allowance;
+  if (share >= ALLOWANCE_USE_FROM.critical) {
+    return 'critical';
+  }
+  return share >= ALLOWANCE_USE_FROM.high ? 'high' : 'low';
+};
+
+/**
+ * How spending so far compares with the spending limit by today, in bands
+ * that color the progress chart (BR-CHT-02): `low` below 90% of the limit,
+ * `high` from 90% up to the limit, and `critical` over it.
+ */
+export type LimitUse = AllowanceUse;
+
+/** Where the chart's `high` band starts, as a share of the limit. */
+export const LIMIT_USE_HIGH_FROM = 0.9;
+
+/**
+ * Works out how close spending so far is to the spending limit (BR-CHT-02).
+ * @param spent Spending so far, as the chart counts it.
+ * @param limit The spending limit by the same day (BR-CALC-06).
+ * @returns The band; `critical` for any spending against a limit of 0 or less.
+ */
+export const limitUse = (spent: number, limit: number): LimitUse => {
+  if (spent > limit) {
+    return 'critical';
+  }
+  return limit > 0 && spent >= limit * LIMIT_USE_HIGH_FROM ? 'high' : 'low';
+};
+
+/**
+ * Works out the band that colors today's card and the add button
+ * (BR-DSH-01): `allowanceUse` of today's spending, and `critical` whenever
+ * today is over its allowance or the period is overspent (BR-DSH-02).
+ * @returns The band.
+ */
+export const todayUse = (status: TodayStatus): AllowanceUse =>
+  isOverToday(status) ? 'critical' : allowanceUse(status.spentToday, status.allowance);

@@ -49,6 +49,21 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
     });
   };
 
+  it.each([
+    { name: 'green below 90% of today’s limit', spent: 26_000, color: 'text-emerald-600' },
+    { name: 'amber from 90%', spent: 27_000, color: 'text-amber-600' },
+    { name: 'amber at the limit', spent: 30_000, color: 'text-amber-600' },
+    { name: 'red over it', spent: 30_001, color: 'text-red-600' },
+  ])('colors the heading $name', async ({ spent, color }) => {
+    // The limit by Nov 3 is ¥30,000.
+    await render(<ProgressChart chart={progressChart(records(spent), '2026-11-03', 'daysLeft')} money={money} />);
+
+    expect(screen.getByText(/today's spending limit$/)).toHaveProp(
+      'className',
+      expect.stringContaining(color),
+    );
+  });
+
   it('says the same for a past period, as of its end', async () => {
     await render(
       <ProgressChart chart={progressChart(records(88_000), '2026-11-10', 'daysLeft')} money={money} ended />,

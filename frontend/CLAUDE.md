@@ -154,6 +154,7 @@ Target a steady 60 fps (120 fps on ProMotion devices) on a mid-range Android pho
 
 - **Animate on the UI thread:** Reanimated shared values, `useAnimatedStyle`, and worklets, or Reanimated 4's CSS animations and transitions. Never animate with `setState` or React `Animated` driven from JS.
   - **The one exception is counting numbers:** a text's content can't be animated on the UI thread. Show every displayed amount that can change with `CountingText` (`src/components/counting-text.tsx`), which counts in about 450 ms. Keep it to short texts like an amount, never inside list rows. Inputs don't count.
+- **Read shared values in the derived value's own body:** `useDerivedValue` (and `useAnimatedStyle`) redraws only when a shared value read directly in its worklet changes. A shared value read inside a helper worklet it calls isn't noticed, so the mark lags until something else redraws it. Read them in the body and pass plain values to the helper (see `linePath` in `src/components/progress-chart.tsx`).
 - **Animate only `transform` and `opacity`** where possible. Animating layout props (`width`, `height`, `margin`) or shadows re-lays out every frame.
 - **Draw rich graphics with Skia** (`@shopify/react-native-skia`, which Victory Native XL also uses) instead of stacking many views.
 - **Use glass and blur sparingly:** they are costly to render. Use a few glass surfaces per screen, never inside list rows, and never animate their size on every frame.
