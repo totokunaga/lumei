@@ -8,11 +8,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { deleteExpenseWithUndo, deleteIncomeWithUndo } from '@/components/delete-expense';
 import { ExpenseRow } from '@/components/expense-row';
+import { FloatingToggle } from '@/components/floating-toggle';
 import { IncomeRow } from '@/components/income-row';
 import { PressableScale } from '@/components/pressable-scale';
 import { QuickAddButton } from '@/components/quick-add-button';
 import { ResultCard } from '@/components/result-card';
-import { SegmentedControl } from '@/components/segmented-control';
+
 import type { EditableItem } from '@/components/summary-rows';
 import { TodayCard } from '@/components/today-card';
 import { useDataVersion } from '@/db/changes';
@@ -158,7 +159,7 @@ export default function HomeScreen() {
             )
           )}
           <View className="pt-2">
-            <SegmentedControl
+            <FloatingToggle
               label={t('home.show')}
               options={[
                 { value: 'expenses', label: t('home.expenses') },
