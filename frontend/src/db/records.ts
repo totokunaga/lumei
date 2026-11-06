@@ -13,7 +13,7 @@ import { type GapChoice, startDayChange } from '@/domain/start-day';
 
 import { notifyChange } from './changes';
 import type { Database } from './client';
-import { derivedId } from './ids';
+import { derivedId, newId } from './ids';
 import {
   categories,
   expenses,
@@ -472,5 +472,178 @@ export const changeStartDay = (
         .run();
     }
   });
+  notifyChange();
+};
+
+/** The items of a period the user edits (BR-INC-01, BR-INC-02, BR-TGT-01). */
+export interface PeriodItems {
+  period: Period & { id: string };
+  incomes: { id: string; name: string; amount: Minor }[];
+  fixedExpenses: { id: string; name: string; amount: Minor; note: string | null }[];
+  /** 0 when the period has no saving target. */
+  savingTarget: Minor;
+}
+
+/**
+ * Reads a period with its income, fixed expenses, and saving target, each
+ * list in the user's order. Deleted items are left out.
+ * @returns The items, or null if there is no such period.
+ */
+export const readPeriodItems = (db: Database, periodId: string): PeriodItems | null => {
+  const period = db
+    .select({ id: periods.id, start: periods.startDate, end: periods.endDate })
+    .from(periods)
+    .where(and(eq(periods.id, periodId), isNull(periods.deletedAt)))
+    .get();
+  if (!period) {
+    return null;
+  }
+  const of = <T extends typeof incomes | typeof fixedExpenses>(table: T) =>
+    and(eq(table.periodId, periodId), isNull(table.deletedAt));
+  return {
+    period,
+    incomes: db
+      .select({ id: incomes.id, name: incomes.name, amount: incomes.amount })
+      .from(incomes)
+      .where(of(incomes))
+      .orderBy(asc(incomes.position))
+      .all(),
+    fixedExpenses: db
+      .select({
+        id: fixedExpenses.id,
+        name: fixedExpenses.name,
+        amount: fixedExpenses.amount,
+        note: fixedExpenses.note,
+      })
+      .from(fixedExpenses)
+      .where(of(fixedExpenses))
+      .orderBy(asc(fixedExpenses.position))
+      .all(),
+    savingTarget:
+      db
+        .select({ amount: savingTargets.amount })
+        .from(savingTargets)
+        .where(and(eq(savingTargets.periodId, periodId), isNull(savingTargets.deletedAt)))
+        .get()?.amount ?? 0,
+  };
+};
+
+/** An income or fixed expense item as the user saves it: `id` is unset for a new one. */
+export interface EditedItem {
+  id?: string;
+  name: string;
+  amount: Minor;
+  note: string | null;
+}
+
+/**
+ * Saves a period's list of income or fixed expense items as the user left
+ * it, in that order (BR-INC-01 to BR-INC-04). Only that period changes: other
+ * periods keep their own items, and the next period copies these when it is
+ * created (BR-INC-03). An item that didn't change isn't written, a removed
+ * one is deleted, and a new one gets a new ID, so sync sends only what
+ * changed.
+ */
+const saveItems = (
+  db: Database,
+  table: typeof incomes | typeof fixedExpenses,
+  periodId: string,
+  items: EditedItem[],
+  now: number,
+): void => {
+  const withNote = table === fixedExpenses;
+  const existing = new Map(
+    db
+      .select()
+      .from(table)
+      .where(and(eq(table.periodId, periodId), isNull(table.deletedAt)))
+      .all()
+      .map((row) => [row.id, row]),
+  );
+  db.transaction((tx) => {
+    items.forEach((item, position) => {
+      const values = {
+        name: item.name,
+        amount: item.amount,
+        position,
+        ...(withNote ? { note: item.note } : {}),
+      };
+      const stored = item.id ? existing.get(item.id) : undefined;
+      if (!stored) {
+        tx.insert(table)
+          .values({ ...values, id: newId(), periodId, ...created(now) })
+          .run();
+        return;
+      }
+      existing.delete(stored.id);
+      const same =
+        stored.name === values.name &&
+        stored.amount === values.amount &&
+        stored.position === position &&
+        (!withNote || ('note' in stored ? stored.note : null) === item.note);
+      if (!same) {
+        tx.update(table)
+          .set({ ...values, ...changed(table, now) })
+          .where(eq(table.id, stored.id))
+          .run();
+      }
+    });
+    for (const removed of existing.values()) {
+      tx.update(table)
+        .set({ deletedAt: now, ...changed(table, now) })
+        .where(eq(table.id, removed.id))
+        .run();
+    }
+  });
+  notifyChange();
+};
+
+/**
+ * Saves a period's income items (BR-INC-01, BR-INC-03, BR-INC-04).
+ * @param now When the user saved them, in milliseconds since the epoch.
+ * @throws If a write fails; nothing is saved then.
+ */
+export const saveIncomes = (db: Database, periodId: string, items: EditedItem[], now: number) =>
+  saveItems(db, incomes, periodId, items, now);
+
+/**
+ * Saves a period's fixed expense items (BR-INC-02 to BR-INC-04).
+ * @param now When the user saved them, in milliseconds since the epoch.
+ * @throws If a write fails; nothing is saved then.
+ */
+export const saveFixedExpenses = (
+  db: Database,
+  periodId: string,
+  items: EditedItem[],
+  now: number,
+) => saveItems(db, fixedExpenses, periodId, items, now);
+
+/**
+ * Sets a period's saving target (BR-TGT-01, BR-TGT-02); 0 clears it. The
+ * target's ID derives from its period's, so it is never deleted, only set to
+ * 0: a deleted row never comes back (see docs/architecture/offline-sync.md).
+ * @param now When the user saved it, in milliseconds since the epoch.
+ */
+export const saveSavingTarget = (
+  db: Database,
+  periodId: string,
+  amount: Minor,
+  now: number,
+): void => {
+  const id = derivedId(periodId, 'saving-target');
+  const stored = db.select().from(savingTargets).where(eq(savingTargets.id, id)).get();
+  if (stored?.amount === amount) {
+    return;
+  }
+  if (stored) {
+    db.update(savingTargets)
+      .set({ amount, ...changed(savingTargets, now) })
+      .where(eq(savingTargets.id, id))
+      .run();
+  } else {
+    db.insert(savingTargets)
+      .values({ id, periodId, amount, ...created(now) })
+      .run();
+  }
   notifyChange();
 };

@@ -31,7 +31,8 @@
     "pair": "{{first}}, {{second}}",
     "notSynced": "Pas encore synchronisé",
     "syncFailed": "Synchronisation impossible",
-    "withSync": "{{label}}, {{status}}"
+    "withSync": "{{label}}, {{status}}",
+    "editHint": "Ouvre la modification"
   },
   "account": {
     "title": "Compte",
@@ -214,6 +215,19 @@
       "nextDetail": "La période suivante devient {{range}}. Choisissez-le si vous êtes payé le {{date}} pour toute cette durée.",
       "ownDetail": "La période suivante est {{range}}. Elle reprend les revenus et dépenses fixes de cette période, que vous voudrez peut-être réduire.",
       "save": "Enregistrer"
+    }
+  },
+  "budget": {
+    "forPeriod": "Pour la période {{range}}. Les autres périodes gardent les leurs, et la suivante commencera avec ceux-ci.",
+    "save": "Enregistrer",
+    "income": {
+      "title": "Revenus"
+    },
+    "fixedExpenses": {
+      "title": "Dépenses fixes"
+    },
+    "target": {
+      "title": "Objectif d'épargne"
     }
   }
 }

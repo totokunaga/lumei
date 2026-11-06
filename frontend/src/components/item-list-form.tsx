@@ -23,8 +23,13 @@ import { PressableScale } from './pressable-scale';
 import { SetupStep } from './setup-step';
 import { TextField } from './text-field';
 
-/** An item as the form returns it: amounts in minor units, an empty note as null. */
+/**
+ * An item as the form returns it: amounts in minor units, an empty note as
+ * null. `id` is the stored item's, kept through the form; unset for an item
+ * added in it.
+ */
 export interface ListItem {
+  id?: string;
   name: string;
   amount: Minor;
   note: string | null;
@@ -42,19 +47,26 @@ interface ItemListFormProps {
   currency: CurrencyCode;
   initial: ListItem[];
   onSubmit: (items: ListItem[]) => void;
-  onSkip: () => void;
+  /** Offers "Skip for now", as setup does; see `SetupStep`. */
+  onSkip?: () => void;
   /** Opened from the confirm step to change the items; see `SetupStep`. */
-  editing: boolean;
+  editing?: boolean;
+  /** The primary button's label, e.g. "Save"; see `SetupStep`. */
+  continueLabel?: string;
+  /** Shows a close button; see `SetupStep`. */
+  onClose?: () => void;
 }
 
 /** A row as typed: every field is text until the form is submitted. */
 interface Row {
+  /** The stored item's ID; empty for a row added in the form. */
+  id: string;
   name: string;
   amount: string;
   note: string;
 }
 
-const emptyRow: Row = { name: '', amount: '', note: '' };
+const emptyRow: Row = { id: '', name: '', amount: '', note: '' };
 
 /**
  * Checks whether a row has nothing typed in it, so it can be left out rather
@@ -73,7 +85,7 @@ const formSchema = (currency: CurrencyCode) =>
   z.object({
     items: z.array(
       z
-        .object({ name: z.string(), amount: z.string(), note: z.string() })
+        .object({ id: z.string(), name: z.string(), amount: z.string(), note: z.string() })
         .superRefine((row, ctx) => {
           if (isBlank(row)) {
             return;
@@ -106,6 +118,8 @@ export function ItemListForm({
   onSubmit,
   onSkip,
   editing,
+  continueLabel,
+  onClose,
 }: ItemListFormProps) {
   const { t, i18n } = useTranslation();
   const schema = useMemo(() => formSchema(currency), [currency]);
@@ -119,6 +133,7 @@ export function ItemListForm({
       items:
         initial.length > 0
           ? initial.map((item) => ({
+              id: item.id ?? '',
               name: item.name,
               amount: amountToText(item.amount, currency),
               note: item.note ?? '',
@@ -141,6 +156,7 @@ export function ItemListForm({
       items
         .filter((row) => !isBlank(row))
         .map((row) => ({
+          ...(row.id ? { id: row.id } : {}),
           name: row.name.trim(),
           amount: parseAmount(row.amount, currency, { allowZero: true }) ?? 0,
           note: row.note.trim() || null,
@@ -155,6 +171,8 @@ export function ItemListForm({
       onContinue={() => void submit()}
       onSkip={onSkip}
       editing={editing}
+      continueLabel={continueLabel}
+      onClose={onClose}
       footer={
         <CountingText
           value={total}

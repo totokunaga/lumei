@@ -35,7 +35,12 @@ interface TodayCardProps {
   summary: PeriodSummary;
   /** Formats an amount in the account currency, e.g. 4865 as "¥4,865". */
   money: (amount: Minor) => string;
+  /** Opens the editor of the period's income, fixed expenses, or saving target (BR-INC-01, BR-TGT-01). */
+  onEdit: (item: EditableItem) => void;
 }
+
+/** The period's items the summary opens an editor for. */
+export type EditableItem = 'income' | 'fixed-expenses' | 'target';
 
 /**
  * Renders today's numbers (BR-DSH-01, BR-DSH-02): remaining today as the hero,
@@ -50,12 +55,13 @@ interface TodayCardProps {
  * It starts collapsed. Tapping the card, or the chevron at its top right,
  * expands it to the period summary under today's numbers (BR-DSH-03):
  * income, fixed expenses, the saving target, big purchases, spending to date,
- * and the days left. The rows fade in and out as the card resizes. Each
+ * and the days left. The rows fade in and out as the card resizes. Income,
+ * fixed expenses, and the saving target open their editor. Each
  * number reads as one element to screen readers, with its settled value, and
  * the chevron is the toggle they use
  * (BR-NFR-07).
  */
-export function TodayCard({ status, summary, money }: TodayCardProps) {
+export function TodayCard({ status, summary, money, onEdit }: TodayCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const rotation = useSharedValue(0);
@@ -91,10 +97,20 @@ export function TodayCard({ status, summary, money }: TodayCardProps) {
     value: summary.budgetLeft,
     format: money,
   };
-  const details: { label: string; value: Minor; format: (value: Minor) => string }[] = [
-    { label: t('home.income'), value: summary.income, format: money },
-    { label: t('home.fixedExpenses'), value: summary.fixedExpenses, format: money },
-    { label: t('home.savingTarget'), value: summary.savingTarget, format: money },
+  const details: {
+    label: string;
+    value: Minor;
+    format: (value: Minor) => string;
+    edit?: EditableItem;
+  }[] = [
+    { label: t('home.income'), value: summary.income, format: money, edit: 'income' },
+    {
+      label: t('home.fixedExpenses'),
+      value: summary.fixedExpenses,
+      format: money,
+      edit: 'fixed-expenses',
+    },
+    { label: t('home.savingTarget'), value: summary.savingTarget, format: money, edit: 'target' },
     { label: t('home.bigPurchases'), value: summary.bigPurchases, format: money },
     { label: t('home.spentToDate'), value: summary.spentToDate, format: money },
     {
@@ -181,26 +197,51 @@ export function TodayCard({ status, summary, money }: TodayCardProps) {
 
         {expanded && (
           <Animated.View entering={fadeIn} exiting={fadeOut}>
-            {details.map((row) => (
-              <View
-                key={row.label}
-                accessible
-                accessibilityLabel={t('home.labelled', {
-                  label: row.label,
-                  value: row.format(row.value),
-                })}
-                className="flex-row items-center justify-between gap-4 border-t border-black/10 py-3 dark:border-white/10"
-              >
-                <Text className="text-base text-gray-600 dark:text-gray-400">{row.label}</Text>
-                <CountingText
-                  value={row.value}
-                  format={row.format}
-                  className={`text-base font-semibold ${
-                    row.value < 0 ? 'text-red-600 dark:text-red-400' : 'text-black dark:text-white'
-                  }`}
-                />
-              </View>
-            ))}
+            {details.map((row) => {
+              const label = t('home.labelled', { label: row.label, value: row.format(row.value) });
+              const content = (
+                <>
+                  <Text className="text-base text-gray-600 dark:text-gray-400">{row.label}</Text>
+                  <View className="flex-row items-center gap-2">
+                    <CountingText
+                      value={row.value}
+                      format={row.format}
+                      className={`text-base font-semibold ${
+                        row.value < 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-black dark:text-white'
+                      }`}
+                    />
+                    {row.edit && (
+                      <SymbolView
+                        name={{ ios: 'chevron.right', android: 'chevron_right' }}
+                        size={12}
+                        tintColor="#9CA3AF"
+                      />
+                    )}
+                  </View>
+                </>
+              );
+              const className =
+                'flex-row items-center justify-between gap-4 border-t border-black/10 py-3 dark:border-white/10';
+              const edit = row.edit;
+              return edit ? (
+                <PressableScale
+                  key={row.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  accessibilityHint={t('home.editHint')}
+                  onPress={() => onEdit(edit)}
+                  className={className}
+                >
+                  {content}
+                </PressableScale>
+              ) : (
+                <View key={row.label} accessible accessibilityLabel={label} className={className}>
+                  {content}
+                </View>
+              );
+            })}
           </Animated.View>
         )}
       </Pressable>

@@ -10,7 +10,7 @@ import { QuickAddButton } from '@/components/quick-add-button';
 import { TodayCard } from '@/components/today-card';
 import { useDataVersion } from '@/db/changes';
 import { database } from '@/db/client';
-import { readPeriodExpenses, readPeriodRecords, readSettings } from '@/db/records';
+import { readPeriodExpenses, readPeriodOn, readPeriodRecords, readSettings } from '@/db/records';
 import { useToday } from '@/db/use-today';
 import { periodSummary, todayStatus } from '@/domain/calculations';
 import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
@@ -39,6 +39,7 @@ export default function HomeScreen() {
     return {
       currency: (readSettings(db)?.currency ?? 'USD') as CurrencyCode,
       records,
+      periodId: readPeriodOn(db, today)?.id ?? null,
       expenses: readPeriodExpenses(db, today),
       status: records && todayStatus(records, today),
       summary: records && periodSummary(records, today),
@@ -61,7 +62,12 @@ export default function HomeScreen() {
 
       {data.records && data.status && data.summary ? (
         <>
-          <TodayCard status={data.status} summary={data.summary} money={money} />
+          <TodayCard
+            status={data.status}
+            summary={data.summary}
+            money={money}
+            onEdit={(item) => data.periodId && router.push(`/period/${data.periodId}/${item}`)}
+          />
           <Text
             accessibilityRole="header"
             className="px-1 pt-2 text-xl font-bold text-black dark:text-white"

@@ -31,7 +31,8 @@
     "pair": "{{first}}、{{second}}",
     "notSynced": "未同期",
     "syncFailed": "同期できませんでした",
-    "withSync": "{{label}}、{{status}}"
+    "withSync": "{{label}}、{{status}}",
+    "editHint": "編集画面を開きます"
   },
   "account": {
     "title": "アカウント",
@@ -214,6 +215,19 @@
       "nextDetail": "次の期間が{{range}}になります。{{date}}にその期間全体のお金を受け取る場合に選びます。",
       "ownDetail": "次の期間は{{range}}です。現在の期間の収入と固定費がコピーされるので、必要に応じて減らしてください。",
       "save": "保存"
+    }
+  },
+  "budget": {
+    "forPeriod": "{{range}}の期間に適用されます。ほかの期間はそれぞれの内容のままで、次の期間はこの内容から始まります。",
+    "save": "保存",
+    "income": {
+      "title": "収入"
+    },
+    "fixedExpenses": {
+      "title": "固定費"
+    },
+    "target": {
+      "title": "貯金目標"
     }
   }
 }

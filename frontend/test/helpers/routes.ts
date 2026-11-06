@@ -7,6 +7,9 @@ import SettingsLayout from '@/app/(tabs)/settings/_layout';
 import SettingsScreen from '@/app/(tabs)/settings/index';
 import StartDayScreen from '@/app/(tabs)/settings/start-day';
 import NewExpenseScreen from '@/app/expense/new';
+import PeriodFixedExpensesScreen from '@/app/period/[id]/fixed-expenses';
+import PeriodIncomeScreen from '@/app/period/[id]/income';
+import PeriodTargetScreen from '@/app/period/[id]/target';
 import SignInScreen from '@/app/sign-in';
 import SetupLayout from '@/app/setup/_layout';
 import ConfirmStep from '@/app/setup/confirm';
@@ -26,6 +29,9 @@ export const routes = {
   '(tabs)/settings/start-day': StartDayScreen,
   'sign-in': SignInScreen,
   'expense/new': NewExpenseScreen,
+  'period/[id]/income': PeriodIncomeScreen,
+  'period/[id]/fixed-expenses': PeriodFixedExpensesScreen,
+  'period/[id]/target': PeriodTargetScreen,
   'setup/_layout': SetupLayout,
   'setup/index': RegionStep,
   'setup/currency': CurrencyStep,

@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import { type ComponentRef, type ReactNode, type RefObject, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
@@ -28,6 +29,8 @@ interface SetupStepProps {
   footer?: ReactNode;
   /** A view in the content to scroll into view when the step opens, e.g. the selected option. */
   revealRef?: RefObject<ComponentRef<typeof View> | null>;
+  /** Shows a close button beside the title, for a form opened as a sheet. */
+  onClose?: () => void;
 }
 
 /**
@@ -51,6 +54,7 @@ export function SetupStep({
   editing = false,
   footer,
   revealRef,
+  onClose,
 }: SetupStepProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -91,9 +95,24 @@ export function SetupStep({
           a step opened scrolled down (e.g. to the selected currency) still says
           what it asks. */}
       <View className="gap-3 px-6 pb-4 pt-8">
-        <Text accessibilityRole="header" className="text-4xl font-bold text-black dark:text-white">
-          {title}
-        </Text>
+        <View className="flex-row items-start justify-between gap-4">
+          <Text
+            accessibilityRole="header"
+            className="flex-shrink text-4xl font-bold text-black dark:text-white"
+          >
+            {title}
+          </Text>
+          {onClose && (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={t('expense.close')}
+              onPress={onClose}
+              className="h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-900"
+            >
+              <SymbolView name={{ ios: 'xmark', android: 'close' }} size={16} tintColor="#6B7280" />
+            </PressableScale>
+          )}
+        </View>
         {description && (
           <Text className="text-lg leading-6 text-gray-500 dark:text-gray-400">{description}</Text>
         )}

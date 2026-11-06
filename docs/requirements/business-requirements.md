@@ -109,7 +109,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 
 | ID | Priority | Requirement |
 |----|----------|-------------|
-| BR-TGT-01 | Must | A user can set the saving target of the current period and of future periods. |
+| BR-TGT-01 | Must | A user can set the saving target of the current period and of future periods. A future period starts with the target of the period before it (BR-PER-03), so changing the current period's target also sets it for the periods after it, until it is changed again. Past periods' targets can be changed too (BR-HIS-03). Clearing a target sets it to 0. |
 | BR-TGT-02 | Must | Changing the target updates the daily allowance and the chart immediately. |
 | BR-TGT-03 | Should | The app warns the user when the target is greater than income − fixed expenses, since no spending could meet it. The app still accepts the target. |
 

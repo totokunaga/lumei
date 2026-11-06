@@ -13,13 +13,25 @@ import {
   readCategories,
   readFirstPeriodStart,
   readPeriodExpenses,
+  readPeriodItems,
   readPeriodOn,
   readPeriodRecords,
   readSettings,
+  saveFixedExpenses,
+  saveIncomes,
+  saveSavingTarget,
   saveSetup,
   setBigPurchaseSpread,
 } from '@/db/records';
-import { categories, expenses, incomes, periods, savingTargets, settings } from '@/db/schema';
+import {
+  categories,
+  expenses,
+  fixedExpenses,
+  incomes,
+  periods,
+  savingTargets,
+  settings,
+} from '@/db/schema';
 import { addDays } from '@/domain/date';
 import { buildSetupRecords, type SetupChoices } from '@/domain/setup';
 
@@ -388,5 +400,121 @@ describe('setBigPurchaseSpread (BR-SET-05)', () => {
       pending: true,
       localRev: 2,
     });
+  });
+});
+
+describe('saveIncomes and saveFixedExpenses (BR-INC-01 to BR-INC-04)', () => {
+  it('writes only what changed: an edit, a new item, and a removed one', async () => {
+    const db = await saveFinishedSetup({
+      incomes: [
+        { name: 'Salary', amount: 640_808 },
+        { name: 'Side job', amount: 30_000 },
+      ],
+    });
+    const period = readPeriodOn(db, '2026-10-29')!;
+    const [salary, side] = readPeriodItems(db, period.id)!.incomes;
+    db.update(incomes).set({ pending: false }).run();
+
+    saveIncomes(
+      db,
+      period.id,
+      [
+        { id: salary.id, name: 'Salary', amount: 650_000, note: null },
+        { name: 'Bonus', amount: 0, note: null },
+      ],
+      2_000,
+    );
+
+    const rows = db.select().from(incomes).all();
+    expect(rows.find((row) => row.id === salary.id)).toMatchObject({
+      amount: 650_000,
+      position: 0,
+      pending: true,
+      localRev: 2,
+      updatedAt: 2_000,
+    });
+    expect(rows.find((row) => row.id === side.id)).toMatchObject({ deletedAt: 2_000, pending: true });
+    // 0 keeps an item for a period it isn't paid in (BR-INC-04).
+    expect(readPeriodItems(db, period.id)!.incomes).toEqual([
+      { id: salary.id, name: 'Salary', amount: 650_000 },
+      { id: expect.any(String), name: 'Bonus', amount: 0 },
+    ]);
+  });
+
+  it('leaves an unchanged item alone', async () => {
+    const db = await saveFinishedSetup();
+    const period = readPeriodOn(db, '2026-10-29')!;
+    const [rent] = readPeriodItems(db, period.id)!.fixedExpenses;
+    db.update(fixedExpenses).set({ pending: false }).run();
+
+    saveFixedExpenses(db, period.id, [{ ...rent }], 2_000);
+
+    expect(db.select().from(fixedExpenses).get()).toMatchObject({ pending: false, localRev: 1 });
+  });
+
+  it('saves a fixed expense’s note', async () => {
+    const db = await saveFinishedSetup();
+    const period = readPeriodOn(db, '2026-10-29')!;
+    const [rent] = readPeriodItems(db, period.id)!.fixedExpenses;
+
+    saveFixedExpenses(db, period.id, [{ ...rent, note: 'Originally ¥130,000' }], 2_000);
+
+    expect(readPeriodItems(db, period.id)!.fixedExpenses).toEqual([
+      { ...rent, note: 'Originally ¥130,000' },
+    ]);
+  });
+
+  it('changes only the period edited; the next period copies the edit (BR-INC-03)', async () => {
+    const db = await saveFinishedSetup();
+    const october = readPeriodOn(db, '2026-10-29')!;
+    const [salary] = readPeriodItems(db, october.id)!.incomes;
+
+    saveIncomes(db, october.id, [{ id: salary.id, name: 'Salary', amount: 700_000, note: null }], 2_000);
+    ensureCurrentPeriod(db, '2026-11-25', 3_000);
+    const november = readPeriodOn(db, '2026-11-25')!;
+    const [copied] = readPeriodItems(db, november.id)!.incomes;
+    saveIncomes(db, november.id, [{ id: copied.id, name: 'Salary', amount: 0, note: null }], 4_000);
+
+    expect(readPeriodRecords(db, '2026-10-29')?.income).toEqual([700_000]);
+    expect(readPeriodRecords(db, '2026-11-25')?.income).toEqual([0]);
+  });
+});
+
+describe('saveSavingTarget (BR-TGT-01, BR-TGT-02)', () => {
+  it.each([
+    { name: 'changes the target', setupTarget: 100_000, amount: 80_000, localRev: 2 },
+    { name: 'sets a target the period didn’t have', setupTarget: null, amount: 80_000, localRev: 1 },
+    { name: 'clears it to 0 rather than deleting it', setupTarget: 100_000, amount: 0, localRev: 2 },
+  ])('$name', async ({ setupTarget, amount, localRev }) => {
+    const db = await saveFinishedSetup({ savingTarget: setupTarget });
+    const period = readPeriodOn(db, '2026-10-29')!;
+
+    saveSavingTarget(db, period.id, amount, 2_000);
+
+    expect(readPeriodRecords(db, '2026-10-29')?.savingTarget).toBe(amount);
+    expect(db.select().from(savingTargets).get()).toMatchObject({
+      id: derivedId(period.id, 'saving-target'),
+      deletedAt: null,
+      pending: true,
+      localRev,
+    });
+  });
+
+  it('writes nothing when the target is the same', async () => {
+    const db = await saveFinishedSetup();
+    const period = readPeriodOn(db, '2026-10-29')!;
+    db.update(savingTargets).set({ pending: false }).run();
+
+    saveSavingTarget(db, period.id, 100_000, 2_000);
+
+    expect(db.select().from(savingTargets).get()).toMatchObject({ pending: false, localRev: 1 });
+  });
+});
+
+describe('readPeriodItems', () => {
+  it('returns null for a period that doesn’t exist', async () => {
+    const db = await saveFinishedSetup();
+
+    expect(readPeriodItems(db, 'nope')).toBeNull();
   });
 });

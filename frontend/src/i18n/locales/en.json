@@ -31,7 +31,8 @@
     "pair": "{{first}}, {{second}}",
     "notSynced": "Not synced yet",
     "syncFailed": "Couldn't sync",
-    "withSync": "{{label}}, {{status}}"
+    "withSync": "{{label}}, {{status}}",
+    "editHint": "Opens it to edit"
   },
   "account": {
     "title": "Account",
@@ -214,6 +215,19 @@
       "nextDetail": "The next period becomes {{range}}. Choose this if you're paid on {{date}} for that whole time.",
       "ownDetail": "The next period is {{range}}. It copies this period's income and fixed expenses, which you may want to lower.",
       "save": "Save"
+    }
+  },
+  "budget": {
+    "forPeriod": "For {{range}}. Other periods keep their own, and the next period starts with these.",
+    "save": "Save",
+    "income": {
+      "title": "Income"
+    },
+    "fixedExpenses": {
+      "title": "Fixed expenses"
+    },
+    "target": {
+      "title": "Saving target"
     }
   }
 }
