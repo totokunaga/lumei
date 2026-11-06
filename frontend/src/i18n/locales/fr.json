@@ -270,5 +270,16 @@
     "descriptionPlaceholder": "Description, ex. Aki a remboursé le dîner",
     "delete": "Supprimer le revenu",
     "failed": "Le revenu n'a pas pu être enregistré. Réessayez."
+  },
+  "chart": {
+    "title": "Graphique des dépenses",
+    "under": "{{amount}} sous la limite de dépenses du jour",
+    "over": "{{amount}} au-dessus de la limite de dépenses du jour",
+    "label": "{{spent}} dépensés jusqu'ici. {{status}}.",
+    "spentSoFar": "Dépensé jusqu'ici",
+    "limit": "Limite",
+    "daily": "Dépenses du jour",
+    "underEnded": "{{amount}} sous la limite de dépenses de la période",
+    "overEnded": "{{amount}} au-dessus de la limite de dépenses de la période"
   }
 }

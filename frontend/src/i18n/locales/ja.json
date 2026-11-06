@@ -270,5 +270,16 @@
     "descriptionPlaceholder": "メモ（例：アキから夕食代の返金）",
     "delete": "収入を削除",
     "failed": "収入を保存できませんでした。もう一度お試しください。"
+  },
+  "chart": {
+    "title": "支出のグラフ",
+    "under": "今日の支出上限まであと{{amount}}",
+    "over": "今日の支出上限を{{amount}}超えています",
+    "label": "これまでに{{spent}}を使いました。{{status}}。",
+    "spentSoFar": "累計支出",
+    "limit": "上限",
+    "daily": "1日の支出",
+    "underEnded": "期間の支出上限まであと{{amount}}",
+    "overEnded": "期間の支出上限を{{amount}}超えました"
   }
 }

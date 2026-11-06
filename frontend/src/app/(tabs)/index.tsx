@@ -11,6 +11,7 @@ import { ExpenseRow } from '@/components/expense-row';
 import { FloatingToggle } from '@/components/floating-toggle';
 import { IncomeRow } from '@/components/income-row';
 import { PressableScale } from '@/components/pressable-scale';
+import { ProgressChart } from '@/components/progress-chart';
 import { QuickAddButton } from '@/components/quick-add-button';
 import { ResultCard } from '@/components/result-card';
 
@@ -30,7 +31,13 @@ import {
   readSettings,
 } from '@/db/records';
 import { useToday } from '@/db/use-today';
-import { periodResult, periodSummary, todayStatus } from '@/domain/calculations';
+import {
+  type BigPurchaseSpread,
+  periodResult,
+  periodSummary,
+  progressChart,
+  todayStatus,
+} from '@/domain/calculations';
 import type { IsoDate } from '@/domain/date';
 import { formatDayHeading, groupByDay } from '@/domain/expense';
 import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
@@ -66,8 +73,9 @@ export default function HomeScreen() {
     const period = readPeriodOn(db, day);
     const records = readPeriodRecords(db, day);
     const current = period !== null && inPeriod(period, today);
+    const settings = readSettings(db);
     return {
-      currency: (readSettings(db)?.currency ?? 'USD') as CurrencyCode,
+      currency: (settings?.currency ?? 'USD') as CurrencyCode,
       period,
       current,
       neighbours: period ? readNeighbourPeriods(db, period) : { previous: null, next: null },
@@ -79,6 +87,14 @@ export default function HomeScreen() {
       // A past period's totals as they stood at its end (BR-HIS-01).
       summary: records && periodSummary(records, current ? today : records.period.end),
       result: records && !current ? periodResult(records) : null,
+      // A past period's chart as it stood at its end (BR-HIS-01).
+      chart:
+        records &&
+        progressChart(
+          records,
+          current ? today : records.period.end,
+          (settings?.bigPurchaseSpread ?? 'daysLeft') as BigPurchaseSpread,
+        ),
     };
     // `version` changes with every write, so the records are read again then.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,6 +174,7 @@ export default function HomeScreen() {
               <ResultCard result={data.result} summary={data.summary} money={money} onEdit={edit} />
             )
           )}
+          {data.chart && <ProgressChart chart={data.chart} money={money} ended={!data.current} />}
           <View className="pt-2">
             <FloatingToggle
               label={t('home.show')}

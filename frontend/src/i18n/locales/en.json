@@ -270,5 +270,16 @@
     "descriptionPlaceholder": "Description, e.g. Aki paid back dinner",
     "delete": "Delete income",
     "failed": "The income couldn't be saved. Try again."
+  },
+  "chart": {
+    "title": "Spending chart",
+    "under": "{{amount}} under today's spending limit",
+    "over": "{{amount}} over today's spending limit",
+    "label": "Spent {{spent}} so far. {{status}}.",
+    "spentSoFar": "Spent so far",
+    "limit": "Limit",
+    "daily": "Daily spending",
+    "underEnded": "{{amount}} under the period's spending limit",
+    "overEnded": "{{amount}} over the period's spending limit"
   }
 }

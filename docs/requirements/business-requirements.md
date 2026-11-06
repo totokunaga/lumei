@@ -220,7 +220,7 @@ The supported currencies are the major currencies listed by [OANDA](https://www.
 | ID | Priority | Requirement |
 |----|----------|-------------|
 | BR-CHT-01 | Must | A chart shows each day of the selected period with: a **bar** for that day's spending (BR-CALC-05), a **line** for cumulative spending, a **line** for the spending limit (BR-CALC-06), and a **marker** for today's cumulative spending. |
-| BR-CHT-02 | Must | The chart shows how far the user is from the limit today, e.g. "¥8,400 under the limit" or "¥3,000 over the limit". |
+| BR-CHT-02 | Must | The chart shows how far the user is from the spending limit today (BR-CALC-06), e.g. "¥8,400 under today's spending limit" or "¥3,000 over today's spending limit". For a past period, it does the same as of the period's last day: "¥8,400 under the period's spending limit". |
 | BR-CHT-03 | Must | Bars and lines stop at today. Future days show only the limit line. |
 | BR-CHT-04 | Should | Tapping a day shows that day's spending, its cumulative spending, and its limit, and opens that day's expenses. |
 | BR-CHT-05 | Must | The chart is readable in both light and dark mode, and doesn't rely on color alone to tell the series apart. |
