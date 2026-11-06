@@ -127,19 +127,27 @@ func fromSyncRow(row generated.SyncRow) (application.SyncRow, error) {
 			ID: v.Id, UpdatedAt: v.UpdatedAt, DeletedAt: v.DeletedAt,
 			Record: application.SavingTargetRecord{PeriodID: v.PeriodId, Amount: v.Amount},
 		}, nil
+	case generated.ExpenseRow:
+		return application.SyncRow{
+			ID: v.Id, UpdatedAt: v.UpdatedAt, DeletedAt: v.DeletedAt,
+			Record: application.ExpenseRecord{
+				Amount:        v.Amount,
+				CategoryID:    v.CategoryId,
+				Date:          v.Date,
+				SpentAt:       v.SpentAt,
+				IsBigPurchase: v.IsBigPurchase,
+				Description:   v.Description,
+				Latitude:      v.Latitude,
+				Longitude:     v.Longitude,
+			},
+		}, nil
 	default:
-		e := value.(generated.ExpenseRow) //nolint:forcetypeassert // the discriminator has no other values
+		// The discriminator has no other values.
+		e := value.(generated.ExtraIncomeRow) //nolint:forcetypeassert // see above
 		return application.SyncRow{
 			ID: e.Id, UpdatedAt: e.UpdatedAt, DeletedAt: e.DeletedAt,
-			Record: application.ExpenseRecord{
-				Amount:        e.Amount,
-				CategoryID:    e.CategoryId,
-				Date:          e.Date,
-				SpentAt:       e.SpentAt,
-				IsBigPurchase: e.IsBigPurchase,
-				Description:   e.Description,
-				Latitude:      e.Latitude,
-				Longitude:     e.Longitude,
+			Record: application.ExtraIncomeRecord{
+				Amount: e.Amount, Date: e.Date, ReceivedAt: e.ReceivedAt, Description: e.Description,
 			},
 		}, nil
 	}
@@ -199,6 +207,11 @@ func toSyncRow(row application.SyncRow) (generated.SyncRow, error) {
 			Description:   r.Description,
 			Latitude:      r.Latitude,
 			Longitude:     r.Longitude,
+		})
+	case application.ExtraIncomeRecord:
+		err = out.FromExtraIncomeRow(generated.ExtraIncomeRow{
+			Id: row.ID, UpdatedAt: row.UpdatedAt, DeletedAt: row.DeletedAt,
+			Amount: r.Amount, Date: r.Date, ReceivedAt: r.ReceivedAt, Description: r.Description,
 		})
 	default:
 		err = fmt.Errorf("unknown record type %T", row.Record)

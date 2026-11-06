@@ -19,6 +19,7 @@ import type { Minor } from '@/domain/money';
 import { CountingText } from './counting-text';
 import { EASE_OUT, listLayout } from './motion';
 import { PressableScale } from './pressable-scale';
+import { type EditableItem, type SummaryRow, SummaryRows } from './summary-rows';
 
 const shift = { duration: 300, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
 const turn = { duration: 250, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
@@ -39,9 +40,6 @@ interface TodayCardProps {
   onEdit: (item: EditableItem) => void;
 }
 
-/** The period's items the summary opens an editor for. */
-export type EditableItem = 'income' | 'fixed-expenses' | 'target';
-
 /**
  * Renders today's numbers (BR-DSH-01, BR-DSH-02): remaining today as the hero,
  * with spent today against the daily allowance under it, and the period's
@@ -54,7 +52,7 @@ export type EditableItem = 'income' | 'fixed-expenses' | 'target';
  *
  * It starts collapsed. Tapping the card, or the chevron at its top right,
  * expands it to the period summary under today's numbers (BR-DSH-03):
- * income, fixed expenses, the saving target, big purchases, spending to date,
+ * planned and extra income, fixed expenses, the saving target, big purchases, spending to date,
  * and the days left. The rows fade in and out as the card resizes. Income,
  * fixed expenses, and the saving target open their editor. Each
  * number reads as one element to screen readers, with its settled value, and
@@ -97,13 +95,9 @@ export function TodayCard({ status, summary, money, onEdit }: TodayCardProps) {
     value: summary.budgetLeft,
     format: money,
   };
-  const details: {
-    label: string;
-    value: Minor;
-    format: (value: Minor) => string;
-    edit?: EditableItem;
-  }[] = [
+  const details: SummaryRow[] = [
     { label: t('home.income'), value: summary.income, format: money, edit: 'income' },
+    { label: t('home.extraIncome'), value: summary.extraIncome, format: money },
     {
       label: t('home.fixedExpenses'),
       value: summary.fixedExpenses,
@@ -197,51 +191,7 @@ export function TodayCard({ status, summary, money, onEdit }: TodayCardProps) {
 
         {expanded && (
           <Animated.View entering={fadeIn} exiting={fadeOut}>
-            {details.map((row) => {
-              const label = t('home.labelled', { label: row.label, value: row.format(row.value) });
-              const content = (
-                <>
-                  <Text className="text-base text-gray-600 dark:text-gray-400">{row.label}</Text>
-                  <View className="flex-row items-center gap-2">
-                    <CountingText
-                      value={row.value}
-                      format={row.format}
-                      className={`text-base font-semibold ${
-                        row.value < 0
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-black dark:text-white'
-                      }`}
-                    />
-                    {row.edit && (
-                      <SymbolView
-                        name={{ ios: 'chevron.right', android: 'chevron_right' }}
-                        size={12}
-                        tintColor="#9CA3AF"
-                      />
-                    )}
-                  </View>
-                </>
-              );
-              const className =
-                'flex-row items-center justify-between gap-4 border-t border-black/10 py-3 dark:border-white/10';
-              const edit = row.edit;
-              return edit ? (
-                <PressableScale
-                  key={row.label}
-                  accessibilityRole="button"
-                  accessibilityLabel={label}
-                  accessibilityHint={t('home.editHint')}
-                  onPress={() => onEdit(edit)}
-                  className={className}
-                >
-                  {content}
-                </PressableScale>
-              ) : (
-                <View key={row.label} accessible accessibilityLabel={label} className={className}>
-                  {content}
-                </View>
-              );
-            })}
+            <SummaryRows rows={details} onEdit={onEdit} />
           </Animated.View>
         )}
       </Pressable>

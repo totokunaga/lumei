@@ -127,6 +127,27 @@ export const expenses = sqliteTable(
 );
 
 /**
+ * Extra income (BR-INC-06): money that arrives unplanned on a day, e.g. a
+ * friend paying back their share of dinner. Like an expense, it has no period
+ * ID: its date decides its period.
+ */
+export const extraIncomes = sqliteTable(
+  'extra_incomes',
+  {
+    ...syncColumns(),
+    /** In minor units, greater than 0 (BR-EXP-08, BR-NFR-06). */
+    amount: integer('amount').notNull(),
+    /** The calendar date in the device's time zone when it arrived, `YYYY-MM-DD`. */
+    date: text('date').notNull(),
+    /** When it arrived, in milliseconds since the epoch. */
+    receivedAt: integer('received_at').notNull(),
+    /** An optional description, e.g. "Aki paid back dinner"; null when empty. */
+    description: text('description'),
+  },
+  (table) => [index('extra_incomes_date').on(table.date)],
+);
+
+/**
  * The sync engine's own state, on the device only: one row, whose `id` is 1.
  * Not synced.
  */
@@ -145,4 +166,5 @@ export const syncedTables = [
   fixedExpenses,
   savingTargets,
   expenses,
+  extraIncomes,
 ] as const;

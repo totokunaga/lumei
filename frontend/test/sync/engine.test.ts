@@ -4,7 +4,14 @@ import { eq } from 'drizzle-orm';
 import type { SyncRow } from '@/api/generated/model';
 import type { Database } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
-import { addExpense, countPendingChanges, readCategories, saveSetup } from '@/db/records';
+import {
+  addExpense,
+  addExtraIncome,
+  countPendingChanges,
+  readCategories,
+  readExtraIncome,
+  saveSetup,
+} from '@/db/records';
 import { expenses, syncState } from '@/db/schema';
 import { subscribeToLocalChanges, useDataVersion } from '@/db/changes';
 import { localToday } from '@/domain/date';
@@ -85,6 +92,21 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
     expect(readCategories(tablet)).toEqual(readCategories(phone));
     expect(countPendingChanges(tablet)).toBe(0);
     expect(tablet.select().from(syncState).get()).toEqual({ id: 1, cursor: server.seq() });
+  });
+
+  it('syncs extra income like every other record (BR-INC-06)', async () => {
+    const server = fakeSyncServer();
+    mockApi(server.routes);
+    const phone = await deviceWithSetup();
+    const id = newId();
+    addExtraIncome(phone, { amount: 3_000, receivedAt: Date.now(), description: 'Dinner' }, id, Date.now());
+    const tablet = await openDeviceDatabase();
+
+    await syncOnce(phone);
+    await syncOnce(tablet);
+
+    expect(server.stored('extra_incomes', id)).toMatchObject({ amount: 3_000, description: 'Dinner' });
+    expect(readExtraIncome(tablet, id)).toEqual({ ...readExtraIncome(phone, id), pending: false });
   });
 
   it.each([

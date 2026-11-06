@@ -3,7 +3,7 @@
 import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
 import type { BigPurchaseSpread, PeriodRecords } from '@/domain/calculations';
-import type { IsoDate } from '@/domain/date';
+import { addDays, type IsoDate } from '@/domain/date';
 import { expenseDate } from '@/domain/expense';
 import type { Minor } from '@/domain/money';
 import type { Period, StartDay } from '@/domain/period';
@@ -17,6 +17,7 @@ import { derivedId, newId } from './ids';
 import {
   categories,
   expenses,
+  extraIncomes,
   fixedExpenses,
   incomes,
   periods,
@@ -137,6 +138,17 @@ export const readPeriodRecords = (db: Database, date: string): PeriodRecords | n
           gte(expenses.date, period.startDate),
           lte(expenses.date, period.endDate),
           isNull(expenses.deletedAt),
+        ),
+      )
+      .all(),
+    extraIncome: db
+      .select({ amount: extraIncomes.amount, date: extraIncomes.date })
+      .from(extraIncomes)
+      .where(
+        and(
+          gte(extraIncomes.date, period.startDate),
+          lte(extraIncomes.date, period.endDate),
+          isNull(extraIncomes.deletedAt),
         ),
       )
       .all(),
@@ -747,6 +759,205 @@ export const restoreExpense = (
       description: deleted.description,
       latitude: deleted.latitude,
       longitude: deleted.longitude,
+      ...created(now),
+    })
+    .run();
+  notifyChange();
+};
+
+/**
+ * Finds the periods just before and after one, for stepping through them
+ * (BR-HIS-01). A period after the current one only exists once it starts.
+ * @returns Each neighbour's ID and dates, or null where there is none.
+ */
+export const readNeighbourPeriods = (
+  db: Database,
+  period: Period,
+): { previous: (Period & { id: string }) | null; next: (Period & { id: string }) | null } => {
+  const columns = { id: periods.id, start: periods.startDate, end: periods.endDate };
+  return {
+    previous:
+      db
+        .select(columns)
+        .from(periods)
+        .where(and(lte(periods.endDate, addDays(period.start, -1)), isNull(periods.deletedAt)))
+        .orderBy(desc(periods.startDate))
+        .get() ?? null,
+    next:
+      db
+        .select(columns)
+        .from(periods)
+        .where(and(gte(periods.startDate, addDays(period.end, 1)), isNull(periods.deletedAt)))
+        .orderBy(asc(periods.startDate))
+        .get() ?? null,
+  };
+};
+
+/** Extra income as the home screen lists it (BR-INC-06, BR-DSH-06). */
+export interface ListedIncome {
+  id: string;
+  /** In minor units. */
+  amount: Minor;
+  date: IsoDate;
+  /** When it arrived, in milliseconds since the epoch. */
+  receivedAt: number;
+  description: string | null;
+  /** Whether the API has it (BR-OFF-04). */
+  sync: SyncState;
+}
+
+/**
+ * Reads the extra income of the period containing a date, newest first by
+ * when each arrived (BR-DSH-06). Deleted ones are left out.
+ * @returns The income, the latest first; empty if no period contains the date.
+ */
+export const readPeriodExtraIncome = (db: Database, date: IsoDate): ListedIncome[] => {
+  const period = readPeriodOn(db, date);
+  if (!period) {
+    return [];
+  }
+  return (
+    db
+      .select({
+        id: extraIncomes.id,
+        amount: extraIncomes.amount,
+        date: extraIncomes.date,
+        receivedAt: extraIncomes.receivedAt,
+        description: extraIncomes.description,
+        pending: extraIncomes.pending,
+        syncError: extraIncomes.syncError,
+      })
+      .from(extraIncomes)
+      .where(
+        and(
+          gte(extraIncomes.date, period.start),
+          lte(extraIncomes.date, period.end),
+          isNull(extraIncomes.deletedAt),
+        ),
+      )
+      // IDs are UUIDv7s, so two incomes at the same moment list the later-recorded first.
+      .orderBy(desc(extraIncomes.receivedAt), desc(extraIncomes.id))
+      .all()
+      .map(({ pending, syncError, ...income }) => ({
+        ...income,
+        sync: syncError !== null ? 'failed' : pending ? 'pending' : 'synced',
+      }))
+  );
+};
+
+/** What the user enters to record extra income (BR-INC-06). */
+export interface NewExtraIncome {
+  /** In minor units, greater than 0 (BR-EXP-08). */
+  amount: Minor;
+  /** When it arrived, in milliseconds since the epoch; not later than now (BR-EXP-02). */
+  receivedAt: number;
+  /** An optional description; null when empty. */
+  description: string | null;
+}
+
+/** Extra income as the edit form shows it. */
+export type StoredExtraIncome = typeof extraIncomes.$inferSelect;
+
+/**
+ * Saves new extra income, dated by the device's time zone at `receivedAt`,
+ * and marks it pending for sync (BR-INC-06). Today's numbers update straight
+ * away (BR-NFR-04).
+ * @param id The new record's ID, from `newId()`.
+ * @param now When the user saved it, in milliseconds since the epoch.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const addExtraIncome = (
+  db: Database,
+  income: NewExtraIncome,
+  id: string,
+  now: number,
+): void => {
+  db.insert(extraIncomes)
+    .values({ ...income, id, date: expenseDate(income.receivedAt), ...created(now) })
+    .run();
+  notifyChange();
+};
+
+/**
+ * Reads extra income to edit.
+ * @returns It, or null if there is none with the ID, or it was deleted.
+ */
+export const readExtraIncome = (db: Database, id: string): StoredExtraIncome | null =>
+  db
+    .select()
+    .from(extraIncomes)
+    .where(and(eq(extraIncomes.id, id), isNull(extraIncomes.deletedAt)))
+    .get() ?? null;
+
+/**
+ * Saves the user's changes to extra income (BR-INC-06). Its date follows a
+ * changed `receivedAt`, which can move it to another period; otherwise it
+ * keeps its date.
+ * @param now When the user saved it, in milliseconds since the epoch.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const updateExtraIncome = (
+  db: Database,
+  id: string,
+  income: NewExtraIncome,
+  now: number,
+): void => {
+  const stored = readExtraIncome(db, id);
+  if (!stored) {
+    return;
+  }
+  db.update(extraIncomes)
+    .set({
+      ...income,
+      date: income.receivedAt === stored.receivedAt ? stored.date : expenseDate(income.receivedAt),
+      ...changed(extraIncomes, now),
+    })
+    .where(eq(extraIncomes.id, id))
+    .run();
+  notifyChange();
+};
+
+/**
+ * Deletes extra income, keeping a marker for sync (BR-INC-06, BR-OFF-05).
+ * @param now When the user deleted it, in milliseconds since the epoch.
+ * @returns It as it was, for `restoreExtraIncome`, or null if there is none.
+ */
+export const deleteExtraIncome = (
+  db: Database,
+  id: string,
+  now: number,
+): StoredExtraIncome | null => {
+  const stored = readExtraIncome(db, id);
+  if (!stored) {
+    return null;
+  }
+  db.update(extraIncomes)
+    .set({ deletedAt: now, ...changed(extraIncomes, now) })
+    .where(eq(extraIncomes.id, id))
+    .run();
+  notifyChange();
+  return stored;
+};
+
+/**
+ * Undoes a deletion: saves the deleted income again as a new record, since
+ * the deleted row can't come back (BR-OFF-05).
+ * @param id The new record's ID, from `newId()`.
+ * @param now When the user undid it, in milliseconds since the epoch.
+ */
+export const restoreExtraIncome = (
+  db: Database,
+  deleted: StoredExtraIncome,
+  id: string,
+  now: number,
+): void => {
+  db.insert(extraIncomes)
+    .values({
+      id,
+      amount: deleted.amount,
+      date: deleted.date,
+      receivedAt: deleted.receivedAt,
+      description: deleted.description,
       ...created(now),
     })
     .run();

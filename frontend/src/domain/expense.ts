@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 
 import type { TodayStatus } from './calculations';
 import { addDays, type IsoDate, localToday } from './date';
+import type { Minor } from './money';
 
 /**
  * Works out an expense's date: the calendar date in the device's time zone
@@ -71,3 +72,62 @@ export const formatExpenseTime = (
   const day = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(at);
   return t('home.dateAt', { date: day, time });
 };
+
+/** A day of a list of expenses, with its total (BR-DSH-06). */
+export interface ExpenseDay<T> {
+  date: IsoDate;
+  /** Every expense of the day, at its full amount, big purchases included. */
+  total: Minor;
+  expenses: T[];
+}
+
+/**
+ * Groups expenses by their date, keeping their order: listed newest first,
+ * the days come newest first too (BR-DSH-06).
+ * @returns One entry per day, with the day's expenses and their total.
+ */
+export const groupByDay = <T extends { date: IsoDate; amount: Minor }>(
+  expenses: T[],
+): ExpenseDay<T>[] => {
+  const days = new Map<IsoDate, ExpenseDay<T>>();
+  for (const expense of expenses) {
+    const day = days.get(expense.date) ?? { date: expense.date, total: 0, expenses: [] };
+    day.total += expense.amount;
+    day.expenses.push(expense);
+    days.set(expense.date, day);
+  }
+  return [...days.values()];
+};
+
+/**
+ * Names a day as a list heading (BR-DSH-06): "Today", "Yesterday", or the
+ * date, with the year only when it isn't this year's.
+ * @param today Today's date in the device's time zone (BR-DSH-05).
+ * @returns E.g. "Today", or "October 28" and "December 30, 2025" in English.
+ */
+export const formatDayHeading = (
+  date: IsoDate,
+  today: IsoDate,
+  t: TFunction,
+  locale: string,
+): string => {
+  if (date === today) {
+    return t('home.today');
+  }
+  if (date === addDays(today, -1)) {
+    return t('home.yesterday');
+  }
+  const [year, month, day] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    day: 'numeric',
+    ...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: 'numeric' }),
+  }).format(new Date(year, month - 1, day));
+};
+
+/**
+ * Formats the time an expense happened, as a row under its day's heading shows it.
+ * @returns E.g. "12:30 PM" in English, "12:30" in Japanese and French.
+ */
+export const formatExpenseClock = (spentAt: number, locale: string): string =>
+  new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(new Date(spentAt));

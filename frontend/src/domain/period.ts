@@ -85,18 +85,49 @@ export const isCalendarMonth = (period: Period): boolean => {
 };
 
 /**
- * Builds the label a period is shown under (BR-PER-06): the month of its end
- * date, plus its date range when it isn't a calendar month.
+ * Finds the month a period is named after (BR-PER-06): the one with the most
+ * of its days, or the later one on a tie.
+ * @returns The month's first day, e.g. `'2026-11-01'` for Oct 25 – Nov 24.
+ */
+export const periodMonth = (period: Period): IsoDate => {
+  const days = new Map<IsoDate, number>();
+  for (let date = period.start; date <= period.end; date = addDays(date, 1)) {
+    const first = `${date.slice(0, 7)}-01`;
+    days.set(first, (days.get(first) ?? 0) + 1);
+  }
+  let best = period.start;
+  let most = 0;
+  // Months come in order, so `>=` lets a later month win a tie.
+  for (const [first, count] of days) {
+    if (count >= most) {
+      best = first;
+      most = count;
+    }
+  }
+  return best;
+};
+
+/**
+ * Names a period by its month and year (BR-PER-06), as the home screen's
+ * title shows it.
+ * @param locale Formats the month, e.g. `'en'`.
+ * @returns E.g. "November 2026" in English, "2026年11月" in Japanese, and
+ *   "novembre 2026" in French.
+ */
+export const formatPeriodName = (period: Period, locale: string): string =>
+  new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    toUtcDate(periodMonth(period)),
+  );
+
+/**
+ * Builds the label a period is shown under where its dates help (BR-PER-06):
+ * its name, plus its date range when it isn't a calendar month.
  * @param t Translates the label pattern into the app language.
  * @param locale Formats the month and dates, e.g. `'en'`.
  * @returns E.g. "November 2026", or "November 2026 (Oct 25 – Nov 24)" for start day 25.
  */
 export const formatPeriodLabel = (period: Period, t: TFunction, locale: string): string => {
-  const month = new Intl.DateTimeFormat(locale, {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(toUtcDate(period.end));
+  const month = formatPeriodName(period, locale);
   if (isCalendarMonth(period)) {
     return month;
   }

@@ -7,6 +7,7 @@
  */
 import type { CategoryRow } from './categoryRow';
 import type { ExpenseRow } from './expenseRow';
+import type { ExtraIncomeRow } from './extraIncomeRow';
 import type { FixedExpenseRow } from './fixedExpenseRow';
 import type { IncomeRow } from './incomeRow';
 import type { PeriodRow } from './periodRow';
@@ -23,4 +24,5 @@ export type SyncRow =
   | IncomeRow
   | FixedExpenseRow
   | SavingTargetRow
-  | ExpenseRow;
+  | ExpenseRow
+  | ExtraIncomeRow;

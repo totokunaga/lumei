@@ -45,6 +45,11 @@ interface SwipeToDeleteProps {
    * instead of acting.
    */
   controlsRef: { current: SwipeControls | null };
+  /**
+   * The row's background, behind the delete button too, and its shape, e.g.
+   * the rounded corners of the first row of a card.
+   */
+  className?: string;
 }
 
 /**
@@ -56,7 +61,13 @@ interface SwipeToDeleteProps {
  * row, closes it. Only one row is open at a time, and vertical scrolling
  * still works. The row moves with eased timing, never a spring.
  */
-export function SwipeToDelete({ children, rowKey, onDelete, controlsRef }: SwipeToDeleteProps) {
+export function SwipeToDelete({
+  children,
+  rowKey,
+  onDelete,
+  controlsRef,
+  className = 'bg-white dark:bg-black',
+}: SwipeToDeleteProps) {
   const { t } = useTranslation();
   const offset = useSharedValue(0);
   const start = useSharedValue(0);
@@ -172,7 +183,7 @@ export function SwipeToDelete({ children, rowKey, onDelete, controlsRef }: Swipe
   return (
     <View
       testID={`swipe-row-${rowKey}`}
-      className="overflow-hidden"
+      className={`overflow-hidden ${className}`}
       onLayout={(event) => width.set(event.nativeEvent.layout.width)}
     >
       {/* The round delete button, behind the row's right end; only transforms and opacity animate. */}
@@ -197,7 +208,7 @@ export function SwipeToDelete({ children, rowKey, onDelete, controlsRef }: Swipe
         </Animated.View>
       </View>
       <GestureDetector gesture={pan}>
-        <Animated.View style={row} className="bg-white dark:bg-black">
+        <Animated.View style={row} className={className}>
           {children}
         </Animated.View>
       </GestureDetector>

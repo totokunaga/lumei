@@ -35,6 +35,7 @@ const (
 	TableFixedExpenses SyncTable = "fixed_expenses"
 	TableSavingTargets SyncTable = "saving_targets"
 	TableExpenses      SyncTable = "expenses"
+	TableExtraIncomes  SyncTable = "extra_incomes"
 )
 
 // SyncRecord is the fields of one record, other than its sync columns. Its
@@ -126,6 +127,14 @@ type ExpenseRecord struct {
 	Description   *string
 	Latitude      *float64
 	Longitude     *float64
+}
+
+// ExtraIncomeRecord is money that arrives unplanned on a day (BR-INC-06).
+type ExtraIncomeRecord struct {
+	Amount      int64
+	Date        string
+	ReceivedAt  int64
+	Description *string
 }
 
 // PushOutcome is what happened to a pushed row.
@@ -423,6 +432,14 @@ func (r ExpenseRecord) Validate() error {
 		isDate(r.Date) &&
 		r.SpentAt > 0 &&
 		(located || unlocated))
+}
+
+// Table implements SyncRecord.
+func (ExtraIncomeRecord) Table() SyncTable { return TableExtraIncomes }
+
+// Validate implements SyncRecord.
+func (r ExtraIncomeRecord) Validate() error {
+	return valid(r.Amount > 0 && isDate(r.Date) && r.ReceivedAt > 0) // BR-EXP-08
 }
 
 // valid returns errInvalidRow unless ok.

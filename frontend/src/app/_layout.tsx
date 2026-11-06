@@ -97,6 +97,8 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="expense/[id]" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="income/new" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="income/[id]" options={{ presentation: 'modal' }} />
             <Stack.Screen name="period/[id]/income" options={{ presentation: 'modal' }} />
             <Stack.Screen name="period/[id]/fixed-expenses" options={{ presentation: 'modal' }} />
             <Stack.Screen name="period/[id]/target" options={{ presentation: 'modal' }} />

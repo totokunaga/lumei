@@ -6,7 +6,7 @@
     "periodOver": "Over for this period",
     "allowance": "Daily allowance",
     "spentToday": "Spent today",
-    "income": "Income",
+    "income": "Planned income",
     "fixedExpenses": "Fixed expenses",
     "savingTarget": "Saving target",
     "bigPurchases": "Big purchases",
@@ -32,7 +32,25 @@
     "notSynced": "Not synced yet",
     "syncFailed": "Couldn't sync",
     "withSync": "{{label}}, {{status}}",
-    "editHint": "Opens it to edit"
+    "editHint": "Opens it to edit",
+    "yesterday": "Yesterday",
+    "dayTotal": "{{day}}: {{amount}} in total",
+    "previousPeriod": "Previous period",
+    "nextPeriod": "Next period",
+    "saved": "Saved",
+    "spent": "Spent",
+    "targetMet": "Met the saving target of {{target}}",
+    "targetMissed": "{{short}} short of the saving target of {{target}}",
+    "noExpensesInPeriod": "No expenses in this period.",
+    "extraIncome": "Extra income",
+    "show": "Show",
+    "incomeTab": "Income",
+    "planned": "Planned",
+    "addPlannedIncome": "Add planned income",
+    "noExtraIncome": "No extra income this period.",
+    "plus": "+{{amount}}",
+    "incomeLabel": "{{name}}, {{amount}}, {{when}}",
+    "addIncome": "Add income"
   },
   "account": {
     "title": "Account",
@@ -224,7 +242,7 @@
     "forPeriod": "For {{range}}. Other periods keep their own, and the next period starts with these.",
     "save": "Save",
     "income": {
-      "title": "Income"
+      "title": "Planned income"
     },
     "fixedExpenses": {
       "title": "Fixed expenses"
@@ -235,6 +253,15 @@
   },
   "undo": {
     "undo": "Undo",
-    "expenseDeleted": "Expense deleted"
+    "expenseDeleted": "Expense deleted",
+    "incomeDeleted": "Income deleted"
+  },
+  "income": {
+    "title": "New income",
+    "editTitle": "Edit income",
+    "description": "Description (optional)",
+    "descriptionPlaceholder": "Description, e.g. Aki paid back dinner",
+    "delete": "Delete income",
+    "failed": "The income couldn't be saved. Try again."
   }
 }

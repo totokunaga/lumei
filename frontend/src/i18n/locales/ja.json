@@ -6,7 +6,7 @@
     "periodOver": "今期の超過",
     "allowance": "1日の予算",
     "spentToday": "今日の支出",
-    "income": "収入",
+    "income": "予定収入",
     "fixedExpenses": "固定費",
     "savingTarget": "貯金目標",
     "bigPurchases": "大きな買い物",
@@ -32,7 +32,25 @@
     "notSynced": "未同期",
     "syncFailed": "同期できませんでした",
     "withSync": "{{label}}、{{status}}",
-    "editHint": "編集画面を開きます"
+    "editHint": "編集画面を開きます",
+    "yesterday": "昨日",
+    "dayTotal": "{{day}}：合計{{amount}}",
+    "previousPeriod": "前の期間",
+    "nextPeriod": "次の期間",
+    "saved": "貯金額",
+    "spent": "支出",
+    "targetMet": "貯金目標{{target}}を達成しました",
+    "targetMissed": "貯金目標{{target}}まであと{{short}}でした",
+    "noExpensesInPeriod": "この期間の支出はありません。",
+    "extraIncome": "臨時収入",
+    "show": "表示",
+    "incomeTab": "収入",
+    "planned": "予定収入",
+    "addPlannedIncome": "予定収入を追加",
+    "noExtraIncome": "この期間の臨時収入はありません。",
+    "plus": "+{{amount}}",
+    "incomeLabel": "{{name}}、{{amount}}、{{when}}",
+    "addIncome": "収入を追加"
   },
   "account": {
     "title": "アカウント",
@@ -224,7 +242,7 @@
     "forPeriod": "{{range}}の期間に適用されます。ほかの期間はそれぞれの内容のままで、次の期間はこの内容から始まります。",
     "save": "保存",
     "income": {
-      "title": "収入"
+      "title": "予定収入"
     },
     "fixedExpenses": {
       "title": "固定費"
@@ -235,6 +253,15 @@
   },
   "undo": {
     "undo": "元に戻す",
-    "expenseDeleted": "支出を削除しました"
+    "expenseDeleted": "支出を削除しました",
+    "incomeDeleted": "収入を削除しました"
+  },
+  "income": {
+    "title": "新しい収入",
+    "editTitle": "収入を編集",
+    "description": "メモ（任意）",
+    "descriptionPlaceholder": "メモ（例：アキから夕食代の返金）",
+    "delete": "収入を削除",
+    "failed": "収入を保存できませんでした。もう一度お試しください。"
   }
 }

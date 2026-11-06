@@ -678,3 +678,11 @@ func normalized(t *testing.T, rows ...syncRow) []syncRow {
 	require.NoError(t, json.Unmarshal(encoded, &out))
 	return out
 }
+
+// extraIncomeSyncRow builds an extra income row (BR-INC-06).
+func extraIncomeSyncRow(id string, updatedAt int64) syncRow {
+	return syncRow{
+		"table": "extra_incomes", "id": id, "updated_at": updatedAt, "deleted_at": nil,
+		"amount": 3000, "date": "2026-11-01", "received_at": updatedAt, "description": "Aki paid back dinner",
+	}
+}

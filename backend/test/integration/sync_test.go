@@ -109,6 +109,9 @@ func TestPushChanges(t *testing.T) {
 		incomeSyncRow(newRowID(), period, syncBaseTime).with(syncRow{"amount": -1}),
 		fixedExpenseSyncRow(newRowID(), period, syncBaseTime).with(syncRow{"period_id": ""}),
 		savingTargetSyncRow(newRowID(), period, syncBaseTime).with(syncRow{"amount": -1}),
+		extraIncomeSyncRow(newRowID(), syncBaseTime).with(syncRow{"amount": 0}), // BR-EXP-08
+		extraIncomeSyncRow(newRowID(), syncBaseTime).with(syncRow{"date": "2026-11-31"}),
+		extraIncomeSyncRow(newRowID(), syncBaseTime).with(syncRow{"received_at": 0}),
 	}
 	invalidOutcomes := make([]string, len(invalid))
 	for i := range invalid {
@@ -131,9 +134,11 @@ func TestPushChanges(t *testing.T) {
 						fixedExpenseSyncRow(newRowID(), period, syncBaseTime).with(syncRow{"note": nil}),
 						savingTargetSyncRow(newRowID(), period, syncBaseTime),
 						expenseSyncRow(newRowID(), category, syncBaseTime),
+						extraIncomeSyncRow(newRowID(), syncBaseTime),
 					), assertAll(
 						assertOutcomes(
 							"applied", "applied", "applied", "applied", "applied", "applied", "applied",
+							"applied",
 						),
 						func(t *testing.T, resp response) {
 							t.Helper()
@@ -396,6 +401,7 @@ func TestPullChanges(t *testing.T) {
 					expenseSyncRow(newRowID(), category, syncBaseTime).with(syncRow{
 						"description": nil, "latitude": nil, "longitude": nil, "is_big_purchase": true,
 					}),
+					extraIncomeSyncRow(newRowID(), syncBaseTime),
 				}
 				push(t, ts, session.AccessToken, rows...)
 				return pullReq(session.AccessToken, 0), func(t *testing.T, resp response) {
@@ -404,7 +410,7 @@ func TestPullChanges(t *testing.T) {
 					// Fields sent as null, or left out, come back as null.
 					rows[7] = rows[7].with(syncRow{})
 					rows[7]["description"], rows[7]["latitude"], rows[7]["longitude"] = nil, nil, nil
-					assert.Equal(t, pulled{Rows: normalized(t, rows...), Cursor: 8}, decodePull(t, resp.body))
+					assert.Equal(t, pulled{Rows: normalized(t, rows...), Cursor: 9}, decodePull(t, resp.body))
 				}
 			},
 			expectedStatus: http.StatusOK,

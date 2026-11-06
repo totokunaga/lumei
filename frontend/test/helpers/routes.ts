@@ -8,6 +8,8 @@ import SettingsScreen from '@/app/(tabs)/settings/index';
 import StartDayScreen from '@/app/(tabs)/settings/start-day';
 import EditExpenseScreen from '@/app/expense/[id]';
 import NewExpenseScreen from '@/app/expense/new';
+import EditIncomeScreen from '@/app/income/[id]';
+import NewIncomeScreen from '@/app/income/new';
 import PeriodFixedExpensesScreen from '@/app/period/[id]/fixed-expenses';
 import PeriodIncomeScreen from '@/app/period/[id]/income';
 import PeriodTargetScreen from '@/app/period/[id]/target';
@@ -31,6 +33,8 @@ export const routes = {
   'sign-in': SignInScreen,
   'expense/new': NewExpenseScreen,
   'expense/[id]': EditExpenseScreen,
+  'income/new': NewIncomeScreen,
+  'income/[id]': EditIncomeScreen,
   'period/[id]/income': PeriodIncomeScreen,
   'period/[id]/fixed-expenses': PeriodFixedExpensesScreen,
   'period/[id]/target': PeriodTargetScreen,

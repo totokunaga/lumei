@@ -202,6 +202,19 @@ func TestSyncRepository_Apply(t *testing.T) {
 			assertFunc:     assertErrorOnly[struct{}],
 		},
 		{
+			name: "fails to save extra income with an invalid date",
+			input: saving(application.SyncRow{
+				ID: syncRowID, UpdatedAt: 1,
+				Record: application.ExtraIncomeRecord{Amount: 1, Date: "soon", ReceivedAt: 1},
+			}),
+			setupMocks: func(m syncRepoMocks) {
+				expectLocked(m)
+				m.db.ExpectRollback()
+			},
+			expectedErrMsg: `invalid date "soon"`,
+			assertFunc:     assertErrorOnly[struct{}],
+		},
+		{
 			name:  "wraps a failure to upsert the row",
 			input: saving(expense),
 			setupMocks: func(m syncRepoMocks) {

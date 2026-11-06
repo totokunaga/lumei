@@ -241,6 +241,7 @@ describe('periodSummary (BR-CALC-08, BR-DSH-03)', () => {
       today,
       expected: {
         income: 640_808,
+        extraIncome: 0,
         fixedExpenses: 70_577,
         bigPurchases: 28_000,
         savingTarget: 400_000,
@@ -348,5 +349,62 @@ describe('progressChart (BR-CALC-05, BR-CALC-06)', () => {
 
     expect(chart.days.every((day) => day.spending === null)).toBe(true);
     expect(chart.today).toBeNull();
+  });
+});
+
+describe('extra income (BR-INC-06, BR-CALC-02)', () => {
+  // The USD period with $30.00 arriving on Nov 4 and $5.00 on Nov 6.
+  const withExtra = (expenses: Expense[] = []): PeriodRecords => ({
+    ...usd(expenses),
+    extraIncome: [
+      { date: '2026-11-04', amount: 3_000 },
+      { date: '2026-11-06', amount: 500 },
+      // Outside the period, so ignored.
+      { date: '2026-10-31', amount: 99_999 },
+    ],
+  });
+
+  it.each([
+    { name: 'only planned income without a day', asOf: undefined, expected: 10_000 },
+    { name: 'nothing before it arrives', asOf: '2026-11-03', expected: 10_000 },
+    { name: 'the income from the day it arrives', asOf: '2026-11-04', expected: 13_000 },
+    { name: 'every income by the end', asOf: '2026-11-10', expected: 13_500 },
+  ])('adds to the budget $name', ({ asOf, expected }) => {
+    expect(spendingBudget(withExtra(), asOf)).toBe(expected);
+  });
+
+  it.each([
+    // ($100 − $10 spent before today) / 8 days left.
+    { name: 'leaves the allowance before it arrives', today: '2026-11-03', allowance: 1_125 },
+    // ($100 + $30 − $10 spent before today) / 7 days left.
+    { name: 'raises the allowance from the day it arrives', today: '2026-11-04', allowance: 1_714 },
+  ])('$name', ({ today: date, allowance }) => {
+    const records = withExtra([expense('2026-11-01', 1_000)]);
+
+    expect(todayStatus(records, date).allowance).toBe(allowance);
+  });
+
+  it('counts in the summary as received so far, and in the budget left', () => {
+    expect(periodSummary(withExtra([expense('2026-11-01', 1_000)]), '2026-11-05')).toMatchObject({
+      income: 20_000,
+      extraIncome: 3_000,
+      budgetLeft: 12_000,
+    });
+  });
+
+  it('counts in full in the amount saved (BR-CALC-07)', () => {
+    // $200 + $35 − $50 fixed − $10 spent.
+    expect(periodResult(withExtra([expense('2026-11-01', 1_000)]))).toEqual({
+      saved: 17_500,
+      targetMet: true,
+    });
+  });
+
+  it('raises the chart’s limit line from the day it arrives (BR-CALC-06)', () => {
+    const chart = progressChart(withExtra(), '2026-11-10', 'daysLeft');
+
+    expect(chart.days[2].limit.toNumber()).toBe(3_000); // Nov 3: $100 × 3 / 10.
+    expect(chart.days[3].limit.toNumber()).toBe(5_200); // Nov 4: $130 × 4 / 10.
+    expect(chart.days[9].limit.toNumber()).toBe(13_500); // the whole budget by the end.
   });
 });

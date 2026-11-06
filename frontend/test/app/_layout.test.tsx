@@ -60,7 +60,9 @@ describe('RootLayout (BR-ACC-03, BR-ACC-06)', () => {
 
     await renderRouter(routes, { initialUrl: '/' });
 
-    await screen.findByText(expected.text);
+    // Setup opens after the session, the database, the first download, and the
+    // regions load, which can take more than findBy's default second under load.
+    await screen.findByText(expected.text, {}, { timeout: 4_000 });
     expect(screen).toHavePathname(expected.path);
   });
 

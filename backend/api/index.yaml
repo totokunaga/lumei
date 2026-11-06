@@ -498,6 +498,54 @@ components:
           format: double
           nullable: true
       description: An expense (BR-EXP-01 to BR-EXP-05).
+    ExtraIncomeRow:
+      type: object
+      required:
+        - table
+        - id
+        - updated_at
+        - deleted_at
+        - amount
+        - date
+        - received_at
+        - description
+      properties:
+        table:
+          type: string
+          enum:
+            - extra_incomes
+        id:
+          type: string
+          description: A UUID made on the device.
+          example: 01963f5e-7a10-7c3e-9a51-8a3b6c1d2e4f
+        updated_at:
+          type: integer
+          format: int64
+          description: When the user made the change, by the device's clock (BR-OFF-05).
+          example: 1793865600000
+        deleted_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: When the user deleted the record, or null while it exists. The row stays as a tombstone.
+        amount:
+          type: integer
+          format: int64
+          description: Greater than 0 (BR-EXP-08).
+          example: 3000
+        date:
+          type: string
+          description: The calendar date in the device's time zone when it arrived.
+          example: '2026-11-06'
+        received_at:
+          type: integer
+          format: int64
+          description: When it arrived.
+        description:
+          type: string
+          nullable: true
+          description: The optional description, e.g. "Aki paid back dinner".
+      description: 'Extra income: money that arrives unplanned on a day (BR-INC-06).'
     FixedExpenseRow:
       type: object
       required:
@@ -947,6 +995,7 @@ components:
         - $ref: '#/components/schemas/FixedExpenseRow'
         - $ref: '#/components/schemas/SavingTargetRow'
         - $ref: '#/components/schemas/ExpenseRow'
+        - $ref: '#/components/schemas/ExtraIncomeRow'
       discriminator:
         propertyName: table
         mapping:
@@ -957,6 +1006,7 @@ components:
           fixed_expenses: '#/components/schemas/FixedExpenseRow'
           saving_targets: '#/components/schemas/SavingTargetRow'
           expenses: '#/components/schemas/ExpenseRow'
+          extra_incomes: '#/components/schemas/ExtraIncomeRow'
       description: One record, whole, of any synced table. `table` says which.
     User:
       type: object

@@ -48,10 +48,10 @@ describe('Period budget editors (BR-INC-01, BR-TGT-01)', () => {
   it.each([
     {
       name: 'income, and today’s allowance follows',
-      row: 'Income: ¥300,000',
-      title: 'Income',
+      row: 'Planned income: ¥300,000',
+      title: 'Planned income',
       amount: '330000',
-      after: 'Income: ¥330,000',
+      after: 'Planned income: ¥330,000',
       allowance: '¥11,250',
     },
     {
@@ -105,10 +105,10 @@ describe('Period budget editors (BR-INC-01, BR-TGT-01)', () => {
   it('closes without saving', async () => {
     await openSummary();
 
-    await fireEvent.press(screen.getByLabelText('Income: ¥300,000'));
+    await fireEvent.press(screen.getByLabelText('Planned income: ¥300,000'));
     await fireEvent.changeText(await screen.findByLabelText('Amount'), '1');
     await fireEvent.press(screen.getByLabelText('Close'));
 
-    expect(await screen.findByLabelText('Income: ¥300,000')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Planned income: ¥300,000')).toBeOnTheScreen();
   });
 });

@@ -48,6 +48,21 @@ func (e ExpenseRowTable) Valid() bool {
 	}
 }
 
+// Defines values for ExtraIncomeRowTable.
+const (
+	ExtraIncomes ExtraIncomeRowTable = "extra_incomes"
+)
+
+// Valid indicates whether the value is a known member of the ExtraIncomeRowTable enum.
+func (e ExtraIncomeRowTable) Valid() bool {
+	switch e {
+	case ExtraIncomes:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FixedExpenseRowTable.
 const (
 	FixedExpenses FixedExpenseRowTable = "fixed_expenses"
@@ -292,6 +307,34 @@ type ExpenseRow struct {
 
 // ExpenseRowTable defines model for ExpenseRow.Table.
 type ExpenseRowTable string
+
+// ExtraIncomeRow Extra income: money that arrives unplanned on a day (BR-INC-06).
+type ExtraIncomeRow struct {
+	// Amount Greater than 0 (BR-EXP-08).
+	Amount int64 `json:"amount"`
+
+	// Date The calendar date in the device's time zone when it arrived.
+	Date string `json:"date"`
+
+	// DeletedAt When the user deleted the record, or null while it exists. The row stays as a tombstone.
+	DeletedAt *int64 `json:"deleted_at"`
+
+	// Description The optional description, e.g. "Aki paid back dinner".
+	Description *string `json:"description"`
+
+	// Id A UUID made on the device.
+	Id string `json:"id"`
+
+	// ReceivedAt When it arrived.
+	ReceivedAt int64               `json:"received_at"`
+	Table      ExtraIncomeRowTable `json:"table"`
+
+	// UpdatedAt When the user made the change, by the device's clock (BR-OFF-05).
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// ExtraIncomeRowTable defines model for ExtraIncomeRow.Table.
+type ExtraIncomeRowTable string
 
 // FixedExpenseRow A fixed expense item of a period (BR-INC-02).
 type FixedExpenseRow struct {
@@ -756,6 +799,34 @@ func (t *SyncRow) MergeExpenseRow(v ExpenseRow) error {
 	return err
 }
 
+// AsExtraIncomeRow returns the union data inside the SyncRow as a ExtraIncomeRow
+func (t SyncRow) AsExtraIncomeRow() (ExtraIncomeRow, error) {
+	var body ExtraIncomeRow
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExtraIncomeRow overwrites any union data inside the SyncRow as the provided ExtraIncomeRow
+func (t *SyncRow) FromExtraIncomeRow(v ExtraIncomeRow) error {
+	v.Table = "extra_incomes"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExtraIncomeRow performs a merge with any union data inside the SyncRow, using the provided ExtraIncomeRow
+func (t *SyncRow) MergeExtraIncomeRow(v ExtraIncomeRow) error {
+	v.Table = "extra_incomes"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t SyncRow) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"table"`
@@ -774,6 +845,8 @@ func (t SyncRow) ValueByDiscriminator() (interface{}, error) {
 		return t.AsCategoryRow()
 	case "expenses":
 		return t.AsExpenseRow()
+	case "extra_incomes":
+		return t.AsExtraIncomeRow()
 	case "fixed_expenses":
 		return t.AsFixedExpenseRow()
 	case "incomes":

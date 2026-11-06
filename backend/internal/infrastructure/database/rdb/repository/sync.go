@@ -162,6 +162,22 @@ func (m *expenseModel) record() application.SyncRecord {
 	}
 }
 
+type extraIncomeModel struct {
+	bun.BaseModel `bun:"table:extra_incomes"`
+	syncBase
+
+	Amount      int64     `bun:"amount"`
+	Date        time.Time `bun:"date,type:date"`
+	ReceivedAt  int64     `bun:"received_at"`
+	Description *string   `bun:"description"`
+}
+
+func (m *extraIncomeModel) record() application.SyncRecord {
+	return application.ExtraIncomeRecord{
+		Amount: m.Amount, Date: formatDate(m.Date), ReceivedAt: m.ReceivedAt, Description: m.Description,
+	}
+}
+
 // emptyModel returns a model of the table to scan a row into.
 func emptyModel(table application.SyncTable) (syncModel, error) {
 	switch table {
@@ -179,6 +195,8 @@ func emptyModel(table application.SyncTable) (syncModel, error) {
 		return &savingTargetModel{}, nil
 	case application.TableExpenses:
 		return &expenseModel{}, nil
+	case application.TableExtraIncomes:
+		return &extraIncomeModel{}, nil
 	}
 	return nil, fmt.Errorf("unknown table %q", table)
 }
@@ -233,6 +251,15 @@ func toModel(row application.SyncRow, userID uuid.UUID, seq int64) (syncModel, e
 			syncBase: base, Amount: r.Amount, CategoryID: r.CategoryID, Date: date, SpentAt: r.SpentAt,
 			IsBigPurchase: r.IsBigPurchase, Description: r.Description,
 			Latitude: r.Latitude, Longitude: r.Longitude,
+		}, nil
+	case application.ExtraIncomeRecord:
+		date, err := parseDate(r.Date)
+		if err != nil {
+			return nil, err
+		}
+		return &extraIncomeModel{
+			syncBase: base, Amount: r.Amount, Date: date, ReceivedAt: r.ReceivedAt,
+			Description: r.Description,
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown record type %T", row.Record)
@@ -333,6 +360,9 @@ func (r *SyncRepository) Changes(
 		},
 		func() ([]application.StoredRow, error) {
 			return changesOf[expenseModel](ctx, r.db, userID, since, limit)
+		},
+		func() ([]application.StoredRow, error) {
+			return changesOf[extraIncomeModel](ctx, r.db, userID, since, limit)
 		},
 	}
 	var rows []application.StoredRow

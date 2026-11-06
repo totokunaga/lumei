@@ -136,6 +136,24 @@ model ExpenseRow {
   longitude: float64 | null;
 }
 
+/** Extra income: money that arrives unplanned on a day (BR-INC-06). */
+model ExtraIncomeRow {
+  table: "extra_incomes";
+  ...SyncColumns;
+
+  /** Greater than 0 (BR-EXP-08). */
+  @example(3000) amount: int64;
+
+  /** The calendar date in the device's time zone when it arrived. */
+  @example("2026-11-06") date: string;
+
+  /** When it arrived. */
+  received_at: int64;
+
+  /** The optional description, e.g. "Aki paid back dinner". */
+  description: string | null;
+}
+
 /** One record, whole, of any synced table. `table` says which. */
 @discriminated(#{ envelope: "none", discriminatorPropertyName: "table" })
 union SyncRow {
@@ -146,6 +164,7 @@ union SyncRow {
   fixed_expenses: FixedExpenseRow,
   saving_targets: SavingTargetRow,
   expenses: ExpenseRow,
+  extra_incomes: ExtraIncomeRow,
 }
 
 model PushRequest {

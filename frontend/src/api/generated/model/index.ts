@@ -15,6 +15,8 @@ export * from './defaultCategory';
 export * from './errorResponse';
 export * from './expenseRow';
 export * from './expenseRowTable';
+export * from './extraIncomeRow';
+export * from './extraIncomeRowTable';
 export * from './fixedExpenseRow';
 export * from './fixedExpenseRowTable';
 export * from './healthCheckEntry';

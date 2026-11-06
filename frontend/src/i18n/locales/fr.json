@@ -6,7 +6,7 @@
     "periodOver": "Dépassement sur la période",
     "allowance": "Budget du jour",
     "spentToday": "Dépensé aujourd'hui",
-    "income": "Revenus",
+    "income": "Revenus prévus",
     "fixedExpenses": "Dépenses fixes",
     "savingTarget": "Objectif d'épargne",
     "bigPurchases": "Gros achats",
@@ -32,7 +32,25 @@
     "notSynced": "Pas encore synchronisé",
     "syncFailed": "Synchronisation impossible",
     "withSync": "{{label}}, {{status}}",
-    "editHint": "Ouvre la modification"
+    "editHint": "Ouvre la modification",
+    "yesterday": "Hier",
+    "dayTotal": "{{day}} : {{amount}} au total",
+    "previousPeriod": "Période précédente",
+    "nextPeriod": "Période suivante",
+    "saved": "Épargné",
+    "spent": "Dépensé",
+    "targetMet": "Objectif d'épargne de {{target}} atteint",
+    "targetMissed": "{{short}} de moins que l'objectif d'épargne de {{target}}",
+    "noExpensesInPeriod": "Aucune dépense pendant cette période.",
+    "extraIncome": "Revenus exceptionnels",
+    "show": "Afficher",
+    "incomeTab": "Revenus",
+    "planned": "Prévus",
+    "addPlannedIncome": "Ajouter des revenus prévus",
+    "noExtraIncome": "Aucun revenu exceptionnel pendant cette période.",
+    "plus": "+{{amount}}",
+    "incomeLabel": "{{name}}, {{amount}}, {{when}}",
+    "addIncome": "Ajouter un revenu"
   },
   "account": {
     "title": "Compte",
@@ -224,7 +242,7 @@
     "forPeriod": "Pour la période {{range}}. Les autres périodes gardent les leurs, et la suivante commencera avec ceux-ci.",
     "save": "Enregistrer",
     "income": {
-      "title": "Revenus"
+      "title": "Revenus prévus"
     },
     "fixedExpenses": {
       "title": "Dépenses fixes"
@@ -235,6 +253,15 @@
   },
   "undo": {
     "undo": "Annuler",
-    "expenseDeleted": "Dépense supprimée"
+    "expenseDeleted": "Dépense supprimée",
+    "incomeDeleted": "Revenu supprimé"
+  },
+  "income": {
+    "title": "Nouveau revenu",
+    "editTitle": "Modifier le revenu",
+    "description": "Description (facultative)",
+    "descriptionPlaceholder": "Description, ex. Aki a remboursé le dîner",
+    "delete": "Supprimer le revenu",
+    "failed": "Le revenu n'a pas pu être enregistré. Réessayez."
   }
 }

@@ -1,6 +1,8 @@
 import {
   formatPeriodLabel,
+  formatPeriodName,
   formatPeriodRange,
+  periodMonth,
   isCalendarMonth, periodContaining, periodDays } from '@/domain/period';
 import i18n from '@/i18n';
 
@@ -109,5 +111,31 @@ describe('formatPeriodRange', () => {
     { language: 'fr', period: { start: '2026-10-25', end: '2026-11-24' }, expected: '25 oct. – 24 nov.' },
   ])('formats $period.start – $period.end in $language', ({ language, period, expected }) => {
     expect(formatPeriodRange(period, i18n.getFixedT(language), language)).toBe(expected);
+  });
+});
+
+describe('periodMonth and formatPeriodName (BR-PER-06)', () => {
+  it.each([
+    { name: 'its only month for a calendar month', period: { start: '2026-11-01', end: '2026-11-30' }, month: '2026-11-01' },
+    { name: 'the month with most days, the end’s', period: { start: '2026-10-25', end: '2026-11-24' }, month: '2026-11-01' },
+    { name: 'the month with most days, the start’s', period: { start: '2026-10-10', end: '2026-11-09' }, month: '2026-10-01' },
+    { name: 'the later month on a tie', period: { start: '2026-11-16', end: '2026-12-15' }, month: '2026-12-01' },
+    { name: 'the new year’s month across it', period: { start: '2026-12-25', end: '2027-01-24' }, month: '2027-01-01' },
+  ])('names $name', ({ period, month }) => {
+    expect(periodMonth(period)).toBe(month);
+  });
+
+  it.each([
+    { language: 'en', expected: 'October 2026' },
+    { language: 'ja', expected: '2026年10月' },
+    { language: 'fr', expected: 'octobre 2026' },
+  ])('formats the name in $language', ({ language, expected }) => {
+    expect(formatPeriodName({ start: '2026-10-10', end: '2026-11-09' }, language)).toBe(expected);
+  });
+
+  it('labels with the same name, plus the range', () => {
+    expect(formatPeriodLabel({ start: '2026-10-10', end: '2026-11-09' }, i18n.getFixedT('en'), 'en')).toBe(
+      'October 2026 (Oct 10 – Nov 9)',
+    );
   });
 });

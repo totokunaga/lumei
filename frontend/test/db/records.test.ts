@@ -6,16 +6,21 @@ import { type Database, openUserDatabase } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
 import {
   addExpense,
+  addExtraIncome,
   changeStartDay,
   countFailedChanges,
   countPendingChanges,
   deleteExpense,
+  deleteExtraIncome,
   ensureCurrentPeriod,
   readCategories,
   readCategory,
   readExpense,
+  readExtraIncome,
+  readNeighbourPeriods,
   readFirstPeriodStart,
   readPeriodExpenses,
+  readPeriodExtraIncome,
   readPeriodItems,
   readPeriodOn,
   readPeriodRecords,
@@ -24,9 +29,11 @@ import {
   saveIncomes,
   saveSavingTarget,
   restoreExpense,
+  restoreExtraIncome,
   saveSetup,
   setBigPurchaseSpread,
   updateExpense,
+  updateExtraIncome,
 } from '@/db/records';
 import {
   categories,
@@ -101,6 +108,7 @@ describe('readPeriodRecords (BR-CALC-01)', () => {
         fixedExpenses: [120_000],
         savingTarget: 100_000,
         expenses: [],
+        extraIncome: [],
       },
     },
     {
@@ -113,6 +121,7 @@ describe('readPeriodRecords (BR-CALC-01)', () => {
         fixedExpenses: [],
         savingTarget: 0,
         expenses: [],
+        extraIncome: [],
       },
     },
     { name: 'null outside every period', overrides: {}, date: '2026-11-25', expected: null },
@@ -260,6 +269,7 @@ describe('ensureCurrentPeriod (BR-PER-03)', () => {
       fixedExpenses: [120_000],
       savingTarget: 100_000,
       expenses: [],
+      extraIncome: [],
     });
     const november = derivedId('user-1', 'period', '2026-11-25');
     expect(db.select().from(savingTargets).where(eq(savingTargets.periodId, november)).get()).toMatchObject({
@@ -623,5 +633,89 @@ describe('readCategory (BR-CAT-03)', () => {
 
     expect(readCategory(db, eatOut.id)).toEqual(eatOut);
     expect(readCategory(db, 'nope')).toBeNull();
+  });
+});
+
+describe('readNeighbourPeriods (BR-HIS-01)', () => {
+  it('finds the periods before and after one, and none past either end', async () => {
+    const db = await saveFinishedSetup();
+    ensureCurrentPeriod(db, '2026-12-30', 2_000);
+    const [october, november, december] = ['2026-10-29', '2026-11-30', '2026-12-30'].map(
+      (date) => readPeriodOn(db, date)!,
+    );
+
+    expect(readNeighbourPeriods(db, november)).toEqual({ previous: october, next: december });
+    expect(readNeighbourPeriods(db, october)).toEqual({ previous: null, next: november });
+    expect(readNeighbourPeriods(db, december)).toEqual({ previous: november, next: null });
+  });
+});
+
+describe('extra income (BR-INC-06)', () => {
+  /** Records extra income at noon on a date. */
+  const receive = (db: Database, date: string, amount: number, description: string | null = null) => {
+    const [year, month, day] = date.split('-').map(Number);
+    const receivedAt = new Date(year, month - 1, day, 12).getTime();
+    const id = newId();
+    addExtraIncome(db, { amount, receivedAt, description }, id, 2_000);
+    return id;
+  };
+
+  it('saves it dated by the device’s time zone, pending sync, and lists it newest first', async () => {
+    const db = await saveFinishedSetup();
+
+    const bonus = receive(db, '2026-10-27', 50_000, 'Bonus');
+    const dinner = receive(db, '2026-10-28', 3_000);
+
+    expect(readExtraIncome(db, bonus)).toMatchObject({
+      amount: 50_000,
+      date: '2026-10-27',
+      description: 'Bonus',
+      pending: true,
+      localRev: 1,
+    });
+    expect(readPeriodExtraIncome(db, '2026-10-29')).toEqual([
+      expect.objectContaining({ id: dinner, amount: 3_000, description: null, sync: 'pending' }),
+      expect.objectContaining({ id: bonus, amount: 50_000, description: 'Bonus' }),
+    ]);
+    expect(readPeriodRecords(db, '2026-10-29')?.extraIncome).toEqual([
+      { amount: 50_000, date: '2026-10-27' },
+      { amount: 3_000, date: '2026-10-28' },
+    ]);
+    expect(readPeriodExtraIncome(db, '2027-06-01')).toEqual([]);
+  });
+
+  it('edits it, moving it to the period of a new date', async () => {
+    const db = await saveFinishedSetup();
+    ensureCurrentPeriod(db, '2026-11-25', 2_000);
+    const id = receive(db, '2026-11-26', 3_000);
+
+    updateExtraIncome(
+      db,
+      id,
+      { amount: 4_000, receivedAt: new Date(2026, 9, 30, 9).getTime(), description: 'Refund' },
+      3_000,
+    );
+
+    expect(readExtraIncome(db, id)).toMatchObject({
+      amount: 4_000,
+      date: '2026-10-30',
+      description: 'Refund',
+      localRev: 2,
+    });
+    expect(readPeriodExtraIncome(db, '2026-11-26')).toEqual([]);
+  });
+
+  it('deletes it, and undoing saves it again under a new ID', async () => {
+    const db = await saveFinishedSetup();
+    const id = receive(db, '2026-10-28', 3_000, 'Dinner');
+
+    const deleted = deleteExtraIncome(db, id, 3_000)!;
+    expect(readPeriodExtraIncome(db, '2026-10-29')).toEqual([]);
+    expect(deleteExtraIncome(db, id, 3_500)).toBeNull();
+    restoreExtraIncome(db, deleted, 'restored', 4_000);
+
+    expect(readPeriodExtraIncome(db, '2026-10-29')).toMatchObject([
+      { id: 'restored', amount: 3_000, description: 'Dinner' },
+    ]);
   });
 });

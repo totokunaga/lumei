@@ -45,7 +45,9 @@ Habits seen across the 2026 tabs that the app must support:
 | Term | Meaning |
 |------|---------|
 | **Saving period** (period) | A date range, inclusive at both ends, over which the user tries to save their saving target. Periods are consecutive, with no gaps or overlaps. |
-| **Income** | Money received in a period, as named line items (e.g. "Salary"). |
+| **Income** | Money received in a period, of two kinds: **planned income** and **extra income**. |
+| **Planned income** | Income known in advance for a whole period, as named line items with no date (e.g. "Salary"). The next period copies it. |
+| **Extra income** | Unplanned income that arrives on a day, recorded with an amount, a date and time, and an optional description (e.g. a friend paying back their share of dinner, or a bonus). It adds to the spending budget from the day it arrives. |
 | **Fixed expense** | A known cost of the period that isn't a day-to-day purchase, as named line items (e.g. "House Rent", "Netflix"). |
 | **Expense** | A day-to-day purchase recorded by the user: amount, category, date and time, and optionally a description and a location. |
 | **Big purchase** | An expense the user flags so it doesn't swamp the day it happened on. Its amount still counts against the period, but it is spread evenly over several days instead of hitting one day (see **Big purchase spread**). There is no rule for what counts as big. The user decides. |
@@ -56,7 +58,7 @@ Habits seen across the 2026 tabs that the app must support:
 | **Region** | Where the user lives, chosen during setup (Japan, the EU, or the US at launch, or "Other" for anywhere else, which uses the Global set). It decides the default categories. |
 | **Default category set** | The categories a new account starts with, defined per region in seed data (see [Default category sets](#default-category-sets)). |
 | **Saving target** | The amount the user wants left over at the end of a period. |
-| **Spending budget** | What the user may spend on expenses in the period: income − fixed expenses − saving target. |
+| **Spending budget** | What the user may spend on expenses in the period: planned income + extra income received so far − fixed expenses − saving target. |
 | **Daily allowance** | How much the user can spend today and stay on track (see [BR-CALC-03](#calculations)). |
 | **Remaining today** | Daily allowance − what the user has spent today. |
 | **Overspent period** | A period whose expenses so far, today's included, are more than its spending budget (see [BR-CALC-03](#calculations)). |
@@ -67,7 +69,7 @@ Habits seen across the 2026 tabs that the app must support:
 
 - Accounts: sign-in with Apple or Google, sign-out, account deletion
 - Settings: language, region, account currency, period start day, big purchase spread
-- Saving periods, income, fixed expenses, and the saving target
+- Saving periods, planned and extra income, fixed expenses, and the saving target
 - Expense recording, including big purchases and optional location
 - Today's status and the progress chart
 - Expense history, past periods, and trends
@@ -102,7 +104,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-PER-03 | Must | A new period is created automatically when the previous one ends. It copies the income, fixed expenses, and saving target of the previous period. The user can then edit any of them for the new period. If the app wasn't opened for a whole period or more, each missed period is created too, one after another, so no dates fall outside a period. |
 | BR-PER-04 | Should | A user can change the start or end date of a single period (e.g. payday moved earlier because the 25th is a holiday). The neighbouring period's dates move with it, so periods never overlap or leave gaps. A change that would leave a period with no days, or that would leave an expense outside every period, is rejected. |
 | BR-PER-05 | Must | Changing the period start day moves the start of the periods after the current one. Past periods keep their dates, and so does the current period's start. If the change leaves days between the current period's end and the next new start, the user chooses what they belong to: the current period (which then ends the day before the next new start), the next period (which then starts the day after the current period ends), or a period of their own. Every date stays in exactly one period. |
-| BR-PER-06 | Must | A period is labelled by the month of its end date, plus its date range when it isn't a calendar month. E.g. "November 2026" for start day 1, and "November 2026 (Oct 25 – Nov 24)" for start day 25, matching the tab names in the spreadsheet. |
+| BR-PER-06 | Must | A period is named after the month that has the most of its days, the later month on a tie, with its year, formatted for the app language: e.g. "November 2026" for Nov 1 – Nov 30 and for Oct 25 – Nov 24, and "October 2026" for Oct 10 – Nov 9. The home screen's title shows the name alone. Where the dates help, e.g. in setup, a period that isn't a calendar month also shows its date range: "November 2026 (Oct 25 – Nov 24)". |
 | BR-PER-07 | Must | Periods are independent: money saved or overspent in one period does not carry over to the next. |
 
 ### Saving target
@@ -122,6 +124,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-INC-03 | Must | Edits apply to the selected period only. Earlier and later periods keep their own items. A period created after the edit copies the edited items (BR-PER-03). |
 | BR-INC-04 | Must | An amount of 0 is allowed. It keeps an item visible for a month in which it isn't charged (e.g. "House Rent", ¥0). |
 | BR-INC-05 | Should | A user can reorder income and fixed expense items. |
+| BR-INC-06 | Must | A user can record, edit, and delete **extra income**: an amount greater than 0 (BR-EXP-08), an optional description, and a date and time, which default to now and follow the same limits as an expense's (BR-EXP-02). It belongs to the period containing its date, and adds to that period's spending budget from that date on (BR-CALC-02). It doesn't repeat: the next period doesn't copy it. |
 
 ### Expenses
 
@@ -210,7 +213,7 @@ The supported currencies are the major currencies listed by [OANDA](https://www.
 | BR-DSH-03 | Must | The home screen shows a period summary: total income, total fixed expenses, total big purchases, total spending to date, saving target, spending budget left (BR-CALC-08), and days left (BR-CALC-01). It sits in the card with today's numbers. The budget left always shows beside them; the card starts collapsed and expands to show the rest of the summary. |
 | BR-DSH-04 | Must | All numbers update as soon as an expense, income, fixed expense, or target changes. This includes changes made offline. |
 | BR-DSH-05 | Must | "Today" is the current date in the device's time zone. A day rolls over at local midnight. |
-| BR-DSH-06 | Must | The home screen lists the current period's expenses, fixed expenses excluded, newest first by the date and time each happened (BR-EXP-02). Each shows its category, amount, date and time, and whether it is a big purchase. A saved expense appears in the list straight away (BR-DSH-04). The full list with day totals and filters is BR-EXP-10. |
+| BR-DSH-06 | Must | Under today's card, the home screen shows the period's expenses or its income, switched with a control that starts on expenses. **Expenses:** the period's expenses, fixed expenses excluded, newest first by the date and time each happened (BR-EXP-02), grouped by day. Each day has a heading with its date ("Today" and "Yesterday" for those days) and the total of its expenses, big purchases at their full amount. Each expense shows its category, amount, time, and whether it is a big purchase. A saved expense appears in the list straight away (BR-DSH-04). **Income:** the period's planned income items with their total, then its extra income (BR-INC-06) grouped by day the same way, each shown as a positive amount. The add button records an expense or extra income, matching what is shown. The full list with filters is BR-EXP-10. |
 
 ### Progress chart
 
@@ -250,12 +253,12 @@ All amounts are in the account currency. All dates are calendar dates in the use
 | ID | Name | Definition |
 |----|------|------------|
 | BR-CALC-01 | Period length and days left | `period days = end − start + 1`. `days left = end − today + 1` (today counts) while today is in the period. |
-| BR-CALC-02 | Spending budget | `budget = Σ income − Σ fixed expenses − saving target` |
+| BR-CALC-02 | Spending budget | `budget(d) = Σ planned income + Σ extra income dated on or before d − Σ fixed expenses − saving target`, for a day `d` of the period. Where a calculation says `budget` without a day, it means the budget as of today, or as of the period's last day for a past period. Extra income doesn't change the numbers of the days before it arrived. |
 | BR-CALC-03 | Daily allowance | `allowance = floor((budget − Σ big purchases in the period − Σ other expenses dated before today) / days left)`, rounded down to the currency's minor unit so it never overstates what can be spent. It is fixed for the day: today's own expenses don't change it. The period is **overspent** when `Σ all expenses in the period`, today's and big purchases included, is greater than the budget. Then the allowance is 0 and `period overspend = Σ all expenses in the period − budget` (BR-DSH-02). |
 | BR-CALC-04 | Spent and remaining today | `spent today = Σ expenses dated today, excluding big purchases`. `remaining today = allowance − spent today`. Not shown while the period is overspent (BR-DSH-02), since today's numbers lose their meaning once the whole budget is gone. |
 | BR-CALC-05 | Daily spending (chart bars) | `daily spending(d) = Σ expenses dated d, excluding big purchases + Σ share(b, d) over the period's big purchases b`. The share depends on the big purchase spread (BR-SET-05). **Days left:** `share(b, d) = amount(b) / (end − date(b) + 1)` on each day from the purchase date to the end of the period, and 0 before it. **Whole period:** `share(b, d) = amount(b) / period days` on every day of the period. |
-| BR-CALC-06 | Spending limit (chart line) | `limit(d) = budget × n / period days`, where `n` is the day number of `d` in the period (1 for the start date). On the last day, the limit equals the budget, so ending at or under the line means the target was met. |
-| BR-CALC-07 | Amount saved (period result) | `saved = Σ income − Σ fixed expenses − Σ all expenses in the period, big purchases included`. The target is met when `saved ≥ saving target`. |
+| BR-CALC-06 | Spending limit (chart line) | `limit(d) = budget(d) × n / period days`, where `n` is the day number of `d` in the period (1 for the start date). On the last day, the limit equals the budget, so ending at or under the line means the target was met. |
+| BR-CALC-07 | Amount saved (period result) | `saved = Σ planned income + Σ extra income in the period − Σ fixed expenses − Σ all expenses in the period, big purchases included`. The target is met when `saved ≥ saving target`. |
 | BR-CALC-08 | Spending to date and budget left (period summary) | `spending to date = Σ all expenses in the period, big purchases included`. `budget left = budget − spending to date`, negative once the period is overspent (BR-DSH-02). |
 
 Notes on the definitions:
@@ -318,6 +321,7 @@ Requirements recognised but out of the first release:
 - Carrying leftover or overspent money into the next period.
 - Shared budgets between users (e.g. a household).
 - Refunds and negative expenses.
+- **Shared expenses:** marking part of an expense as paid back by others (e.g. friends paying their share of a dinner), so spending by category shows only the user's share. Until then, money paid back is recorded as extra income (BR-INC-06), and the expense counts in full under its category.
 - **Currency conversion:**
   - recording an expense in a currency other than the account currency (e.g. while travelling), converted into the account currency
   - changing the account currency, with existing amounts converted

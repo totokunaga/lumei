@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from '@/app/(tabs)/index';
 import { database, openUserDatabase } from '@/db/client';
 import { newId } from '@/db/ids';
-import { addExpense, readCategories } from '@/db/records';
+import { addExpense, ensureCurrentPeriod, readCategories } from '@/db/records';
 import i18n from '@/i18n';
 
 import {
@@ -89,7 +89,8 @@ describe('HomeScreen', () => {
         'Remaining today': '¥4,750',
         'Daily allowance': '¥6,750',
         'Spent today': '¥2,000',
-        Income: '¥300,000',
+        'Planned income': '¥300,000',
+        'Extra income': '¥0',
         'Fixed expenses': '¥100,000',
         'Saving target': '¥50,000',
         'Big purchases': '¥32,000',
@@ -125,8 +126,10 @@ describe('HomeScreen', () => {
     for (const [label, value] of Object.entries(expected)) {
       expectShown(label, value);
     }
-    // The period's dates are the title.
-    expect(screen.getByRole('header', { name: 'Nov 1 – Nov 30' })).toBeOnTheScreen();
+    // The period's name is the title (BR-PER-06); with no other period, there are no arrows.
+    expect(screen.getByRole('header', { name: 'November 2026' })).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Previous period')).toBeNull();
+    expect(screen.queryByLabelText('Next period')).toBeNull();
   });
 
   it('shows only today’s numbers and the budget left until the card is expanded', async () => {
@@ -137,16 +140,16 @@ describe('HomeScreen', () => {
 
     expectShown('Remaining today', '¥9,375');
     expectShown('Budget left', '¥150,000');
-    expect(screen.queryByText('Income')).toBeNull();
+    expect(screen.queryByText('Planned income')).toBeNull();
     expect(toggle).not.toBeExpanded();
 
     await fireEvent.press(toggle);
-    expectShown('Income', '¥300,000');
+    expectShown('Planned income', '¥300,000');
     expect(toggle).toBeExpanded();
 
     // Tapping anywhere on the card collapses it too.
     await fireEvent.press(screen.getByText('Spent today / Daily allowance'));
-    expect(screen.queryByText('Income')).toBeNull();
+    expect(screen.queryByText('Planned income')).toBeNull();
     expect(toggle).not.toBeExpanded();
   });
 
@@ -191,6 +194,28 @@ describe('HomeScreen', () => {
       'Eat Out, ¥32,000, Nov 12, 12:00 PM, big purchase',
     ]);
     expect(screen.getByText('Big purchase')).toBeOnTheScreen();
+    // Each day has a heading with its total; the rows show only their time (BR-DSH-06).
+    expect(screen.getAllByRole('header').map((h) => h.props.accessibilityLabel).filter(Boolean)).toEqual([
+      'Today: ¥2,000 in total',
+      'Yesterday: ¥800 in total',
+      'November 12: ¥32,000 in total',
+    ]);
+    expect(screen.getAllByText('12:00 PM')).toHaveLength(3);
+  });
+
+  it('totals every expense of a day under its heading', async () => {
+    await finishedSetup();
+    await savedExpenses([
+      { amount: 500, date: '2026-11-15' },
+      { amount: 1_500, date: '2026-11-15' },
+      { amount: 700, date: '2026-11-13' },
+    ]);
+    await openUserDatabase(testUser.id);
+
+    await renderHome();
+
+    expect(screen.getByLabelText('Today: ¥2,000 in total')).toBeOnTheScreen();
+    expect(screen.getByLabelText('November 13: ¥700 in total')).toBeOnTheScreen();
   });
 
   it('shows a new expense as soon as it is saved (BR-DSH-04)', async () => {
@@ -237,6 +262,61 @@ describe('HomeScreen', () => {
       'Eat Out, ¥800, Yesterday, 12:00 PM',
       "Eat Out, ¥700, Nov 13, 12:00 PM, Couldn't sync",
     ]);
+  });
+
+  it.each([
+    {
+      name: 'met its target',
+      october: 120_000,
+      saved: '¥80,000',
+      verdict: 'Met the saving target of ¥50,000',
+    },
+    {
+      name: 'missed its target',
+      october: 180_000,
+      saved: '¥20,000',
+      verdict: '¥30,000 short of the saving target of ¥50,000',
+    },
+  ])('steps back to a past period that $name, and forward again (BR-HIS-01, BR-HIS-02)', async ({ october, saved, verdict }) => {
+    // Set up in October, with one expense then; it's now November.
+    jest.setSystemTime(new Date(2026, 9, 15, 12));
+    await finishedSetup();
+    await savedExpenses([{ amount: october, date: '2026-10-20' }]);
+    jest.setSystemTime(NOW);
+    const db = await openUserDatabase(testUser.id);
+    ensureCurrentPeriod(db, '2026-11-15', NOW.getTime());
+    await renderHome();
+    expect(screen.queryByLabelText('Next period')).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText('Previous period'));
+
+    expect(screen.getByRole('header', { name: 'October 2026' })).toBeOnTheScreen();
+    // ¥300,000 income − ¥100,000 fixed − the October expense.
+    expect(screen.getByLabelText(`Saved: ${saved}, ${verdict}`)).toBeOnTheScreen();
+    expect(screen.getByLabelText(new RegExp(`^Eat Out, ¥${(october).toLocaleString('en')}, Oct 20`))).toBeOnTheScreen();
+    // Expenses are added to today, so a past period doesn't offer it; there's no earlier period.
+    expect(screen.queryByLabelText('Add expense')).toBeNull();
+    expect(screen.queryByLabelText('Previous period')).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText('Next period'));
+
+    expect(screen.getByRole('header', { name: 'November 2026' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Add expense')).toBeOnTheScreen();
+    expectShown('Remaining today', '¥9,375');
+  });
+
+  it('opens a past period’s editors from its result (BR-HIS-03)', async () => {
+    jest.setSystemTime(new Date(2026, 9, 15, 12));
+    await finishedSetup();
+    jest.setSystemTime(NOW);
+    const db = await openUserDatabase(testUser.id);
+    ensureCurrentPeriod(db, '2026-11-15', NOW.getTime());
+    await renderHome();
+
+    await fireEvent.press(screen.getByLabelText('Previous period'));
+
+    expect(screen.getByRole('button', { name: 'Planned income: ¥300,000' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Saving target: ¥50,000' })).toBeOnTheScreen();
   });
 
   it('says so when the period has no expenses yet', async () => {

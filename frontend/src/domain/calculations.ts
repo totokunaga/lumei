@@ -12,6 +12,12 @@ export interface Expense {
   isBigPurchase: boolean;
 }
 
+/** Extra income: money that arrives unplanned on a day (BR-INC-06). */
+export interface ExtraIncome {
+  amount: Minor;
+  date: IsoDate;
+}
+
 /** Which days carry a big purchase in the chart (BR-SET-05). */
 export type BigPurchaseSpread = 'daysLeft' | 'wholePeriod';
 
@@ -23,6 +29,8 @@ export interface PeriodRecords {
   savingTarget: Minor;
   /** Expenses dated outside `period` are ignored. */
   expenses: Expense[];
+  /** Extra income (BR-INC-06); none when omitted. Dated outside `period`, it is ignored. */
+  extraIncome?: ExtraIncome[];
 }
 
 /**
@@ -51,12 +59,31 @@ export const daysLeft = (period: Period, today: IsoDate): number => {
 };
 
 /**
- * Works out how much the period allows for expenses (BR-CALC-02).
- * @returns Income − fixed expenses − saving target, in minor units. Negative
- *   if the target is more than income − fixed expenses (BR-TGT-03).
+ * Adds up the period's extra income that arrived by a day (BR-INC-06).
+ * @param asOf The last day counted; every day of the period when omitted.
+ * @returns The total, 0 without any.
  */
-export const spendingBudget = ({ income, fixedExpenses, savingTarget }: PeriodRecords): Minor =>
-  sum(income) - sum(fixedExpenses) - savingTarget;
+export const extraIncomeBy = (records: PeriodRecords, asOf?: IsoDate): Minor =>
+  sum(
+    (records.extraIncome ?? [])
+      .filter((income) => inPeriod(records.period, income.date))
+      .filter((income) => asOf === undefined || income.date <= asOf)
+      .map((income) => income.amount),
+  );
+
+/**
+ * Works out how much the period allows for expenses as of a day
+ * (BR-CALC-02): extra income counts from the day it arrives.
+ * @param asOf The day; with it omitted, only planned income counts.
+ * @returns Planned income + extra income so far − fixed expenses − saving
+ *   target, in minor units. Negative if the target is more than that
+ *   (BR-TGT-03).
+ */
+export const spendingBudget = (records: PeriodRecords, asOf?: IsoDate): Minor =>
+  sum(records.income) +
+  (asOf === undefined ? 0 : extraIncomeBy(records, asOf)) -
+  sum(records.fixedExpenses) -
+  records.savingTarget;
 
 export interface TodayStatus {
   daysLeft: number;
@@ -95,7 +122,7 @@ export const todayStatus = (records: PeriodRecords, today: IsoDate): TodayStatus
   const spentBefore = sum(others.filter((e) => e.date < today).map((e) => e.amount));
   const spentToday = sum(others.filter((e) => e.date === today).map((e) => e.amount));
 
-  const available = spendingBudget(records) - bigPurchases - spentBefore;
+  const available = spendingBudget(records, today) - bigPurchases - spentBefore;
   // Expenses can't be dated after today (BR-EXP-02), so this is every expense in the period.
   const periodOverspend = Math.max(0, spentToday - available);
   if (periodOverspend > 0) {
@@ -113,7 +140,10 @@ export const todayStatus = (records: PeriodRecords, today: IsoDate): TodayStatus
 };
 
 export interface PeriodResult {
-  /** Income − fixed expenses − every expense, big purchases included (BR-CALC-07). */
+  /**
+   * Planned and extra income − fixed expenses − every expense, big purchases
+   * included (BR-CALC-07).
+   */
   saved: Minor;
   targetMet: boolean;
 }
@@ -126,14 +156,18 @@ export interface PeriodResult {
  */
 export const periodResult = (records: PeriodRecords): PeriodResult => {
   const saved =
-    sum(records.income) -
+    sum(records.income) +
+    extraIncomeBy(records) -
     sum(records.fixedExpenses) -
     sum(expensesIn(records).map((e) => e.amount));
   return { saved, targetMet: saved >= records.savingTarget };
 };
 
 export interface PeriodSummary {
+  /** Planned income (BR-INC-01). */
   income: Minor;
+  /** Extra income received so far (BR-INC-06). */
+  extraIncome: Minor;
   fixedExpenses: Minor;
   bigPurchases: Minor;
   savingTarget: Minor;
@@ -156,11 +190,12 @@ export const periodSummary = (records: PeriodRecords, today: IsoDate): PeriodSum
   const spentToDate = sum(expenses.map((e) => e.amount));
   return {
     income: sum(records.income),
+    extraIncome: extraIncomeBy(records, today),
     fixedExpenses: sum(records.fixedExpenses),
     bigPurchases: sum(expenses.filter((e) => e.isBigPurchase).map((e) => e.amount)),
     savingTarget: records.savingTarget,
     spentToDate,
-    budgetLeft: spendingBudget(records) - spentToDate,
+    budgetLeft: spendingBudget(records, today) - spentToDate,
     daysLeft: daysLeft(records.period, today),
   };
 };
@@ -200,7 +235,6 @@ export const progressChart = (
 ): ProgressChart => {
   const { period } = records;
   const length = periodDays(period);
-  const budget = spendingBudget(records);
   const expenses = expensesIn(records);
   const bigPurchases = expenses.filter((e) => e.isBigPurchase);
 
@@ -223,7 +257,8 @@ export const progressChart = (
   let cumulative = Fraction.ZERO;
   for (let n = 1; n <= length; n++) {
     const date = addDays(period.start, n - 1);
-    const limit = Fraction.of(budget * n, length);
+    // The budget as of the day, so extra income raises the line from the day it arrives.
+    const limit = Fraction.of(spendingBudget(records, date) * n, length);
     if (date > today) {
       days.push({ date, limit, spending: null, cumulative: null });
       continue;

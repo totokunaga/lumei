@@ -14,14 +14,14 @@ const ICON = 28;
  * Renders the floating button that opens expense entry from the home screen
  * (BR-EXP-09): a round button with a plus icon, in accent-tinted Liquid Glass
  * on iOS 26 and a solid accent circle elsewhere. Screen readers announce it
- * as "Add expense".
+ * as `label`: "Add expense" unless set, e.g. "Add income".
  */
-export function QuickAddButton({ onPress }: { onPress: () => void }) {
+export function QuickAddButton({ onPress, label }: { onPress: () => void; label?: string }) {
   const { t } = useTranslation();
   return (
     <PressableScale
       accessibilityRole="button"
-      accessibilityLabel={t('home.addExpense')}
+      accessibilityLabel={label ?? t('home.addExpense')}
       onPress={onPress}
     >
       <GlassSurface
