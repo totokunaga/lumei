@@ -55,6 +55,20 @@ jest.mock('react-native-worklets', () => ({
   getUIRuntimeHolder: () => ({}),
 }));
 
+// Location (BR-EXP-04): refused by default, without asking, so no test reads
+// a location unless it grants access (see test/app/expense/new.test.tsx).
+jest.mock('expo-location', () => ({
+  PermissionStatus: { GRANTED: 'granted', DENIED: 'denied', UNDETERMINED: 'undetermined' },
+  Accuracy: { Balanced: 3 },
+  getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
+  getLastKnownPositionAsync: jest.fn(async () => null),
+  getCurrentPositionAsync: jest.fn(async () => {
+    throw new Error('no location in tests');
+  }),
+}));
+jest.mock('expo-maps', () => require('./helpers/expo-maps'));
+
 // FlashList measures its views natively; its setup gives them fixed sizes.
 require('@shopify/flash-list/jestSetup');
 

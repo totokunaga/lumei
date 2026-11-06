@@ -25,9 +25,11 @@ import { todayStatus } from '@/domain/calculations';
 import { localToday } from '@/domain/date';
 import { clampSpentAt, isOverToday } from '@/domain/expense';
 import { amountToText, type CurrencyCode, parseAmount } from '@/domain/money';
+import { type Coordinates, readLocation, useCaptureLocation } from '@/lib/location';
 
 import { AmountInput } from './amount-input';
 import { DateTimeField } from './date-time-field';
+import { LocationMap } from './location-map';
 import { deleteExpenseWithUndo } from './delete-expense';
 import { PressableScale } from './pressable-scale';
 import { TextField } from './text-field';
@@ -116,6 +118,30 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
   const invalidAmount = amount.trim() !== '' && parseAmount(amount, currency) === null;
   const [y, m, d] = earliest.split('-').map(Number);
 
+  // Where it happened (BR-EXP-04): a new expense captures the device's
+  // location, with permission, until the user moves, removes, or adds it.
+  const [location, setLocation] = useState<Coordinates | null>(
+    expense && expense.latitude !== null && expense.longitude !== null
+      ? { latitude: expense.latitude, longitude: expense.longitude }
+      : null,
+  );
+  const [touched, setTouched] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const captured = useCaptureLocation(!expense);
+  const shownLocation = touched || expense ? location : captured.location;
+  /** Records the user's own choice of location, which capturing no longer replaces. */
+  const choose = (next: Coordinates | null) => {
+    setTouched(true);
+    setLocation(next);
+  };
+  /** Reads the device's location now, asking for access if needed. */
+  const addCurrentLocation = () => {
+    setLocating(true);
+    void readLocation(true, (coords) =>
+      choose({ latitude: coords.latitude, longitude: coords.longitude }),
+    ).finally(() => setLocating(false));
+  };
+
   /** Saves the expense, plays the haptic for where it leaves today, and closes the sheet. */
   const save = (values: Values) => {
     const db = database();
@@ -126,6 +152,8 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
       spentAt: clampSpentAt(values.spentAt, now, earliest),
       isBigPurchase: values.isBigPurchase,
       description: values.description.trim() || null,
+      latitude: shownLocation?.latitude ?? null,
+      longitude: shownLocation?.longitude ?? null,
     };
     try {
       if (expense) {
@@ -292,6 +320,51 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
               )}
             />
           </View>
+        </View>
+
+        <View className="gap-3">
+          <Text className="text-sm font-medium uppercase text-gray-500 dark:text-gray-400">
+            {t('expense.location')}
+          </Text>
+          {shownLocation ? (
+            <>
+              <LocationMap location={shownLocation} onMove={choose} />
+              <PressableScale
+                accessibilityRole="button"
+                onPress={() => choose(null)}
+                className="h-11 items-center justify-center self-start"
+              >
+                <Text className="text-base font-semibold text-red-600 dark:text-red-400">
+                  {t('expense.removeLocation')}
+                </Text>
+              </PressableScale>
+            </>
+          ) : !expense && !touched && captured.access === 'granted' ? (
+            <Text className="text-base text-gray-500 dark:text-gray-400">
+              {t('expense.locating')}
+            </Text>
+          ) : captured.access === 'denied' && !touched ? (
+            <Text className="text-base text-gray-500 dark:text-gray-400">
+              {t('expense.locationOff')}
+            </Text>
+          ) : (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityState={{ busy: locating }}
+              disabled={locating}
+              onPress={addCurrentLocation}
+              className="h-12 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
+            >
+              <SymbolView
+                name={{ ios: 'location.fill', android: 'my_location' }}
+                size={16}
+                tintColor="#10B981"
+              />
+              <Text className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
+                {locating ? t('expense.locating') : t('expense.addLocation')}
+              </Text>
+            </PressableScale>
+          )}
         </View>
       </ScrollView>
 

@@ -80,7 +80,14 @@
     "failed": "The expense couldn't be saved. Try again.",
     "editTitle": "Edit expense",
     "description": "Description (optional)",
-    "delete": "Delete expense"
+    "delete": "Delete expense",
+    "location": "Location",
+    "coordinates": "{{latitude}}, {{longitude}}",
+    "moveHint": "Tap the map to move the pin",
+    "removeLocation": "Remove location",
+    "addLocation": "Add current location",
+    "locating": "Finding where you are…",
+    "locationOff": "Location access is off. Turn it on in Settings to save where you spend."
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})",

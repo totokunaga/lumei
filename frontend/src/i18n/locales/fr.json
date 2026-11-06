@@ -80,7 +80,14 @@
     "failed": "La dépense n'a pas pu être enregistrée. Réessayez.",
     "editTitle": "Modifier la dépense",
     "description": "Description (facultative)",
-    "delete": "Supprimer la dépense"
+    "delete": "Supprimer la dépense",
+    "location": "Lieu",
+    "coordinates": "{{latitude}}, {{longitude}}",
+    "moveHint": "Touchez la carte pour déplacer l'épingle",
+    "removeLocation": "Supprimer le lieu",
+    "addLocation": "Ajouter la position actuelle",
+    "locating": "Recherche de votre position…",
+    "locationOff": "L'accès à la position est désactivé. Activez-le dans Réglages pour enregistrer où vous dépensez."
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})",

@@ -80,7 +80,14 @@
     "failed": "支出を保存できませんでした。もう一度お試しください。",
     "editTitle": "支出を編集",
     "description": "メモ（任意）",
-    "delete": "支出を削除"
+    "delete": "支出を削除",
+    "location": "場所",
+    "coordinates": "{{latitude}}, {{longitude}}",
+    "moveHint": "地図をタップしてピンを動かせます",
+    "removeLocation": "場所を削除",
+    "addLocation": "現在地を追加",
+    "locating": "現在地を確認しています…",
+    "locationOff": "位置情報へのアクセスがオフです。支出した場所を保存するには、設定でオンにしてください。"
   },
   "period": {
     "labelWithRange": "{{month}}（{{start}}～{{end}}）",

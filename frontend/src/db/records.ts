@@ -263,6 +263,9 @@ export interface NewExpense {
   isBigPurchase: boolean;
   /** An optional description (BR-EXP-03); null or omitted when empty. */
   description?: string | null;
+  /** Where it happened (BR-EXP-04); null or omitted without a location. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 /**
@@ -707,6 +710,8 @@ export const updateExpense = (db: Database, id: string, expense: NewExpense, now
       spentAt: expense.spentAt,
       isBigPurchase: expense.isBigPurchase,
       description: expense.description ?? null,
+      latitude: expense.latitude ?? null,
+      longitude: expense.longitude ?? null,
       date: expense.spentAt === stored.spentAt ? stored.date : expenseDate(expense.spentAt),
       ...changed(expenses, now),
     })
