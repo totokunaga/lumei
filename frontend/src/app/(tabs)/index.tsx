@@ -1,10 +1,11 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { deleteExpenseWithUndo } from '@/components/delete-expense';
 import { ExpenseRow } from '@/components/expense-row';
 import { QuickAddButton } from '@/components/quick-add-button';
 import { TodayCard } from '@/components/today-card';
@@ -48,6 +49,11 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today, version]);
   const money = (amount: Minor) => formatMoney(amount, data.currency, i18n.language);
+  const openExpense = useCallback((id: string) => router.push(`/expense/${id}`), [router]);
+  const removeExpense = useCallback(
+    (id: string) => void deleteExpenseWithUndo(id, t('undo.expenseDeleted')),
+    [t],
+  );
 
   const header = (
     <View className="gap-6 pb-3">
@@ -87,7 +93,15 @@ export default function HomeScreen() {
       <FlashList
         data={data.expenses}
         keyExtractor={(expense) => expense.id}
-        renderItem={({ item }) => <ExpenseRow expense={item} today={today} money={money} />}
+        renderItem={({ item }) => (
+          <ExpenseRow
+            expense={item}
+            today={today}
+            money={money}
+            onPress={openExpense}
+            onDelete={removeExpense}
+          />
+        )}
         ListHeaderComponent={header}
         ListEmptyComponent={
           data.records ? (

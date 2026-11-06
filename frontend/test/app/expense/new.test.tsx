@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { renderRouter } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
@@ -142,6 +142,17 @@ describe('NewExpenseScreen (BR-EXP-01, BR-EXP-09)', () => {
 
     await screen.findByLabelText('Add expense');
     expect(saved()).toMatchObject([{ date, spentAt: spentAt.getTime() }]);
+  });
+
+  it('saves an optional description (BR-EXP-03)', async () => {
+    await openSheet();
+
+    await fireEvent.changeText(screen.getByLabelText('Amount'), '600');
+    await fireEvent.press(screen.getByText('Eat Out'));
+    await fireEvent.changeText(screen.getByLabelText('Description (optional)'), 'Ramen with Aki');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(saved()).toMatchObject([{ amount: 600, description: 'Ramen with Aki' }]));
   });
 
   it('rejects an amount of 0 (BR-EXP-08)', async () => {

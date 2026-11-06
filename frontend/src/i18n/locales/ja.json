@@ -59,7 +59,10 @@
     "bigPurchaseHint": "今日の支出に含めず、残りの日数に分けて計算します。",
     "when": "日時",
     "save": "保存",
-    "failed": "支出を保存できませんでした。もう一度お試しください。"
+    "failed": "支出を保存できませんでした。もう一度お試しください。",
+    "editTitle": "支出を編集",
+    "description": "メモ（任意）",
+    "delete": "支出を削除"
   },
   "period": {
     "labelWithRange": "{{month}}（{{start}}～{{end}}）",
@@ -229,5 +232,9 @@
     "target": {
       "title": "貯金目標"
     }
+  },
+  "undo": {
+    "undo": "元に戻す",
+    "expenseDeleted": "支出を削除しました"
   }
 }

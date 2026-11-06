@@ -7,9 +7,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useAuth } from '@/auth/store';
 import { PressableScale } from '@/components/pressable-scale';
+import { UndoBanner } from '@/components/undo-banner';
 import { useLocalData } from '@/db/store';
 import { queryClient } from '@/lib/query-client';
 import { useSetupDraft } from '@/setup/draft';
@@ -87,22 +89,27 @@ export default function RootLayout() {
   const signedIn = status === 'signedIn';
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={signedIn && setupCompleted}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="period/[id]/income" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="period/[id]/fixed-expenses" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="period/[id]/target" options={{ presentation: 'modal' }} />
-        </Stack.Protected>
-        <Stack.Protected guard={signedIn && !setupCompleted}>
-          <Stack.Screen name="setup" options={{ animation: 'fade' }} />
-        </Stack.Protected>
-        <Stack.Protected guard={status === 'signedOut'}>
-          <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
-        </Stack.Protected>
-      </Stack>
-    </QueryClientProvider>
+    // Gestures (e.g. swiping an expense to delete it) need this at the root.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={signedIn && setupCompleted}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="expense/new" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="expense/[id]" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="period/[id]/income" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="period/[id]/fixed-expenses" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="period/[id]/target" options={{ presentation: 'modal' }} />
+          </Stack.Protected>
+          <Stack.Protected guard={signedIn && !setupCompleted}>
+            <Stack.Screen name="setup" options={{ animation: 'fade' }} />
+          </Stack.Protected>
+          <Stack.Protected guard={status === 'signedOut'}>
+            <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
+          </Stack.Protected>
+        </Stack>
+        <UndoBanner />
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

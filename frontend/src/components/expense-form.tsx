@@ -14,18 +14,23 @@ import { newId } from '@/db/ids';
 import {
   addExpense,
   readCategories,
+  readCategory,
   readFirstPeriodStart,
   readPeriodRecords,
   readSettings,
+  type StoredExpense,
+  updateExpense,
 } from '@/db/records';
 import { todayStatus } from '@/domain/calculations';
 import { localToday } from '@/domain/date';
 import { clampSpentAt, isOverToday } from '@/domain/expense';
-import { type CurrencyCode, parseAmount } from '@/domain/money';
+import { amountToText, type CurrencyCode, parseAmount } from '@/domain/money';
 
 import { AmountInput } from './amount-input';
 import { DateTimeField } from './date-time-field';
+import { deleteExpenseWithUndo } from './delete-expense';
 import { PressableScale } from './pressable-scale';
+import { TextField } from './text-field';
 
 /** The form as typed: the amount stays text until it is saved. */
 interface Values {
@@ -34,6 +39,7 @@ interface Values {
   isBigPurchase: boolean;
   /** When it happened, in milliseconds since the epoch. */
   spentAt: number;
+  description: string;
 }
 
 /**
@@ -47,18 +53,28 @@ const formSchema = (currency: CurrencyCode) =>
     categoryId: z.string().min(1),
     isBigPurchase: z.boolean(),
     spentAt: z.number(),
+    description: z.string(),
   });
 
+/** Props of `ExpenseForm`. */
+interface ExpenseFormProps {
+  /** The expense to edit; omitted to record a new one. */
+  expense?: StoredExpense;
+}
+
 /**
- * Renders the form that records an expense (BR-EXP-01, BR-EXP-02,
- * BR-EXP-05). It opens with the amount focused, so recording takes three
- * taps from the home screen: the add button, a category, and save
- * (BR-EXP-09). The date and time start at now and can move back, but not
- * later than now nor before the first period (BR-EXP-02). Saving writes to the
- * device first (BR-OFF-01), with a success haptic, or a gentler warning one
- * when it leaves today over its allowance, and closes the sheet.
+ * Renders the form that records an expense (BR-EXP-01 to BR-EXP-05), or
+ * edits one when given `expense` (BR-EXP-06). A new one opens with the amount
+ * focused, so recording takes three taps from the home screen: the add
+ * button, a category, and save (BR-EXP-09). The date and time start at now
+ * and can move back, but not later than now nor before the first period
+ * (BR-EXP-02); a new date can move an edited expense to another period
+ * (BR-EXP-07). Saving writes to the device first (BR-OFF-01), with a success
+ * haptic, or a gentler warning one when it leaves today over its allowance,
+ * and closes the sheet. Deleting an edited expense closes the sheet and
+ * offers to undo for a few seconds.
  */
-export function ExpenseForm() {
+export function ExpenseForm({ expense }: ExpenseFormProps) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -67,17 +83,33 @@ export function ExpenseForm() {
   // Read once: the sheet records into the categories and period as they were when it opened.
   const { currency, categories, earliest } = useMemo(() => {
     const db = database();
+    const active = readCategories(db);
+    // An expense in an archived category keeps it (BR-CAT-03), so it is offered too.
+    const kept =
+      expense && !active.some((c) => c.id === expense.categoryId)
+        ? readCategory(db, expense.categoryId)
+        : null;
     return {
       currency: (readSettings(db)?.currency ?? 'USD') as CurrencyCode,
-      categories: readCategories(db),
+      categories: kept ? [kept, ...active] : active,
       earliest: readFirstPeriodStart(db) ?? localToday(),
     };
+    // Read once, as the sheet opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [openedAt] = useState(Date.now);
   const schema = useMemo(() => formSchema(currency), [currency]);
   const { control, handleSubmit, setValue } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { amount: '', categoryId: '', isBigPurchase: false, spentAt: openedAt },
+    defaultValues: expense
+      ? {
+          amount: amountToText(expense.amount, currency),
+          categoryId: expense.categoryId,
+          isBigPurchase: expense.isBigPurchase,
+          spentAt: expense.spentAt,
+          description: expense.description ?? '',
+        }
+      : { amount: '', categoryId: '', isBigPurchase: false, spentAt: openedAt, description: '' },
   });
   const [amount, categoryId] = useWatch({ control, name: ['amount', 'categoryId'] });
   const valid = parseAmount(amount, currency) !== null && categoryId !== '';
@@ -88,18 +120,19 @@ export function ExpenseForm() {
   const save = (values: Values) => {
     const db = database();
     const now = Date.now();
+    const saved = {
+      amount: parseAmount(values.amount, currency)!,
+      categoryId: values.categoryId,
+      spentAt: clampSpentAt(values.spentAt, now, earliest),
+      isBigPurchase: values.isBigPurchase,
+      description: values.description.trim() || null,
+    };
     try {
-      addExpense(
-        db,
-        {
-          amount: parseAmount(values.amount, currency)!,
-          categoryId: values.categoryId,
-          spentAt: clampSpentAt(values.spentAt, now, earliest),
-          isBigPurchase: values.isBigPurchase,
-        },
-        newId(),
-        now,
-      );
+      if (expense) {
+        updateExpense(db, expense.id, saved, now);
+      } else {
+        addExpense(db, saved, newId(), now);
+      }
     } catch {
       setFailed(true);
       return;
@@ -113,11 +146,23 @@ export function ExpenseForm() {
     router.back();
   };
 
+  /** Deletes the edited expense, closes the sheet, and offers to undo (BR-EXP-06). */
+  const remove = () => {
+    if (!expense) {
+      return;
+    }
+    if (!deleteExpenseWithUndo(expense.id, t('undo.expenseDeleted'))) {
+      setFailed(true);
+      return;
+    }
+    router.back();
+  };
+
   return (
     <KeyboardAvoidingView behavior="padding" className="flex-1 bg-white dark:bg-black">
       <View className="flex-row items-center justify-between px-6 pb-2 pt-6">
         <Text accessibilityRole="header" className="text-3xl font-bold text-black dark:text-white">
-          {t('expense.title')}
+          {expense ? t('expense.editTitle') : t('expense.title')}
         </Text>
         <PressableScale
           accessibilityRole="button"
@@ -144,7 +189,7 @@ export function ExpenseForm() {
                 value={field.value}
                 onChangeText={field.onChange}
                 invalid={invalidAmount}
-                autoFocus
+                autoFocus={!expense}
                 accessibilityLabel={t('expense.amount')}
                 placeholder="0"
               />
@@ -187,6 +232,24 @@ export function ExpenseForm() {
             })}
           </View>
         </View>
+
+        <Controller
+          control={control}
+          name="description"
+          render={({ field }) => (
+            <TextField
+              accessibilityLabel={t('expense.description')}
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              placeholder={t('expense.description')}
+              placeholderTextColor="#9CA3AF"
+              multiline
+              maxLength={500}
+              className="min-h-14 rounded-2xl bg-gray-100 px-4 py-4 text-black dark:bg-gray-900 dark:text-white"
+            />
+          )}
+        />
 
         <View className="overflow-hidden rounded-3xl bg-gray-50 dark:bg-gray-950">
           <View className="flex-row items-center justify-between gap-4 px-5 py-4">
@@ -255,6 +318,17 @@ export function ExpenseForm() {
             {t('expense.save')}
           </Text>
         </PressableScale>
+        {expense && (
+          <PressableScale
+            accessibilityRole="button"
+            onPress={remove}
+            className="h-12 items-center justify-center"
+          >
+            <Text className="text-base font-semibold text-red-600 dark:text-red-400">
+              {t('expense.delete')}
+            </Text>
+          </PressableScale>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

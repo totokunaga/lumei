@@ -47,6 +47,14 @@ jest.mock('expo-network', () => ({
   addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
+// Gesture Handler's native module, replaced with its own Jest stand-ins. As
+// it loads, it asks Worklets for the UI runtime, which Jest doesn't have.
+require('react-native-gesture-handler/jestSetup');
+jest.mock('react-native-worklets', () => ({
+  ...jest.requireActual('react-native-worklets'),
+  getUIRuntimeHolder: () => ({}),
+}));
+
 // FlashList measures its views natively; its setup gives them fixed sizes.
 require('@shopify/flash-list/jestSetup');
 

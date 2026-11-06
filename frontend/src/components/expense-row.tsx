@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 
@@ -8,6 +8,9 @@ import type { IsoDate } from '@/domain/date';
 import { formatExpenseTime } from '@/domain/expense';
 import type { Minor } from '@/domain/money';
 
+import { PressableScale } from './pressable-scale';
+import { closeSwipedRow, type SwipeControls, SwipeToDelete } from './swipe-to-delete';
+
 /** Props of `ExpenseRow`. */
 interface ExpenseRowProps {
   expense: ListedExpense;
@@ -15,6 +18,10 @@ interface ExpenseRowProps {
   today: IsoDate;
   /** Formats an amount in the account currency, e.g. 1200 as "¥1,200". */
   money: (amount: Minor) => string;
+  /** Opens the expense to edit or delete it (BR-EXP-06). */
+  onPress: (id: string) => void;
+  /** Deletes the expense, offering to undo (BR-EXP-06). */
+  onDelete: (id: string) => void;
 }
 
 /** The icon and screen-reader text of an expense that isn't synced (BR-OFF-04). */
@@ -44,11 +51,18 @@ const syncMarks: Record<
 /**
  * Renders one expense in the home screen's list (BR-DSH-06): its category's
  * emoji and name, when it happened, its amount, a tag for a big purchase
- * (BR-EXP-05), and an icon while it isn't synced (BR-OFF-04). It reads as
- * one element to screen readers (BR-NFR-07). Memoized, since the list
- * re-renders whenever a record changes.
+ * (BR-EXP-05), and an icon while it isn't synced (BR-OFF-04). Tapping it
+ * opens it to edit, and swiping it left deletes it (BR-EXP-06). It reads as
+ * one button to screen readers, with a delete action in place of the swipe
+ * (BR-NFR-07). Memoized, since the list re-renders whenever a record changes.
  */
-export const ExpenseRow = memo(function ExpenseRow({ expense, today, money }: ExpenseRowProps) {
+export const ExpenseRow = memo(function ExpenseRow({
+  expense,
+  today,
+  money,
+  onPress,
+  onDelete,
+}: ExpenseRowProps) {
   const { t, i18n } = useTranslation();
   const when = formatExpenseTime(expense.spentAt, today, t, i18n.language);
   const amount = money(expense.amount);
@@ -57,38 +71,58 @@ export const ExpenseRow = memo(function ExpenseRow({ expense, today, money }: Ex
     ? t('home.expenseLabelBig', values)
     : t('home.expenseLabel', values);
   const mark = expense.sync === 'synced' ? null : syncMarks[expense.sync];
+  const swipe = useRef<SwipeControls | null>(null);
 
   return (
-    <View
-      accessible
-      accessibilityLabel={mark ? t('home.withSync', { label, status: t(mark.label) }) : label}
-      className="flex-row items-center gap-4 py-3"
-    >
-      <View className="h-11 w-11 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-900">
-        <Text className="text-xl">{expense.categoryEmoji}</Text>
-      </View>
-      <View className="flex-1 gap-0.5">
-        <View className="flex-row items-center gap-2">
-          <Text
-            numberOfLines={1}
-            className="flex-shrink text-base font-semibold text-black dark:text-white"
-          >
-            {expense.categoryName}
-          </Text>
-          {expense.isBigPurchase && (
-            <View className="rounded-full bg-amber-100 px-2 py-0.5 dark:bg-amber-950">
-              <Text className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                {t('home.bigPurchase')}
-              </Text>
-            </View>
-          )}
+    <SwipeToDelete rowKey={expense.id} controlsRef={swipe} onDelete={() => onDelete(expense.id)}>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={mark ? t('home.withSync', { label, status: t(mark.label) }) : label}
+        accessibilityHint={t('home.editHint')}
+        accessibilityActions={[{ name: 'delete', label: t('expense.delete') }]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'delete') {
+            onDelete(expense.id);
+          }
+        }}
+        onPress={() => {
+          // A tap on an open row, or while another is open, only closes it.
+          const open = swipe.current?.isOpen() ?? false;
+          if (open) {
+            swipe.current?.close();
+          }
+          if (!closeSwipedRow() && !open) {
+            onPress(expense.id);
+          }
+        }}
+        className="flex-row items-center gap-4 py-3"
+      >
+        <View className="h-11 w-11 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-900">
+          <Text className="text-xl">{expense.categoryEmoji}</Text>
         </View>
-        <View className="flex-row items-center gap-1.5">
-          <Text className="text-sm text-gray-500 dark:text-gray-400">{when}</Text>
-          {mark && <SymbolView name={mark.symbol} size={14} tintColor={mark.color} />}
+        <View className="flex-1 gap-0.5">
+          <View className="flex-row items-center gap-2">
+            <Text
+              numberOfLines={1}
+              className="flex-shrink text-base font-semibold text-black dark:text-white"
+            >
+              {expense.categoryName}
+            </Text>
+            {expense.isBigPurchase && (
+              <View className="rounded-full bg-amber-100 px-2 py-0.5 dark:bg-amber-950">
+                <Text className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                  {t('home.bigPurchase')}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <Text className="text-sm text-gray-500 dark:text-gray-400">{when}</Text>
+            {mark && <SymbolView name={mark.symbol} size={14} tintColor={mark.color} />}
+          </View>
         </View>
-      </View>
-      <Text className="text-base font-semibold text-black dark:text-white">{amount}</Text>
-    </View>
+        <Text className="text-base font-semibold text-black dark:text-white">{amount}</Text>
+      </PressableScale>
+    </SwipeToDelete>
   );
 });

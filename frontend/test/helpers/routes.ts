@@ -6,6 +6,7 @@ import HomeScreen from '@/app/(tabs)/index';
 import SettingsLayout from '@/app/(tabs)/settings/_layout';
 import SettingsScreen from '@/app/(tabs)/settings/index';
 import StartDayScreen from '@/app/(tabs)/settings/start-day';
+import EditExpenseScreen from '@/app/expense/[id]';
 import NewExpenseScreen from '@/app/expense/new';
 import PeriodFixedExpensesScreen from '@/app/period/[id]/fixed-expenses';
 import PeriodIncomeScreen from '@/app/period/[id]/income';
@@ -29,6 +30,7 @@ export const routes = {
   '(tabs)/settings/start-day': StartDayScreen,
   'sign-in': SignInScreen,
   'expense/new': NewExpenseScreen,
+  'expense/[id]': EditExpenseScreen,
   'period/[id]/income': PeriodIncomeScreen,
   'period/[id]/fixed-expenses': PeriodFixedExpensesScreen,
   'period/[id]/target': PeriodTargetScreen,

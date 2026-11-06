@@ -9,8 +9,11 @@ import {
   changeStartDay,
   countFailedChanges,
   countPendingChanges,
+  deleteExpense,
   ensureCurrentPeriod,
   readCategories,
+  readCategory,
+  readExpense,
   readFirstPeriodStart,
   readPeriodExpenses,
   readPeriodItems,
@@ -20,8 +23,10 @@ import {
   saveFixedExpenses,
   saveIncomes,
   saveSavingTarget,
+  restoreExpense,
   saveSetup,
   setBigPurchaseSpread,
+  updateExpense,
 } from '@/db/records';
 import {
   categories,
@@ -516,5 +521,107 @@ describe('readPeriodItems', () => {
     const db = await saveFinishedSetup();
 
     expect(readPeriodItems(db, 'nope')).toBeNull();
+  });
+});
+
+describe('updateExpense (BR-EXP-03, BR-EXP-05 to BR-EXP-07)', () => {
+  it('saves every field, pending sync at the next revision', async () => {
+    const db = await saveFinishedSetup();
+    const id = spend(db, '2026-10-28', 1_000);
+    db.update(expenses).set({ pending: false, syncError: 'invalid_row' }).run();
+    const [, konbini] = readCategories(db);
+
+    updateExpense(
+      db,
+      id,
+      {
+        amount: 1_500,
+        categoryId: konbini.id,
+        spentAt: new Date(2026, 9, 28, 12).getTime(),
+        isBigPurchase: true,
+        description: 'Gift',
+      },
+      3_000,
+    );
+
+    expect(readExpense(db, id)).toMatchObject({
+      amount: 1_500,
+      categoryId: konbini.id,
+      isBigPurchase: true,
+      description: 'Gift',
+      date: '2026-10-28',
+      updatedAt: 3_000,
+      pending: true,
+      syncError: null,
+      localRev: 2,
+    });
+  });
+
+  it('moves the expense to the period of its new date (BR-EXP-07)', async () => {
+    const db = await saveFinishedSetup();
+    ensureCurrentPeriod(db, '2026-11-25', 2_000);
+    const id = spend(db, '2026-11-26', 1_000);
+    const expense = readExpense(db, id)!;
+
+    updateExpense(db, id, { ...expense, spentAt: new Date(2026, 9, 30, 9).getTime() }, 3_000);
+
+    expect(readExpense(db, id)?.date).toBe('2026-10-30');
+    expect(readPeriodExpenses(db, '2026-11-26')).toEqual([]);
+    expect(readPeriodExpenses(db, '2026-10-29').map((e) => e.id)).toEqual([id]);
+  });
+
+  it('keeps the date when the time didn’t change, whatever the time zone now', async () => {
+    const db = await saveFinishedSetup();
+    const id = spend(db, '2026-10-28', 1_000);
+    // As if recorded in another time zone, where that moment was the 27th.
+    db.update(expenses).set({ date: '2026-10-27' }).run();
+    const expense = readExpense(db, id)!;
+
+    updateExpense(db, id, { ...expense, amount: 2_000 }, 3_000);
+
+    expect(readExpense(db, id)?.date).toBe('2026-10-27');
+  });
+});
+
+describe('deleteExpense and restoreExpense (BR-EXP-06)', () => {
+  it('deletes the expense, keeping a marker for sync', async () => {
+    const db = await saveFinishedSetup();
+    const id = spend(db, '2026-10-28', 1_000);
+
+    const deleted = deleteExpense(db, id, 3_000);
+
+    expect(deleted).toMatchObject({ id, amount: 1_000 });
+    expect(readExpense(db, id)).toBeNull();
+    expect(readPeriodExpenses(db, '2026-10-29')).toEqual([]);
+    expect(db.select().from(expenses).get()).toMatchObject({ deletedAt: 3_000, pending: true, localRev: 2 });
+    expect(deleteExpense(db, id, 4_000)).toBeNull();
+  });
+
+  it('undoes a deletion by saving the expense again under a new ID', async () => {
+    const db = await saveFinishedSetup();
+    const id = spend(db, '2026-10-28', 1_000);
+    const deleted = deleteExpense(db, id, 3_000)!;
+
+    restoreExpense(db, deleted, 'restored', 4_000);
+
+    expect(readPeriodExpenses(db, '2026-10-29')).toMatchObject([{ id: 'restored', amount: 1_000 }]);
+    expect(readExpense(db, 'restored')).toMatchObject({
+      date: '2026-10-28',
+      spentAt: deleted.spentAt,
+      pending: true,
+      localRev: 1,
+      updatedAt: 4_000,
+    });
+  });
+});
+
+describe('readCategory (BR-CAT-03)', () => {
+  it('reads an archived category too', async () => {
+    const db = await saveFinishedSetup();
+    const [eatOut] = readCategories(db);
+    db.update(categories).set({ archivedAt: 2_000 }).where(eq(categories.id, eatOut.id)).run();
+
+    expect(readCategory(db, eatOut.id)).toEqual(eatOut);
+    expect(readCategory(db, 'nope')).toBeNull();
   });
 });

@@ -59,7 +59,10 @@
     "bigPurchaseHint": "Réparti sur les jours restants au lieu de compter pour aujourd'hui.",
     "when": "Date et heure",
     "save": "Enregistrer",
-    "failed": "La dépense n'a pas pu être enregistrée. Réessayez."
+    "failed": "La dépense n'a pas pu être enregistrée. Réessayez.",
+    "editTitle": "Modifier la dépense",
+    "description": "Description (facultative)",
+    "delete": "Supprimer la dépense"
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})",
@@ -229,5 +232,9 @@
     "target": {
       "title": "Objectif d'épargne"
     }
+  },
+  "undo": {
+    "undo": "Annuler",
+    "expenseDeleted": "Dépense supprimée"
   }
 }

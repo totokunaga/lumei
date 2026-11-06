@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import HomeScreen from '@/app/(tabs)/index';
@@ -42,7 +43,9 @@ const renderHome = () =>
         insets: { top: 0, left: 0, right: 0, bottom: 0 },
       }}
     >
-      <HomeScreen />
+      <GestureHandlerRootView>
+        <HomeScreen />
+      </GestureHandlerRootView>
     </SafeAreaProvider>,
   );
 

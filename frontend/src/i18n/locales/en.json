@@ -59,7 +59,10 @@
     "bigPurchaseHint": "Spread over the days left instead of counting toward today.",
     "when": "Date and time",
     "save": "Save",
-    "failed": "The expense couldn't be saved. Try again."
+    "failed": "The expense couldn't be saved. Try again.",
+    "editTitle": "Edit expense",
+    "description": "Description (optional)",
+    "delete": "Delete expense"
   },
   "period": {
     "labelWithRange": "{{month}} ({{start}} – {{end}})",
@@ -229,5 +232,9 @@
     "target": {
       "title": "Saving target"
     }
+  },
+  "undo": {
+    "undo": "Undo",
+    "expenseDeleted": "Expense deleted"
   }
 }

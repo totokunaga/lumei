@@ -249,6 +249,8 @@ export interface NewExpense {
   /** When it happened, in milliseconds since the epoch; not later than now (BR-EXP-02). */
   spentAt: number;
   isBigPurchase: boolean;
+  /** An optional description (BR-EXP-03); null or omitted when empty. */
+  description?: string | null;
 }
 
 /**
@@ -645,5 +647,108 @@ export const saveSavingTarget = (
       .values({ id, periodId, amount, ...created(now) })
       .run();
   }
+  notifyChange();
+};
+
+/** An expense as the edit form shows it (BR-EXP-06). */
+export type StoredExpense = typeof expenses.$inferSelect;
+
+/**
+ * Reads an expense to edit.
+ * @returns The expense, or null if there is none with the ID, or it was deleted.
+ */
+export const readExpense = (db: Database, id: string): StoredExpense | null =>
+  db
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.id, id), isNull(expenses.deletedAt)))
+    .get() ?? null;
+
+/**
+ * Reads a category, archived or not, e.g. to show the one an expense in an
+ * archived category keeps (BR-CAT-03).
+ * @returns The category, or null if there is none with the ID.
+ */
+export const readCategory = (db: Database, id: string): Category | null =>
+  db
+    .select({ id: categories.id, name: categories.name, emoji: categories.emoji })
+    .from(categories)
+    .where(eq(categories.id, id))
+    .get() ?? null;
+
+/**
+ * Saves the user's changes to an expense (BR-EXP-03, BR-EXP-05, BR-EXP-06).
+ * Its date follows a changed `spentAt`, which can move it to another period
+ * (BR-EXP-07); otherwise it keeps its date, even after a change of time zone.
+ * @param now When the user saved it, in milliseconds since the epoch.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const updateExpense = (db: Database, id: string, expense: NewExpense, now: number): void => {
+  const stored = readExpense(db, id);
+  if (!stored) {
+    return;
+  }
+  db.update(expenses)
+    .set({
+      amount: expense.amount,
+      categoryId: expense.categoryId,
+      spentAt: expense.spentAt,
+      isBigPurchase: expense.isBigPurchase,
+      description: expense.description ?? null,
+      date: expense.spentAt === stored.spentAt ? stored.date : expenseDate(expense.spentAt),
+      ...changed(expenses, now),
+    })
+    .where(eq(expenses.id, id))
+    .run();
+  notifyChange();
+};
+
+/**
+ * Deletes an expense (BR-EXP-06). The row stays as a deletion marker, so the
+ * deletion syncs and wins over edits on other devices (BR-OFF-05).
+ * @param now When the user deleted it, in milliseconds since the epoch.
+ * @returns The expense as it was, for `restoreExpense`, or null if there is none.
+ */
+export const deleteExpense = (db: Database, id: string, now: number): StoredExpense | null => {
+  const stored = readExpense(db, id);
+  if (!stored) {
+    return null;
+  }
+  db.update(expenses)
+    .set({ deletedAt: now, ...changed(expenses, now) })
+    .where(eq(expenses.id, id))
+    .run();
+  notifyChange();
+  return stored;
+};
+
+/**
+ * Undoes a deletion (BR-EXP-06): saves the deleted expense again, as a new
+ * record. The deleted row can't come back, since a deletion always wins
+ * (BR-OFF-05).
+ * @param deleted The expense `deleteExpense` returned.
+ * @param id The new record's ID, from `newId()`.
+ * @param now When the user undid it, in milliseconds since the epoch.
+ */
+export const restoreExpense = (
+  db: Database,
+  deleted: StoredExpense,
+  id: string,
+  now: number,
+): void => {
+  db.insert(expenses)
+    .values({
+      id,
+      amount: deleted.amount,
+      categoryId: deleted.categoryId,
+      date: deleted.date,
+      spentAt: deleted.spentAt,
+      isBigPurchase: deleted.isBigPurchase,
+      description: deleted.description,
+      latitude: deleted.latitude,
+      longitude: deleted.longitude,
+      ...created(now),
+    })
+    .run();
   notifyChange();
 };
