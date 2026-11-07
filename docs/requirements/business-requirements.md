@@ -139,7 +139,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-EXP-07 | Must | An expense belongs to the period that contains its date. Changing the date can move it to another period. |
 | BR-EXP-08 | Must | The amount is in the account currency and greater than 0. It has at most as many decimals as the currency's minor unit allows (none for JPY, two for the others). Income, fixed expenses, and the saving target follow the same decimal rule, but they can also be 0 (BR-INC-04). Refunds and negative amounts aren't supported in the first release (see [Future](#future)). |
 | BR-EXP-09 | Must | Recording an expense takes no more than 3 taps after opening the app: amount, category, save. The home screen offers expense entry directly. |
-| BR-EXP-10 | Must | A user can list the expenses of a period, grouped by day with a total for each day. The user can filter the list by category and see big purchases separately. |
+| BR-EXP-10 | Must | A user can list the expenses of a period, grouped by day with a total for each day. The user can filter the list by category and see big purchases separately. A filtered list's day totals count only the expenses it shows. |
 | BR-EXP-11 | Should | A user can search expenses by description. |
 
 ### Categories
@@ -213,7 +213,7 @@ The supported currencies are the major currencies listed by [OANDA](https://www.
 | BR-DSH-03 | Must | The home screen shows a period summary: total income, total fixed expenses, total big purchases, total spending to date, saving target, spending budget left (BR-CALC-08), and days left (BR-CALC-01). It sits in the card with today's numbers, which starts collapsed, showing only today's numbers, and expands to show the summary. |
 | BR-DSH-04 | Must | All numbers update as soon as an expense, income, fixed expense, or target changes. This includes changes made offline. |
 | BR-DSH-05 | Must | "Today" is the current date in the device's time zone. A day rolls over at local midnight. |
-| BR-DSH-06 | Must | Under today's card, the home screen shows the period's expenses or its income, switched with a control that starts on expenses. **Expenses:** the period's expenses, fixed expenses excluded, newest first by the date and time each happened (BR-EXP-02), grouped by day. Each day has a heading with its date ("Today" and "Yesterday" for those days) and the total of its expenses, big purchases at their full amount. Each expense shows its category, amount, time, and whether it is a big purchase. A saved expense appears in the list straight away (BR-DSH-04). **Income:** the period's planned income items with their total, then its extra income (BR-INC-06) grouped by day the same way, each shown as a positive amount. The add button records an expense or extra income, matching what is shown. The full list with filters is BR-EXP-10. |
+| BR-DSH-06 | Must | Under today's card, the home screen shows the period's expenses or its income, switched with a control that starts on expenses. **Expenses:** the period's expenses, fixed expenses excluded, newest first by the date and time each happened (BR-EXP-02), grouped by day. Each day has a heading with its date ("Today" and "Yesterday" for those days) and the total of its expenses, big purchases at their full amount. Each expense shows its category, amount, time, and whether it is a big purchase. A saved expense appears in the list straight away (BR-DSH-04). **Income:** the period's planned income items with their total, then its extra income (BR-INC-06) grouped by day the same way, each shown as a positive amount. The add button records an expense or extra income, matching what is shown. Chips above the expenses filter them (BR-EXP-10), and the period's spending by category sits beside the chart, a swipe to the left (BR-HIS-04). |
 
 ### Progress chart
 
@@ -232,7 +232,7 @@ The supported currencies are the major currencies listed by [OANDA](https://www.
 | BR-HIS-01 | Must | A user can browse past periods. For each one, they see its summary, chart, and expenses as they stood at the end of the period. |
 | BR-HIS-02 | Must | Each past period shows its result: amount saved (BR-CALC-07), the target, and whether the target was met. |
 | BR-HIS-03 | Must | A user can edit or add expenses, income, and fixed expenses in a past period (e.g. a late entry). The period's results are recalculated after the change. |
-| BR-HIS-04 | Must | A user can see spending by category for any period, as amounts and as shares of total spending. |
+| BR-HIS-04 | Must | A user can see spending by category for any period, as amounts and as shares of total spending (BR-CALC-09), the largest first. Tapping a category lists its expenses (BR-EXP-10). |
 | BR-HIS-05 | Should | A user can see trends across periods: amount saved vs. target per period, and spending per category per period. |
 
 ### Offline use
@@ -260,6 +260,7 @@ All amounts are in the account currency. All dates are calendar dates in the use
 | BR-CALC-06 | Spending limit (chart line) | `limit(d) = budget(d) × n / period days`, where `n` is the day number of `d` in the period (1 for the start date). On the last day, the limit equals the budget, so ending at or under the line means the target was met. |
 | BR-CALC-07 | Amount saved (period result) | `saved = Σ planned income + Σ extra income in the period − Σ fixed expenses − Σ all expenses in the period, big purchases included`. The target is met when `saved ≥ saving target`. |
 | BR-CALC-08 | Spending to date and budget left (period summary) | `spending to date = Σ all expenses in the period, big purchases included`. `budget left = budget − spending to date`, negative once the period is overspent (BR-DSH-02). |
+| BR-CALC-09 | Spending by category | `spending(c) = Σ expenses in the period in category c, big purchases included`. `share(c) = spending(c) / spending to date` (BR-CALC-08). Fixed expenses have no category and aren't counted. Shares are shown as whole percentages, and a share above 0 that would round to 0 as "<1%", so the shown shares may not add up to exactly 100%. |
 
 Notes on the definitions:
 
@@ -309,6 +310,7 @@ Items not yet decided. When one is decided, update this document and remove its 
 | Item | Assumption |
 |------|------------|
 | Leaving setup before confirming it (BR-ACC-06) | Nothing is saved until the user confirms the last step. Setup starts again from the first step at the next launch. |
+| Where spending by category and the filters show (BR-HIS-04, BR-EXP-10) | On the home screen, for the period shown: the spending card a swipe to the left of the chart, which shows first, with dots to switch between them. Both cards take the chart's height; the spending card's total and bar stay fixed, and its categories scroll under them; and filter chips (All, then each category with expenses in the period, then, always last, Big purchases when the period has any) above the expense list. Choosing another period shows all expenses again. |
 | Comparing category names (BR-CAT-04) | Names are compared without case or the spaces around them, so "coffee" clashes with "Coffee". The app won't save a clashing name. When devices clash offline, the number counts on from one already in the name: a clashing "Coffee (2)" becomes "Coffee (3)". |
 | Category name and emoji (BR-CAT-02) | A name has at most 30 characters. The emoji is one emoji typed from the keyboard; typing another replaces it. |
 | Archiving the last category (BR-CAT-03) | The last active category can't be archived, so an expense can always be recorded. |

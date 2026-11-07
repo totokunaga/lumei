@@ -330,6 +330,7 @@ describe('readPeriodExpenses (BR-DSH-06)', () => {
       date: '2026-10-28',
       spentAt: new Date(2026, 9, 28, 12).getTime(),
       isBigPurchase: true,
+      categoryId: readManagedCategories(db).archived.find((c) => c.name === 'Eat Out')!.id,
       categoryName: 'Eat Out',
       categoryEmoji: '🍔',
       sync: 'pending',

@@ -50,7 +50,9 @@
     "noExtraIncome": "Aucun revenu exceptionnel pendant cette période.",
     "plus": "+{{amount}}",
     "incomeLabel": "{{name}}, {{amount}}, {{when}}",
-    "addIncome": "Ajouter un revenu"
+    "addIncome": "Ajouter un revenu",
+    "chartCard": "Graphique",
+    "showCard": "Afficher : {{card}}"
   },
   "account": {
     "title": "Compte",
@@ -308,5 +310,15 @@
     "unarchiveHint": "Elle sera de nouveau proposée pour les nouvelles dépenses, en fin de liste.",
     "lastActive": "Votre dernière catégorie active ne peut pas être archivée.",
     "archivedMessage": "{{name}} archivée"
+  },
+  "spending": {
+    "title": "Dépenses par catégorie",
+    "heading": "Dépenses par catégorie : {{amount}} au total",
+    "row": "{{name}} : {{amount}}, {{share}}",
+    "rowHint": "Affiche les dépenses de cette catégorie",
+    "filter": "Filtrer les dépenses",
+    "all": "Toutes",
+    "bigPurchases": "Gros achats",
+    "noMatch": "Aucune dépense ne correspond à ce filtre sur cette période."
   }
 }

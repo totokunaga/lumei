@@ -48,6 +48,8 @@ export interface ExpenseFixture {
   amount: number;
   date: string;
   isBigPurchase?: boolean;
+  /** The category's index in the user's order: 0 (Eat Out, the default) or 1 (Konbini). */
+  category?: number;
 }
 
 /**
@@ -60,13 +62,14 @@ export const savedExpenses = async (
   userId: string = testUser.id,
 ): Promise<string[]> => {
   const db = await openUserDatabase(userId);
-  const [category] = readCategories(db);
+  const categories = readCategories(db);
   const ids: string[] = [];
-  for (const { amount, date, isBigPurchase = false } of expenses) {
+  for (const { amount, date, isBigPurchase = false, category = 0 } of expenses) {
     const [year, month, day] = date.split('-').map(Number);
     const spentAt = new Date(year, month - 1, day, 12).getTime();
     const id = newId();
-    addExpense(db, { amount, categoryId: category.id, spentAt, isBigPurchase }, id, spentAt);
+    const categoryId = categories[category].id;
+    addExpense(db, { amount, categoryId, spentAt, isBigPurchase }, id, spentAt);
     ids.push(id);
   }
   closeUserDatabase();

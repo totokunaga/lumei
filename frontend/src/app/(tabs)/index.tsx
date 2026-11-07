@@ -6,7 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CardPager } from '@/components/card-pager';
+import { CategorySpending } from '@/components/category-spending';
 import { deleteExpenseWithUndo, deleteIncomeWithUndo } from '@/components/delete-expense';
+import { ExpenseFilters } from '@/components/expense-filters';
 import { ExpenseRow } from '@/components/expense-row';
 import { FloatingToggle } from '@/components/floating-toggle';
 import { IncomeRow } from '@/components/income-row';
@@ -42,6 +45,12 @@ import type { IsoDate } from '@/domain/date';
 import { formatDayHeading, groupByDay, todayUse } from '@/domain/expense';
 import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
 import { formatPeriodName, inPeriod } from '@/domain/period';
+import {
+  ALL_EXPENSES,
+  type ExpenseFilter,
+  filterExpenses,
+  spendingByCategory,
+} from '@/domain/spending';
 import { TAB_BAR_CLEARANCE } from '@/lib/layout';
 
 /**
@@ -51,8 +60,11 @@ import { TAB_BAR_CLEARANCE } from '@/lib/layout';
  * BR-DSH-02) in a card that expands to the period summary (BR-DSH-03), and
  * the button that records an expense (BR-EXP-09). For a past period: its
  * result (BR-HIS-02) as it stood at its end, editable (BR-HIS-03). Under
- * either, the period's expenses by day, newest first, each day with its
- * total (BR-DSH-06). Every number is worked out on the device from the
+ * either, the chart (BR-CHT-01) and, swiped to beside it, the period's
+ * spending by category (BR-HIS-04), and its expenses
+ * by day, newest first, each day with its total (BR-DSH-06), filtered by
+ * category or to the big purchases (BR-EXP-10); tapping a category's
+ * spending filters to it. The filter resets on another period. Every number is worked out on the device from the
  * account's records (BR-OFF-02), and updates as soon as a record changes
  * (BR-DSH-04, BR-NFR-04) and at local midnight (BR-DSH-05).
  */
@@ -66,6 +78,11 @@ export default function HomeScreen() {
   const [shownDay, setShownDay] = useState<IsoDate | null>(null);
   // Which list shows under the card; expenses first (BR-DSH-06).
   const [list, setList] = useState<'expenses' | 'income'>('expenses');
+  // The expense list's filter (BR-EXP-10), for the period it was chosen in.
+  const [chosenFilter, setChosenFilter] = useState<{
+    periodId: string | null;
+    filter: ExpenseFilter;
+  }>({ periodId: null, filter: ALL_EXPENSES });
   const day = shownDay ?? today;
 
   const data = useMemo(() => {
@@ -74,13 +91,15 @@ export default function HomeScreen() {
     const records = readPeriodRecords(db, day);
     const current = period !== null && inPeriod(period, today);
     const settings = readSettings(db);
+    const expenses = readPeriodExpenses(db, day);
     return {
       currency: (settings?.currency ?? 'USD') as CurrencyCode,
       period,
       current,
       neighbours: period ? readNeighbourPeriods(db, period) : { previous: null, next: null },
       records,
-      expenses: readPeriodExpenses(db, day),
+      expenses,
+      spending: spendingByCategory(expenses),
       extraIncome: readPeriodExtraIncome(db, day),
       plannedIncome: period ? (readPeriodItems(db, period.id)?.incomes ?? []) : [],
       status: records && current ? todayStatus(records, today) : null,
@@ -100,6 +119,35 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, today, version]);
 
+  // Another period, or a category whose expenses are all gone, shows every expense again.
+  const filter = ((): ExpenseFilter => {
+    const chosen = chosenFilter.filter;
+    if (chosenFilter.periodId !== (data.period?.id ?? null)) {
+      return ALL_EXPENSES;
+    }
+    if (
+      chosen.kind === 'category' &&
+      !data.spending.categories.some((c) => c.categoryId === chosen.categoryId)
+    ) {
+      return ALL_EXPENSES;
+    }
+    if (chosen.kind === 'bigPurchases' && !data.expenses.some((e) => e.isBigPurchase)) {
+      return ALL_EXPENSES;
+    }
+    return chosen;
+  })();
+  /** Filters the expense list, and shows it (BR-EXP-10). */
+  const applyFilter = (next: ExpenseFilter) => {
+    setChosenFilter({ periodId: data.period?.id ?? null, filter: next });
+    setList('expenses');
+  };
+  const shownExpenses = useMemo(
+    () => filterExpenses(data.expenses, filter),
+    // `filter` is rebuilt each render; its parts decide what it keeps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data.expenses, filter.kind, filter.kind === 'category' ? filter.categoryId : null],
+  );
+
   /** Shows a period, or the current one, which then follows today again. */
   const show = (period: { start: IsoDate; end: IsoDate } | null) =>
     setShownDay(period && !inPeriod(period, today) ? period.start : null);
@@ -110,7 +158,7 @@ export default function HomeScreen() {
   // (BR-DSH-06); the income list starts with the planned income.
   const items = useMemo((): ListItem[] => {
     if (list === 'expenses') {
-      return groupByDay(data.expenses).flatMap((day): ListItem[] => [
+      return groupByDay(shownExpenses).flatMap((day): ListItem[] => [
         { kind: 'day', date: day.date, total: day.total, income: false },
         ...day.expenses.map((expense, index): ListItem => ({
           kind: 'expense',
@@ -130,7 +178,7 @@ export default function HomeScreen() {
       })),
     ]);
     return [{ kind: 'planned' }, ...(days.length > 0 ? days : [{ kind: 'noExtra' } as const])];
-  }, [list, data.expenses, data.extraIncome]);
+  }, [list, shownExpenses, data.extraIncome]);
   const openExpense = useCallback((id: string) => router.push(`/expense/${id}`), [router]);
   const removeExpense = useCallback(
     (id: string) => void deleteExpenseWithUndo(id, t('undo.expenseDeleted')),
@@ -174,8 +222,34 @@ export default function HomeScreen() {
               <ResultCard result={data.result} summary={data.summary} money={money} onEdit={edit} />
             )
           )}
-          {data.chart && <ProgressChart chart={data.chart} money={money} ended={!data.current} />}
-          <View className="pt-2">
+          {data.chart &&
+            (data.spending.categories.length > 0 ? (
+              // Keyed by period, so another period starts on the chart again.
+              <CardPager
+                key={data.period?.id}
+                pages={[
+                  {
+                    key: 'chart',
+                    label: t('home.chartCard'),
+                    card: <ProgressChart chart={data.chart} money={money} ended={!data.current} />,
+                  },
+                  {
+                    key: 'spending',
+                    label: t('spending.title'),
+                    card: (
+                      <CategorySpending
+                        spending={data.spending}
+                        money={money}
+                        onSelect={(categoryId) => applyFilter({ kind: 'category', categoryId })}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            ) : (
+              <ProgressChart chart={data.chart} money={money} ended={!data.current} />
+            ))}
+          <View className="gap-4 pt-2">
             <FloatingToggle
               label={t('home.show')}
               options={[
@@ -185,6 +259,14 @@ export default function HomeScreen() {
               value={list}
               onChange={setList}
             />
+            {list === 'expenses' && data.expenses.length > 0 && (
+              <ExpenseFilters
+                categories={data.spending.categories}
+                hasBigPurchases={data.expenses.some((expense) => expense.isBigPurchase)}
+                value={filter}
+                onChange={applyFilter}
+              />
+            )}
           </View>
         </>
       ) : (
@@ -266,7 +348,11 @@ export default function HomeScreen() {
         ListEmptyComponent={
           data.records ? (
             <Text className="px-1 py-3 text-base text-gray-500 dark:text-gray-400">
-              {data.current ? t('home.noExpenses') : t('home.noExpensesInPeriod')}
+              {data.expenses.length > 0
+                ? t('spending.noMatch')
+                : data.current
+                  ? t('home.noExpenses')
+                  : t('home.noExpensesInPeriod')}
             </Text>
           ) : null
         }

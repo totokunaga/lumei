@@ -50,7 +50,9 @@
     "noExtraIncome": "No extra income this period.",
     "plus": "+{{amount}}",
     "incomeLabel": "{{name}}, {{amount}}, {{when}}",
-    "addIncome": "Add income"
+    "addIncome": "Add income",
+    "chartCard": "Chart",
+    "showCard": "Show {{card}}"
   },
   "account": {
     "title": "Account",
@@ -308,5 +310,15 @@
     "unarchiveHint": "It will be offered for new expenses again, at the end of your list.",
     "lastActive": "Your last active category can't be archived.",
     "archivedMessage": "{{name}} archived"
+  },
+  "spending": {
+    "title": "Spending by category",
+    "heading": "Spending by category: {{amount}} in total",
+    "row": "{{name}}: {{amount}}, {{share}}",
+    "rowHint": "Shows this category's expenses",
+    "filter": "Filter expenses",
+    "all": "All",
+    "bigPurchases": "Big purchases",
+    "noMatch": "No expenses match this filter in this period."
   }
 }

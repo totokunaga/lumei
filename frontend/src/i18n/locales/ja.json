@@ -50,7 +50,9 @@
     "noExtraIncome": "この期間の臨時収入はありません。",
     "plus": "+{{amount}}",
     "incomeLabel": "{{name}}、{{amount}}、{{when}}",
-    "addIncome": "収入を追加"
+    "addIncome": "収入を追加",
+    "chartCard": "グラフ",
+    "showCard": "{{card}}を表示"
   },
   "account": {
     "title": "アカウント",
@@ -308,5 +310,15 @@
     "unarchiveHint": "新しい支出に再び表示されます。リストの最後に追加されます。",
     "lastActive": "最後の有効なカテゴリはアーカイブできません。",
     "archivedMessage": "{{name}}をアーカイブしました"
+  },
+  "spending": {
+    "title": "カテゴリ別の支出",
+    "heading": "カテゴリ別の支出：合計{{amount}}",
+    "row": "{{name}}：{{amount}}、{{share}}",
+    "rowHint": "このカテゴリの支出を表示します",
+    "filter": "支出を絞り込む",
+    "all": "すべて",
+    "bigPurchases": "大きな買い物",
+    "noMatch": "この期間にこの条件に合う支出はありません。"
   }
 }

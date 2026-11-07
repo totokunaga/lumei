@@ -164,6 +164,7 @@ export interface ListedExpense {
   /** When it happened, in milliseconds since the epoch. */
   spentAt: number;
   isBigPurchase: boolean;
+  categoryId: string;
   categoryName: string;
   categoryEmoji: string;
   /**
@@ -200,6 +201,7 @@ export const readPeriodExpenses = (db: Database, date: IsoDate): ListedExpense[]
         date: expenses.date,
         spentAt: expenses.spentAt,
         isBigPurchase: expenses.isBigPurchase,
+        categoryId: expenses.categoryId,
         categoryName: categories.name,
         categoryEmoji: categories.emoji,
         pending: expenses.pending,

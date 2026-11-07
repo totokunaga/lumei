@@ -197,7 +197,11 @@ describe('HomeScreen', () => {
     ]);
     expect(screen.getByText('Big purchase')).toBeOnTheScreen();
     // Each day has a heading with its total; the rows show only their time (BR-DSH-06).
-    expect(screen.getAllByRole('header').map((h) => h.props.accessibilityLabel).filter(Boolean)).toEqual([
+    const dayHeadings = screen
+      .getAllByRole('header')
+      .map((h) => h.props.accessibilityLabel)
+      .filter((label) => label && !label.startsWith('Spending by category'));
+    expect(dayHeadings).toEqual([
       'Today: ¥2,000 in total',
       'Yesterday: ¥800 in total',
       'November 12: ¥32,000 in total',
