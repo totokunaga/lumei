@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -196,6 +198,10 @@ type SyncWriter interface {
 	// Save stores the row as the user's next change, replacing any stored
 	// version.
 	Save(ctx context.Context, row SyncRow) error
+	// CategoryNameTaken reports whether another of the user's categories than
+	// the one with exceptID, archived or not but not deleted, has the name,
+	// ignoring case and surrounding spaces (BR-CAT-04).
+	CategoryNameTaken(ctx context.Context, name string, exceptID string) (bool, error)
 }
 
 // SyncRepository stores the users' synced records.
@@ -287,10 +293,52 @@ func (*SyncUsecase) apply(
 		return OutcomeSuperseded, "", nil
 	}
 
+	row, err = uniqueCategoryName(ctx, w, row)
+	if err != nil {
+		return "", "", err
+	}
 	if err := w.Save(ctx, row); err != nil {
 		return "", "", fmt.Errorf("failed to save %s %s: %w", row.Record.Table(), row.ID, err)
 	}
 	return OutcomeApplied, "", nil
+}
+
+// numberedName matches a name that already ends in a number, e.g. "Coffee (2)".
+var numberedName = regexp.MustCompile(`^(.*\S) \((\d+)\)$`)
+
+// maxNameNumber is the highest number uniqueCategoryName tries before giving up.
+const maxNameNumber = 1000
+
+// uniqueCategoryName gives a category the next free number in its name when
+// another of the user's categories already has the name, e.g. "Coffee (2)",
+// so the one that syncs later is renamed (BR-CAT-04). A name that already
+// ends in a number counts on from it: a clashing "Coffee (2)" becomes
+// "Coffee (3)". Other rows, and deletions, are returned unchanged.
+func uniqueCategoryName(ctx context.Context, w SyncWriter, row SyncRow) (SyncRow, error) {
+	category, ok := row.Record.(CategoryRecord)
+	if !ok || row.DeletedAt != nil {
+		return row, nil
+	}
+	name := strings.TrimSpace(category.Name)
+	base, next := name, 2
+	if m := numberedName.FindStringSubmatch(name); m != nil {
+		if n, err := strconv.Atoi(m[2]); err == nil && n < maxNameNumber {
+			base, next = m[1], n+1
+		}
+	}
+	for candidate := name; next <= maxNameNumber; next++ {
+		taken, err := w.CategoryNameTaken(ctx, candidate, row.ID)
+		if err != nil {
+			return SyncRow{}, fmt.Errorf("failed to check category name %q: %w", candidate, err)
+		}
+		if !taken {
+			category.Name = candidate
+			row.Record = category
+			return row, nil
+		}
+		candidate = fmt.Sprintf("%s (%d)", base, next)
+	}
+	return SyncRow{}, fmt.Errorf("no free number for category name %q", name)
 }
 
 // Pull returns up to PullLimit of the user's changes after since.

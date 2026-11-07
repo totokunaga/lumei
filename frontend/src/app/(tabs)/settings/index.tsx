@@ -15,6 +15,7 @@ import { database } from '@/db/client';
 import {
   countFailedChanges,
   countPendingChanges,
+  readManagedCategories,
   readSettings,
   setBigPurchaseSpread,
 } from '@/db/records';
@@ -49,7 +50,7 @@ function Section({
 /**
  * Renders the Settings tab: the period start day (BR-PER-05), how big
  * purchases are spread on the charts (BR-SET-05), the app language
- * (BR-SET-01), and the account: whether every change has synced (BR-OFF-04)
+ * (BR-SET-01), the categories (BR-CAT-02, BR-CAT-03), and the account: whether every change has synced (BR-OFF-04)
  * and signing out (BR-ACC-04). Signing out first tries to sync the unsynced
  * changes, and asks for confirmation if some still haven't, since they would
  * be lost.
@@ -68,6 +69,7 @@ export default function SettingsScreen() {
     const db = database();
     return {
       settings: readSettings(db),
+      categories: readManagedCategories(db).active.length,
       pending: countPendingChanges(db),
       failed: countFailedChanges(db),
     };
@@ -123,6 +125,14 @@ export default function SettingsScreen() {
           />
         </Section>
       )}
+
+      <Section title={t('categories.title')}>
+        <SettingsRow
+          label={t('categories.manage')}
+          value={t('categories.count', { count: data.categories })}
+          onPress={() => router.push('/settings/categories')}
+        />
+      </Section>
 
       <Section title={t('settings.app')}>
         <LanguagePicker />

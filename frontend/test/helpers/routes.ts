@@ -5,7 +5,10 @@ import TabsLayout from '@/app/(tabs)/_layout';
 import HomeScreen from '@/app/(tabs)/index';
 import SettingsLayout from '@/app/(tabs)/settings/_layout';
 import SettingsScreen from '@/app/(tabs)/settings/index';
+import CategoriesScreen from '@/app/(tabs)/settings/categories';
 import StartDayScreen from '@/app/(tabs)/settings/start-day';
+import EditCategoryScreen from '@/app/category/[id]';
+import NewCategoryScreen from '@/app/category/new';
 import EditExpenseScreen from '@/app/expense/[id]';
 import NewExpenseScreen from '@/app/expense/new';
 import EditIncomeScreen from '@/app/income/[id]';
@@ -30,6 +33,7 @@ export const routes = {
   '(tabs)/settings/_layout': SettingsLayout,
   '(tabs)/settings/index': SettingsScreen,
   '(tabs)/settings/start-day': StartDayScreen,
+  '(tabs)/settings/categories': CategoriesScreen,
   'sign-in': SignInScreen,
   'expense/new': NewExpenseScreen,
   'expense/[id]': EditExpenseScreen,
@@ -38,6 +42,8 @@ export const routes = {
   'period/[id]/income': PeriodIncomeScreen,
   'period/[id]/fixed-expenses': PeriodFixedExpensesScreen,
   'period/[id]/target': PeriodTargetScreen,
+  'category/new': NewCategoryScreen,
+  'category/[id]': EditCategoryScreen,
   'setup/_layout': SetupLayout,
   'setup/index': RegionStep,
   'setup/currency': CurrencyStep,

@@ -968,3 +968,173 @@ export const restoreExtraIncome = (
     .run();
   notifyChange();
 };
+
+/** A category as the Categories screen and its edit sheet show it (BR-CAT-02, BR-CAT-03). */
+export type ManagedCategory = Pick<
+  typeof categories.$inferSelect,
+  'id' | 'name' | 'emoji' | 'position' | 'archivedAt'
+>;
+
+/** The categories the user manages: those not deleted, split by whether they are archived. */
+export interface ManagedCategories {
+  /** The active ones, in the user's order (BR-CAT-02). */
+  active: ManagedCategory[];
+  /** The archived ones, by name (BR-CAT-03). */
+  archived: ManagedCategory[];
+}
+
+/**
+ * Reads every category that isn't deleted, for the Categories screen and the
+ * name check (BR-CAT-02 to BR-CAT-04).
+ * @returns The active ones in the user's order, and the archived ones by name.
+ */
+export const readManagedCategories = (db: Database): ManagedCategories => {
+  const rows = db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      emoji: categories.emoji,
+      position: categories.position,
+      archivedAt: categories.archivedAt,
+    })
+    .from(categories)
+    .where(isNull(categories.deletedAt))
+    .orderBy(asc(categories.position), asc(categories.name))
+    .all();
+  return {
+    active: rows.filter((row) => row.archivedAt === null),
+    archived: rows
+      .filter((row) => row.archivedAt !== null)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+};
+
+/**
+ * Reads a category to edit, archived or not.
+ * @returns It, or null if there is none with the ID, or it was deleted.
+ */
+export const readManagedCategory = (db: Database, id: string): ManagedCategory | null =>
+  db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      emoji: categories.emoji,
+      position: categories.position,
+      archivedAt: categories.archivedAt,
+    })
+    .from(categories)
+    .where(and(eq(categories.id, id), isNull(categories.deletedAt)))
+    .get() ?? null;
+
+/** A category's name and emoji as the user typed them. */
+export interface CategoryFields {
+  name: string;
+  emoji: string;
+}
+
+/**
+ * Works out the position after every category's, so a new or unarchived one
+ * comes last when recording an expense (BR-CAT-02).
+ * @returns e.g. 8 when the highest position is 7; 0 without categories.
+ */
+const nextCategoryPosition = (db: Database): number =>
+  (db
+    .select({ highest: sql<number | null>`max(${categories.position})` })
+    .from(categories)
+    .where(isNull(categories.deletedAt))
+    .get()?.highest ?? -1) + 1;
+
+/**
+ * Saves a new category, last in the user's order, and marks it pending for
+ * sync (BR-CAT-02). The caller checks that its name is free (BR-CAT-04).
+ * @param id The new record's ID, from `newId()`.
+ * @param now When the user saved it, in milliseconds since the epoch.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const addCategory = (
+  db: Database,
+  fields: CategoryFields,
+  id: string,
+  now: number,
+): void => {
+  db.insert(categories)
+    .values({
+      id,
+      name: fields.name.trim(),
+      emoji: fields.emoji,
+      position: nextCategoryPosition(db),
+      archivedAt: null,
+      ...created(now),
+    })
+    .run();
+  notifyChange();
+};
+
+/**
+ * Renames a category or changes its emoji (BR-CAT-02). Its expenses show
+ * the new name and emoji straight away. The caller checks that the name is
+ * free (BR-CAT-04).
+ * @param now When the user saved it, in milliseconds since the epoch.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const updateCategory = (
+  db: Database,
+  id: string,
+  fields: CategoryFields,
+  now: number,
+): void => {
+  db.update(categories)
+    .set({ name: fields.name.trim(), emoji: fields.emoji, ...changed(categories, now) })
+    .where(and(eq(categories.id, id), isNull(categories.deletedAt)))
+    .run();
+  notifyChange();
+};
+
+/**
+ * Archives a category, so it isn't offered for new expenses while past
+ * expenses keep it, or unarchives it, last in the user's order (BR-CAT-03).
+ * @param now When the user did it, in milliseconds since the epoch; also
+ *   the archive's date.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const setCategoryArchived = (
+  db: Database,
+  id: string,
+  archived: boolean,
+  now: number,
+): void => {
+  db.update(categories)
+    .set(
+      archived
+        ? { archivedAt: now, ...changed(categories, now) }
+        : { archivedAt: null, position: nextCategoryPosition(db), ...changed(categories, now) },
+    )
+    .where(and(eq(categories.id, id), isNull(categories.deletedAt)))
+    .run();
+  notifyChange();
+};
+
+/**
+ * Saves the user's order of the active categories: the order shown when
+ * recording an expense (BR-CAT-02). Only categories whose position changes
+ * are written, so only they sync.
+ * @param ids Every active category's ID, in the new order.
+ * @param now When the user reordered them, in milliseconds since the epoch.
+ * @throws If a write fails; nothing is saved then.
+ */
+export const reorderCategories = (db: Database, ids: readonly string[], now: number): void => {
+  const current = new Map(
+    readManagedCategories(db).active.map((category) => [category.id, category.position]),
+  );
+  db.transaction((tx) => {
+    ids.forEach((id, position) => {
+      if (current.has(id) && current.get(id) !== position) {
+        tx.update(categories)
+          .set({ position, ...changed(categories, now) })
+          .where(eq(categories.id, id))
+          .run();
+      }
+    });
+  });
+  notifyChange();
+};

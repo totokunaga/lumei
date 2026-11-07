@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"testing"
@@ -67,6 +68,50 @@ func pushThen(
 		}
 		return pushReq(session.AccessToken, rows...), assertOutcomes(want...)
 	}
+}
+
+// pushCategoriesThenPull builds a case that pushes each batch of categories
+// in its own push, as separate syncs would, then pulls everything and
+// requires each category's stored name, by its index in the batches.
+func pushCategoriesThenPull(
+	batches [][]syncRow,
+	want []string,
+) func(*testing.T, *TestServer) (req, func(*testing.T, response)) {
+
+	return func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
+		t.Helper()
+
+		session := newGoogleSession(t, ts)
+		var ids []string
+		for _, batch := range batches {
+			push(t, ts, session.AccessToken, batch...)
+			for _, row := range batch {
+				ids = append(ids, row["id"].(string))
+			}
+		}
+		return pullReq(session.AccessToken, 0), func(t *testing.T, resp response) {
+			t.Helper()
+
+			names := map[string]any{}
+			for _, row := range decodePull(t, resp.body).Rows {
+				names[row["id"].(string)] = row["name"]
+			}
+			got := make([]any, len(ids))
+			for i, id := range ids {
+				got[i] = names[id]
+			}
+			wanted := make([]any, len(want))
+			for i, name := range want {
+				wanted[i] = name
+			}
+			assert.Equal(t, wanted, got)
+		}
+	}
+}
+
+// namedCategory builds a category row with an ID no other case uses.
+func namedCategory(name string, updatedAt int64) syncRow {
+	return categorySyncRow(newRowID(), updatedAt).with(syncRow{"name": name})
 }
 
 // signedTokenOnly returns an access token that needs no database, for a case
@@ -436,6 +481,51 @@ func TestPullChanges(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
+			name: "200 renames a later category with a name in use, ignoring case and spaces (BR-CAT-04)",
+			prepare: pushCategoriesThenPull([][]syncRow{
+				{namedCategory("Coffee", syncBaseTime)},
+				{namedCategory(" coffee ", syncBaseTime)},
+				// Two in one push: the second sees the first.
+				{namedCategory("Coffee", syncBaseTime), namedCategory("Tea", syncBaseTime)},
+			}, []string{"Coffee", "coffee (2)", "Coffee (3)", "Tea"}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 counts an archived category's name, but not a deleted one's (BR-CAT-03, BR-CAT-04)",
+			prepare: pushCategoriesThenPull([][]syncRow{
+				{
+					namedCategory("Coffee", syncBaseTime).with(syncRow{"archived_at": syncBaseTime}),
+					namedCategory("Tea", syncBaseTime).with(syncRow{"deleted_at": syncBaseTime}),
+				},
+				{namedCategory("Coffee", syncBaseTime), namedCategory("Tea", syncBaseTime)},
+			}, []string{"Coffee", "Tea", "Coffee (2)", "Tea"}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 counts on from a number already in the name (BR-CAT-04)",
+			prepare: pushCategoriesThenPull([][]syncRow{
+				{namedCategory("Coffee", syncBaseTime), namedCategory("Coffee (2)", syncBaseTime)},
+				{namedCategory("Coffee (2)", syncBaseTime), namedCategory("Coffee", syncBaseTime)},
+			}, []string{"Coffee", "Coffee (2)", "Coffee (3)", "Coffee (4)"}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 keeps the name of a category edited without renaming it (BR-CAT-04)",
+			prepare: func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				session := newGoogleSession(t, ts)
+				category := namedCategory("Coffee", syncBaseTime)
+				edited := category.with(syncRow{"emoji": "☕", "updated_at": syncBaseTime + 1})
+				push(t, ts, session.AccessToken, category)
+				push(t, ts, session.AccessToken, edited)
+				return pullReq(session.AccessToken, 0), assertBody(pulled{
+					Rows: normalized(t, edited), Cursor: 2,
+				})
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
 			name: "200 pages through more than 500 changes with has_more",
 			prepare: func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
 				t.Helper()
@@ -448,7 +538,8 @@ func TestPullChanges(t *testing.T) {
 					rows := make([]syncRow, 200)
 					for i := range rows {
 						if batch == 0 {
-							rows[i] = category.with(syncRow{"id": newRowID()})
+							name := fmt.Sprintf("Category %d", i)
+							rows[i] = category.with(syncRow{"id": newRowID(), "name": name})
 						} else {
 							rows[i] = expense.with(syncRow{"id": newRowID()})
 						}

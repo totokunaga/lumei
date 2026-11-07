@@ -281,5 +281,32 @@
     "daily": "Daily spending",
     "underEnded": "{{amount}} under the period's spending limit",
     "overEnded": "{{amount}} over the period's spending limit"
+  },
+  "categories": {
+    "title": "Categories",
+    "manage": "Categories",
+    "count_one": "{{count}} category",
+    "count_other": "{{count}} categories",
+    "add": "Add category",
+    "orderHint": "Drag ≡ to change the order shown when you record an expense.",
+    "archived": "Archived",
+    "archivedLabel": "{{name}}, archived",
+    "archivedHint": "Archived categories aren't offered for new expenses. Past expenses keep them.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "newTitle": "New category",
+    "editTitle": "Edit category",
+    "emoji": "Emoji",
+    "emojiHint": "Type an emoji from the keyboard",
+    "name": "Name",
+    "namePlaceholder": "e.g. Coffee",
+    "nameTaken": "You already have a category called “{{name}}”, maybe archived.",
+    "failed": "The category couldn't be saved. Try again.",
+    "archive": "Archive category",
+    "archiveHint": "It won't be offered for new expenses. Past expenses keep it.",
+    "unarchive": "Unarchive category",
+    "unarchiveHint": "It will be offered for new expenses again, at the end of your list.",
+    "lastActive": "Your last active category can't be archived.",
+    "archivedMessage": "{{name}} archived"
   }
 }

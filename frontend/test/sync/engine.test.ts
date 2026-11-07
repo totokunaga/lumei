@@ -6,10 +6,12 @@ import type { Database } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
 import {
   addExpense,
+  addCategory,
   addExtraIncome,
   countPendingChanges,
   readCategories,
   readExtraIncome,
+  readManagedCategories,
   saveSetup,
 } from '@/db/records';
 import { expenses, syncState } from '@/db/schema';
@@ -260,6 +262,30 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
     expect(countPendingChanges(phone)).toBe(0);
     expect(server.seq()).toBe(seq);
     expect(server.stored('expenses', id)).toMatchObject({ amount: 1_200 });
+  });
+
+  it('renames a category added with the same name on two devices offline, on both (BR-CAT-04)', async () => {
+    const server = fakeSyncServer();
+    mockApi(server.routes);
+    const phone = await deviceWithSetup();
+    await syncOnce(phone);
+    const tablet = await openDeviceDatabase();
+    await syncOnce(tablet);
+
+    addCategory(phone, { name: 'Coffee', emoji: '☕' }, newId(), Date.now());
+    addCategory(tablet, { name: 'coffee', emoji: '🫘' }, newId(), Date.now());
+    await syncOnce(phone);
+    await syncOnce(tablet);
+    await syncOnce(phone);
+
+    /** Reads the device's categories named like coffee. */
+    const names = (db: Database) =>
+      readManagedCategories(db)
+        .active.map((category) => category.name)
+        .filter((name) => name.toLowerCase().startsWith('coffee'));
+    expect(names(phone)).toEqual(['Coffee', 'coffee (2)']);
+    expect(names(tablet)).toEqual(['Coffee', 'coffee (2)']);
+    expect(countPendingChanges(tablet)).toBe(0);
   });
 
   it('pulls page after page, and skips tables this app version doesn’t have', async () => {

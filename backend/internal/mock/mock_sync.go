@@ -94,6 +94,21 @@ func (m *MockSyncWriter) EXPECT() *MockSyncWriterMockRecorder {
 	return m.recorder
 }
 
+// CategoryNameTaken mocks base method.
+func (m *MockSyncWriter) CategoryNameTaken(ctx context.Context, name, exceptID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CategoryNameTaken", ctx, name, exceptID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CategoryNameTaken indicates an expected call of CategoryNameTaken.
+func (mr *MockSyncWriterMockRecorder) CategoryNameTaken(ctx, name, exceptID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CategoryNameTaken", reflect.TypeOf((*MockSyncWriter)(nil).CategoryNameTaken), ctx, name, exceptID)
+}
+
 // Find mocks base method.
 func (m *MockSyncWriter) Find(ctx context.Context, table application.SyncTable, id string) (application.StoredRow, error) {
 	m.ctrl.T.Helper()

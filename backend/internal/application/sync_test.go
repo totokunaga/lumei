@@ -15,7 +15,8 @@ import (
 
 // test/integration covers pushing and pulling, the conflict rules, and the
 // validation. These cases cover what it can't produce: a request without a
-// principal, and the repository failing inside a push.
+// principal, the repository failing inside a push, and running out of numbers
+// for a category's name.
 
 // applyFunc is the callback SyncRepository.Apply runs in its transaction.
 type applyFunc = func(context.Context, application.SyncWriter) error
@@ -65,6 +66,12 @@ func TestSyncUsecase_Push(t *testing.T) {
 		},
 	}
 
+	category := application.SyncRow{
+		ID:        "0199a6c5-3f4e-7c2a-9b1d-5e8f2a4c6d03",
+		UpdatedAt: syncNow.UnixMilli(),
+		Record:    application.CategoryRecord{Name: "Coffee", Emoji: "☕"},
+	}
+
 	tests := []testUseCaseInput[syncInput, []application.PushResult, syncMocks]{
 		{
 			name:       "ErrUnauthenticated without a principal",
@@ -90,6 +97,30 @@ func TestSyncUsecase_Push(t *testing.T) {
 				m.writer.EXPECT().Save(gomock.Any(), expense).Return(errSyncDB)
 			},
 			expectedErrMsg: "failed to save expenses",
+			assertFunc:     assertError[[]application.PushResult],
+		},
+		{
+			name:  "wraps a failure to check a category's name (BR-CAT-04)",
+			input: syncInput{signedIn: true, rows: []application.SyncRow{category}},
+			setupMocks: func(m syncMocks) {
+				m.writer.EXPECT().Find(gomock.Any(), application.TableCategories, category.ID).
+					Return(application.StoredRow{}, application.ErrNotFound)
+				m.writer.EXPECT().CategoryNameTaken(gomock.Any(), "Coffee", category.ID).
+					Return(false, errSyncDB)
+			},
+			expectedErrMsg: `failed to check category name "Coffee"`,
+			assertFunc:     assertError[[]application.PushResult],
+		},
+		{
+			name:  "fails when every number up to 1000 is taken (BR-CAT-04)",
+			input: syncInput{signedIn: true, rows: []application.SyncRow{category}},
+			setupMocks: func(m syncMocks) {
+				m.writer.EXPECT().Find(gomock.Any(), application.TableCategories, category.ID).
+					Return(application.StoredRow{}, application.ErrNotFound)
+				m.writer.EXPECT().CategoryNameTaken(gomock.Any(), gomock.Any(), category.ID).
+					Return(true, nil).Times(999)
+			},
+			expectedErrMsg: `no free number for category name "Coffee"`,
 			assertFunc:     assertError[[]application.PushResult],
 		},
 	}

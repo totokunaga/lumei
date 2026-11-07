@@ -10,6 +10,34 @@ interface Stored {
   seq: number;
 }
 
+/**
+ * Gives a pushed category the next free number in its name when another
+ * stored category has it, ignoring case and spaces, as the API does
+ * (BR-CAT-04), e.g. "Coffee (2)".
+ * @returns The row as the server stores it.
+ */
+const withFreeName = (row: SyncRow, rows: Map<string, Stored>): SyncRow => {
+  if (row.table !== 'categories' || row.deleted_at) {
+    return row;
+  }
+  const key = (name: string) => name.trim().toLowerCase();
+  const taken = new Set(
+    [...rows.values()]
+      .map((s) => s.row)
+      .filter((r) => r.table === 'categories' && r.id !== row.id && !r.deleted_at)
+      .map((r) => key((r as { name: string }).name)),
+  );
+  const name = row.name.trim();
+  const numbered = /^(.*\S) \((\d+)\)$/.exec(name);
+  const base = numbered ? numbered[1] : name;
+  let next = numbered ? Number(numbered[2]) + 1 : 2;
+  let candidate = name;
+  while (taken.has(key(candidate))) {
+    candidate = `${base} (${next++})`;
+  }
+  return { ...row, name: candidate };
+};
+
 /** Builds a JSON response. */
 const respond = (status: number, body: unknown) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -37,7 +65,7 @@ export const fakeSyncServer = ({ pageSize = 500 } = {}) => {
           return { table: row.table, id: row.id, outcome: 'superseded' };
         }
         seq += 1;
-        rows.set(key, { row, seq });
+        rows.set(key, { row: withFreeName(row, rows), seq });
         return { table: row.table, id: row.id, outcome: 'applied' };
       });
       return respond(200, { results });

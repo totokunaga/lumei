@@ -9,6 +9,10 @@ export default function SettingsLayout() {
     <Stack screenOptions={{ headerLargeTitle: true, headerTransparent: true }}>
       <Stack.Screen name="index" options={{ title: t('settings.title') }} />
       <Stack.Screen
+        name="categories"
+        options={{ title: t('categories.title'), headerLargeTitle: false }}
+      />
+      <Stack.Screen
         name="start-day"
         options={{ title: t('settings.startDay.title'), headerLargeTitle: false }}
       />

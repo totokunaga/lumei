@@ -281,5 +281,32 @@
     "daily": "Dépenses du jour",
     "underEnded": "{{amount}} sous la limite de dépenses de la période",
     "overEnded": "{{amount}} au-dessus de la limite de dépenses de la période"
+  },
+  "categories": {
+    "title": "Catégories",
+    "manage": "Catégories",
+    "count_one": "{{count}} catégorie",
+    "count_other": "{{count}} catégories",
+    "add": "Ajouter une catégorie",
+    "orderHint": "Faites glisser ≡ pour changer l'ordre proposé quand vous enregistrez une dépense.",
+    "archived": "Archivées",
+    "archivedLabel": "{{name}}, archivée",
+    "archivedHint": "Les catégories archivées ne sont plus proposées pour les nouvelles dépenses. Les dépenses passées les gardent.",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "newTitle": "Nouvelle catégorie",
+    "editTitle": "Modifier la catégorie",
+    "emoji": "Emoji",
+    "emojiHint": "Saisissez un emoji avec le clavier",
+    "name": "Nom",
+    "namePlaceholder": "ex. Café",
+    "nameTaken": "Vous avez déjà une catégorie « {{name}} », peut-être archivée.",
+    "failed": "La catégorie n'a pas pu être enregistrée. Réessayez.",
+    "archive": "Archiver la catégorie",
+    "archiveHint": "Elle ne sera plus proposée pour les nouvelles dépenses. Les dépenses passées la gardent.",
+    "unarchive": "Désarchiver la catégorie",
+    "unarchiveHint": "Elle sera de nouveau proposée pour les nouvelles dépenses, en fin de liste.",
+    "lastActive": "Votre dernière catégorie active ne peut pas être archivée.",
+    "archivedMessage": "{{name}} archivée"
   }
 }

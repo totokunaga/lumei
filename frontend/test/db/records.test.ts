@@ -5,6 +5,7 @@ import { useDataVersion } from '@/db/changes';
 import { type Database, openUserDatabase } from '@/db/client';
 import { derivedId, newId } from '@/db/ids';
 import {
+  addCategory,
   addExpense,
   addExtraIncome,
   changeStartDay,
@@ -17,6 +18,8 @@ import {
   readCategory,
   readExpense,
   readExtraIncome,
+  readManagedCategories,
+  readManagedCategory,
   readNeighbourPeriods,
   readFirstPeriodStart,
   readPeriodExpenses,
@@ -30,8 +33,11 @@ import {
   saveSavingTarget,
   restoreExpense,
   restoreExtraIncome,
+  reorderCategories,
   saveSetup,
   setBigPurchaseSpread,
+  setCategoryArchived,
+  updateCategory,
   updateExpense,
   updateExtraIncome,
 } from '@/db/records';
@@ -717,5 +723,85 @@ describe('extra income (BR-INC-06)', () => {
     expect(readPeriodExtraIncome(db, '2026-10-29')).toMatchObject([
       { id: 'restored', amount: 3_000, description: 'Dinner' },
     ]);
+  });
+});
+
+describe('managing categories (BR-CAT-02, BR-CAT-03)', () => {
+  /** Marks every category synced, so a test sees which ones a write changes. */
+  const synced = (db: Database) => db.update(categories).set({ pending: false }).run();
+
+  /** Reads the categories' names, and which are pending, active first. */
+  const listed = (db: Database) => {
+    const { active, archived } = readManagedCategories(db);
+    const pending = new Set(
+      db
+        .select()
+        .from(categories)
+        .all()
+        .filter((row) => row.pending)
+        .map((row) => row.id),
+    );
+    const show = (c: { id: string; name: string }) => `${c.name}${pending.has(c.id) ? '*' : ''}`;
+    return { active: active.map(show), archived: archived.map(show) };
+  };
+
+  it.each([
+    {
+      name: 'adds a category last, with its name trimmed',
+      change: (db: Database) => addCategory(db, { name: ' Coffee ', emoji: '☕' }, newId(), 2_000),
+      expected: { active: ['Eat Out', 'Konbini', 'Coffee*'], archived: [] },
+    },
+    {
+      name: 'renames a category and changes its emoji',
+      change: (db: Database) =>
+        updateCategory(db, readCategories(db)[0].id, { name: 'Dining', emoji: '🍣' }, 2_000),
+      expected: { active: ['Dining*', 'Konbini'], archived: [] },
+    },
+    {
+      name: 'archives a category, which is no longer offered',
+      change: (db: Database) => setCategoryArchived(db, readCategories(db)[0].id, true, 2_000),
+      expected: { active: ['Konbini'], archived: ['Eat Out*'] },
+    },
+    {
+      name: 'unarchives a category last in the order',
+      change: (db: Database) => {
+        const [eatOut] = readCategories(db);
+        setCategoryArchived(db, eatOut.id, true, 2_000);
+        setCategoryArchived(db, eatOut.id, false, 3_000);
+      },
+      expected: { active: ['Konbini', 'Eat Out*'], archived: [] },
+    },
+    {
+      name: 'reorders the categories, writing only those that moved',
+      change: (db: Database) => {
+        addCategory(db, { name: 'Coffee', emoji: '☕' }, newId(), 2_000);
+        synced(db);
+        const [eatOut, konbini, coffee] = readCategories(db);
+        reorderCategories(db, [eatOut.id, coffee.id, konbini.id], 3_000);
+      },
+      expected: { active: ['Eat Out', 'Coffee*', 'Konbini*'], archived: [] },
+    },
+  ])('$name', async ({ change, expected }) => {
+    const db = await saveFinishedSetup();
+    synced(db);
+
+    change(db);
+
+    expect(listed(db)).toEqual(expected);
+  });
+
+  it('records when a category was archived, and reads it to edit until deleted', async () => {
+    const db = await saveFinishedSetup();
+    const [eatOut] = readCategories(db);
+
+    setCategoryArchived(db, eatOut.id, true, 2_000);
+
+    expect(readManagedCategory(db, eatOut.id)).toMatchObject({
+      name: 'Eat Out',
+      archivedAt: 2_000,
+    });
+    db.update(categories).set({ deletedAt: 3_000 }).where(eq(categories.id, eatOut.id)).run();
+    expect(readManagedCategory(db, eatOut.id)).toBeNull();
+    expect(readManagedCategories(db).archived).toEqual([]);
   });
 });

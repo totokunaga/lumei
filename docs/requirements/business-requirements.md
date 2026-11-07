@@ -309,6 +309,10 @@ Items not yet decided. When one is decided, update this document and remove its 
 | Item | Assumption |
 |------|------------|
 | Leaving setup before confirming it (BR-ACC-06) | Nothing is saved until the user confirms the last step. Setup starts again from the first step at the next launch. |
+| Comparing category names (BR-CAT-04) | Names are compared without case or the spaces around them, so "coffee" clashes with "Coffee". The app won't save a clashing name. When devices clash offline, the number counts on from one already in the name: a clashing "Coffee (2)" becomes "Coffee (3)". |
+| Category name and emoji (BR-CAT-02) | A name has at most 30 characters. The emoji is one emoji typed from the keyboard; typing another replaces it. |
+| Archiving the last category (BR-CAT-03) | The last active category can't be archived, so an expense can always be recorded. |
+| Where an unarchived category goes (BR-CAT-02, BR-CAT-03) | Last in the user's order. Archived categories are listed by name, under the active ones. |
 | Japanese and French names in the default category sets (BR-CAT-07) | As in `backend/migration/20261104214647_seed_category_sets.up.sql`, e.g. 🍔 Eat Out is 外食 and Restaurant, and the "Other" region is その他 and Autre. They need a review by native speakers. |
 
 Add new rows as `| Item | Assumption |`.

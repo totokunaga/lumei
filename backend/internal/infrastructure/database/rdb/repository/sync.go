@@ -471,6 +471,23 @@ func (w *syncWriter) Save(ctx context.Context, row application.SyncRow) error {
 	return nil
 }
 
+// CategoryNameTaken reports whether another of the user's categories than
+// exceptID, archived or not but not deleted, has the name, compared as the
+// unique index on category names compares them (BR-CAT-04).
+func (w *syncWriter) CategoryNameTaken(ctx context.Context, name string, exceptID string) (bool, error) {
+	taken, err := w.tx.NewSelect().
+		Model((*categoryModel)(nil)).
+		Where("user_id = ?", w.userID).
+		Where("id <> ?", exceptID).
+		Where("deleted_at IS NULL").
+		Where("lower(btrim(name)) = lower(btrim(?))", name).
+		Exists(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to look up category name %q: %w", name, err)
+	}
+	return taken, nil
+}
+
 // parseDate parses a `YYYY-MM-DD` date.
 func parseDate(s string) (time.Time, error) {
 	d, err := time.Parse(time.DateOnly, s)

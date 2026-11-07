@@ -2,8 +2,11 @@ import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
 /** Props of `TextField`: a `TextInput`'s, plus the font size. */
 interface TextFieldProps extends TextInputProps {
-  /** The text's size in points: 16 like Tailwind's text-base, 18 like text-lg. */
-  fontSize?: 16 | 18 | 20;
+  /**
+   * The text's size in points: 16 like Tailwind's text-base, 18 like
+   * text-lg; 44 for a category's emoji.
+   */
+  fontSize?: 16 | 18 | 20 | 44;
 }
 
 /**
