@@ -31,6 +31,23 @@ Documentation lives in the root `docs/` directory. Don't add `docs/` directories
 
 See `frontend/CLAUDE.md` for commands, layout, and code and testing conventions.
 
+### Keep the iOS shortcut in step with the app
+
+The iOS Add Expense shortcut (BR-EXP-12) records expenses with its own Swift code, in `frontend/modules/expense-shortcut/intents/`, without the app's TypeScript. It repeats some of the app's rules, so **whenever the React Native logic it repeats changes, update the Swift code in the same change**. That logic is:
+
+| React Native | Swift |
+|--------------|-------|
+| Writing an expense: `addExpense` and the sync columns in `frontend/src/db/` (`records.ts`, `schema.ts`, migrations in `frontend/drizzle/`) | `ExpenseStore.addExpense` |
+| Record IDs: `newId()` in `frontend/src/db/ids.ts` | `newRecordID` |
+| An expense's date: `expenseDate` in `frontend/src/domain/expense.ts` (BR-EXP-02) | `expenseDate` |
+| Amount rules and currency decimals: `parseAmount` and `CURRENCIES` in `frontend/src/domain/money.ts` (BR-EXP-08) | `minorUnits`, and the account the app shares in `frontend/src/lib/expense-shortcut.ts` |
+| Which categories a new expense can use, and their order (BR-CAT-02, BR-CAT-03) | `ExpenseStore.activeCategories` and `addExpense`'s category check |
+| The database's file name and folder: `frontend/src/db/file-name.ts`, expo-sqlite's default directory | `ShortcutAccount.databaseURL` |
+| The fields of a new expense (BR-EXP-01 to BR-EXP-05), e.g. a new required one | `AddExpenseIntent` and `ExpenseStore.addExpense` |
+| The shortcut's text in `frontend/src/i18n/locales/` terms (e.g. "支出" for expense) | `intents/App/Localizable.xcstrings`, in English, Japanese, and French |
+
+Then update the Swift tests in `intents/Tests/` to match, and run `bun run test:native` in `frontend/` along with `bun run check`. If a change can't be made in Swift, point it out and ask before going ahead.
+
 ## Backend
 
 See `backend/CLAUDE.md` for commands, architecture rules, and testing conventions.

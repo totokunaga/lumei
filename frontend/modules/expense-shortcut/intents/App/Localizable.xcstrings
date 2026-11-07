@@ -1,0 +1,214 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Add Expense": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支出を追加"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une dépense"
+          }
+        }
+      }
+    },
+    "Records an expense in Lumei. Pass it the current location from Get Current Location to save where you spent.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lumeiに支出を記録します。「現在地を取得」の現在地を渡すと、支出した場所も保存されます。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre une dépense dans Lumei. Transmettez-lui la position de « Obtenir la position actuelle » pour enregistrer où vous avez dépensé."
+          }
+        }
+      }
+    },
+    "Amount": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "金額"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montant"
+          }
+        }
+      }
+    },
+    "How much did you spend?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いくら使いましたか？"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Combien avez-vous dépensé ?"
+          }
+        }
+      }
+    },
+    "Category": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カテゴリ"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Catégorie"
+          }
+        }
+      }
+    },
+    "Which category?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "どのカテゴリですか？"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelle catégorie ?"
+          }
+        }
+      }
+    },
+    "Location": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "場所"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lieu"
+          }
+        }
+      }
+    },
+    "Add ${amount} in ${category}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${category}に${amount}を追加"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter ${amount} dans ${category}"
+          }
+        }
+      }
+    },
+    "Added %@ in %@.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$@に%1$@を追加しました。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ ajouté dans %2$@."
+          }
+        }
+      }
+    },
+    "Open Lumei and finish setting it up first.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先にLumeiを開いて、設定を完了してください。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez d’abord Lumei et terminez sa configuration."
+          }
+        }
+      }
+    },
+    "Enter an amount greater than 0, with no more decimals than your currency has.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0より大きい金額を、通貨の小数点以下の桁数以内で入力してください。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez un montant supérieur à 0, sans plus de décimales que votre devise."
+          }
+        }
+      }
+    },
+    "That category was archived or deleted. Choose another one.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのカテゴリはアーカイブまたは削除されています。別のカテゴリを選んでください。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette catégorie a été archivée ou supprimée. Choisissez-en une autre."
+          }
+        }
+      }
+    },
+    "Lumei couldn't save the expense. Try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lumeiは支出を保存できませんでした。もう一度お試しください。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lumei n’a pas pu enregistrer la dépense. Réessayez."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

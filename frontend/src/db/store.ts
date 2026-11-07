@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 
 import { localToday } from '@/domain/date';
+import { forgetShortcutAccount } from '@/lib/expense-shortcut';
 import { syncOnce } from '@/sync/engine';
 
 import { closeUserDatabase, deleteUserDatabase, openUserDatabase } from './client';
@@ -32,7 +33,10 @@ interface LocalDataState {
   close: () => void;
   /** Records that setup has finished, which sends the user to the home screen. */
   completeSetup: () => void;
-  /** Deletes the account's data from the device, as signing out does (BR-ACC-04). */
+  /**
+   * Deletes the account's data from the device, as signing out does
+   * (BR-ACC-04), and stops the Add Expense shortcut recording into it (BR-EXP-12).
+   */
   forget: (userId: string) => void;
 }
 
@@ -79,6 +83,8 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
   completeSetup: () => set({ setupCompleted: true }),
 
   forget: (userId) => {
+    // The shortcut stops first, so it can't write into a file being deleted (BR-EXP-12).
+    forgetShortcutAccount();
     deleteUserDatabase(userId);
     set({ status: 'closed', userId: null, setupCompleted: false });
   },

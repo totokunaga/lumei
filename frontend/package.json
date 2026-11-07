@@ -83,6 +83,7 @@
     "map:generate": "bun scripts/world-map.ts && bun scripts/relief.ts",
     "generate:api": "bunx orval@8.45.0 && prettier --write src/api/generated --ignore-path /dev/null --log-level warn",
     "doctor": "bunx expo-doctor",
+    "test:native": "cd modules/expense-shortcut/intents && swift test",
     "check": "bun run typecheck && bun run lint && bun run test"
   },
   "private": true,

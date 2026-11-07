@@ -41,7 +41,8 @@
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }
-      ]
+      ],
+      "./modules/expense-shortcut/app.plugin.js"
     ],
     "experiments": {
       "typedRoutes": true,

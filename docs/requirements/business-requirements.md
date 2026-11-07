@@ -71,6 +71,7 @@ Habits seen across the 2026 tabs that the app must support:
 - Settings: language, region, account currency, period start day, big purchase spread
 - Saving periods, planned and extra income, fixed expenses, and the saving target
 - Expense recording, including big purchases and optional location
+- Recording an expense from an iOS shortcut
 - Today's status and the progress chart
 - Expense history, past periods, and trends
 - Custom categories
@@ -141,6 +142,7 @@ Requirement IDs are stable. Refer to them from designs, tickets, and tests, and 
 | BR-EXP-09 | Must | Recording an expense takes no more than 3 taps after opening the app: amount, category, save. The home screen offers expense entry directly. |
 | BR-EXP-10 | Must | A user can list the expenses of a period, grouped by day with a total for each day. The user can filter the list by category and see big purchases separately. A filtered list's day totals count only the expenses it shows. |
 | BR-EXP-11 | Should | A user can search expenses by description. |
+| BR-EXP-12 | Should | On iOS, a user can record an expense with an **Add Expense** action in the Shortcuts app, without opening Lumei. The action asks for the amount (BR-EXP-08) and the category, offering the active categories in the user's order (BR-CAT-02, BR-CAT-03). It also takes an optional location, which the shortcut gets from Shortcuts' own "Get Current Location" action under Shortcuts' location permission (BR-EXP-04, BR-NFR-01). The expense is dated the moment it is recorded (BR-EXP-02) and isn't a big purchase; the user can change both later in the app (BR-EXP-06). It is saved on the device, offline too (BR-OFF-01), appears in the app straight away (BR-DSH-04), and syncs the next time the app syncs. The action works once the account's setup has finished on the device, and stops on sign-out (BR-ACC-04). |
 
 ### Categories
 
@@ -315,6 +317,7 @@ Items not yet decided. When one is decided, update this document and remove its 
 | Category name and emoji (BR-CAT-02) | A name has at most 30 characters. The emoji is one emoji typed from the keyboard; typing another replaces it. |
 | Archiving the last category (BR-CAT-03) | The last active category can't be archived, so an expense can always be recorded. |
 | Where an unarchived category goes (BR-CAT-02, BR-CAT-03) | Last in the user's order. Archived categories are listed by name, under the active ones. |
+| The Add Expense shortcut's language and amount (BR-EXP-12) | The action, its questions, and its messages follow the device language (English, Japanese, or French), not the language chosen in the app's settings (BR-SET-01): iOS reads them from the app's bundle. The amount is entered as a number with a decimal point, the way Shortcuts asks for one; its decimals follow BR-EXP-08. The ready-made shortcut is built by the user ("Get Current Location", then Add Expense); the app doesn't offer a Siri phrase of its own, which couldn't pass a location. Android has no equivalent yet. |
 | Japanese and French names in the default category sets (BR-CAT-07) | As in `backend/migration/20261104214647_seed_category_sets.up.sql`, e.g. 🍔 Eat Out is 外食 and Restaurant, and the "Other" region is その他 and Autre. They need a review by native speakers. |
 
 Add new rows as `| Item | Assumption |`.

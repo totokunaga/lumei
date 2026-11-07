@@ -7,6 +7,7 @@ import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
 import migrations from '../../drizzle/migrations';
+import { databaseFileName as fileName } from './file-name';
 import * as schema from './schema';
 
 /**
@@ -17,12 +18,6 @@ import * as schema from './schema';
 export type Database = BaseSQLiteDatabase<'sync', any, typeof schema>;
 
 let current: { userId: string; file: SQLiteDatabase; db: Database } | null = null;
-
-/**
- * Names the database file of an account.
- * @returns e.g. `"lumei-0199a6c5-….db"`.
- */
-const fileName = (userId: string): string => `lumei-${userId}.db`;
 
 /**
  * Opens the account's database, creating it on first use, and migrates it to

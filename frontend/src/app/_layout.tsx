@@ -13,6 +13,7 @@ import { useAuth } from '@/auth/store';
 import { PressableScale } from '@/components/pressable-scale';
 import { UndoBanner } from '@/components/undo-banner';
 import { useLocalData } from '@/db/store';
+import { useExpenseShortcut } from '@/lib/expense-shortcut';
 import { queryClient } from '@/lib/query-client';
 import { useSetupDraft } from '@/setup/draft';
 import { useSync } from '@/sync/scheduler';
@@ -28,6 +29,8 @@ void SplashScreen.preventAutoHideAsync();
  * users reach setup until they finish it, and then every other screen
  * (BR-ACC-03, BR-ACC-06). It opens the account's database on sign-in and
  * closes it on sign-out or expiry, and syncs it while it is open (BR-OFF-03).
+ * Once setup has finished, it shares the account with the iOS Add Expense
+ * shortcut (BR-EXP-12).
  * It renders nothing while the session or the database is being read, and a
  * retry if the database can't be opened, or a new device can't download the
  * account's data (BR-ACC-06).
@@ -53,6 +56,10 @@ export default function RootLayout() {
   }, [status, userId]);
 
   useSync(status === 'signedIn' && data === 'ready');
+  // The Add Expense shortcut records into the account once setup has finished (BR-EXP-12).
+  useExpenseShortcut(
+    status === 'signedIn' && data === 'ready' && setupCompleted ? (userId ?? null) : null,
+  );
 
   const loading =
     status === 'restoring' || (status === 'signedIn' && (data === 'closed' || data === 'opening'));
