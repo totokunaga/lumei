@@ -6,7 +6,10 @@ import type { ProgressChart } from '@/domain/calculations';
 export interface ChartGeometry {
   /** Each day's horizontal center, in date order. */
   x: number[];
-  /** Each day's bar height; 0 after today (BR-CHT-03). */
+  /**
+   * Each day's bar height, on the lines' scale, so a bar never rises above
+   * spending so far that day; 0 after today (BR-CHT-03).
+   */
   bar: number[];
   /** The width of every bar. */
   barWidth: number;
@@ -29,14 +32,14 @@ const TOP = 12;
  */
 const BOTTOM = 4;
 
-/** How tall the busiest day's bar is, as a share of the height. */
-const BAR_SHARE = 0.4;
+/** The shortest bar of a day with spending, in points, so it stays visible. */
+const MIN_BAR = 2;
 
 /**
- * Works out the chart's marks for a canvas size. The lines share one scale,
- * up to the highest of the limit and spending so far. The bars get their
- * own, the busiest day reaching `BAR_SHARE` of the height, since a day's
- * spending is small next to the period's.
+ * Works out the chart's marks for a canvas size. The bars and lines share
+ * one scale, up to the highest of the limit and spending so far, so a day's
+ * bar reads against the lines. A day with spending gets at least
+ * `MIN_BAR`, but never more than its spending so far.
  * @returns The marks; see `ChartGeometry`.
  */
 export const chartGeometry = (
@@ -52,13 +55,15 @@ export const chartGeometry = (
   const shown = spent.filter((value) => value !== null).length;
 
   const lineMax = Math.max(1, ...limits, ...spent.map((value) => value ?? 0));
-  const barMax = Math.max(1, ...bars);
   const lineY = (value: number) => (Math.max(0, value) / lineMax) * (height - TOP - BOTTOM);
 
   let last = 0;
   return {
     x: days.map((_, index) => step * (index + 0.5)),
-    bar: bars.map((value) => (Math.max(0, value) / barMax) * (height - BOTTOM) * BAR_SHARE),
+    bar: bars.map((value, index) => {
+      const h = lineY(value);
+      return value > 0 ? Math.min(Math.max(h, MIN_BAR), lineY(spent[index] ?? value)) : h;
+    }),
     barWidth: Math.max(1, Math.min(12, step * 0.6)),
     limit: limits.map(lineY),
     cumulative: spent.map((value) => {

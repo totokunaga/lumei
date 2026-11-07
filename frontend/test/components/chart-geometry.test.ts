@@ -34,9 +34,34 @@ describe('chartGeometry (BR-CHT-01 to BR-CHT-03)', () => {
     expect(geometry.cumulative.slice(0, 2)).toEqual([10, 50]);
   });
 
-  it('scales the bars on their own, the busiest day reaching 40% of the height', () => {
-    expect(geometry.bar[0]).toBeCloseTo(11.2);
-    expect(geometry.bar[1]).toBeCloseTo(44.8);
+  it.each([
+    {
+      name: 'on the lines’ scale, never above spending so far',
+      expenses: records.expenses,
+      bars: [10, 40],
+    },
+    {
+      name: 'at least 2 points for a small day’s spending',
+      expenses: [
+        { date: '2026-11-01', amount: 1_000, isBigPurchase: false },
+        { date: '2026-11-02', amount: 10, isBigPurchase: false },
+      ],
+      bars: [10, 2],
+    },
+    {
+      name: 'no taller than spending so far, even below 2 points',
+      expenses: [{ date: '2026-11-01', amount: 10, isBigPurchase: false }],
+      bars: [0.1, 0],
+    },
+  ])('scales the bars $name', ({ expenses, bars }) => {
+    const chart = progressChart({ ...records, expenses }, '2026-11-02', 'daysLeft');
+    const scaled = chartGeometry(chart, 400, 116);
+
+    expect(scaled.bar[0]).toBeCloseTo(bars[0]);
+    expect(scaled.bar[1]).toBeCloseTo(bars[1]);
+    scaled.bar.slice(0, scaled.shown).forEach((bar, day) => {
+      expect(bar).toBeLessThanOrEqual(scaled.cumulative[day] + 1e-9);
+    });
   });
 
   it('keeps a few points under the baseline, so a line along it isn’t cut off', () => {
