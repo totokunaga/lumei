@@ -7,7 +7,9 @@ import { GlassSurface } from './glass-surface';
 import { PressableScale } from './pressable-scale';
 
 /** The button's diameter, in points: large enough to hit with a thumb. */
-const SIZE = 64;
+/** The button's width and height, in points. */
+export const QUICK_ADD_SIZE = 64;
+const SIZE = QUICK_ADD_SIZE;
 
 /** The plus icon's size, in points. */
 const ICON = 28;

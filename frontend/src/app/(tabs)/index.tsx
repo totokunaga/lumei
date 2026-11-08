@@ -15,7 +15,7 @@ import { FloatingToggle } from '@/components/floating-toggle';
 import { IncomeRow } from '@/components/income-row';
 import { PressableScale } from '@/components/pressable-scale';
 import { ProgressChart } from '@/components/progress-chart';
-import { QuickAddButton } from '@/components/quick-add-button';
+import { QUICK_ADD_SIZE, QuickAddButton } from '@/components/quick-add-button';
 import { ResultCard } from '@/components/result-card';
 
 import type { EditableItem } from '@/components/summary-rows';
@@ -53,7 +53,7 @@ import {
   filterExpenses,
   spendingByCategory,
 } from '@/domain/spending';
-import { TAB_BAR_CLEARANCE } from '@/lib/layout';
+import { floatingButtonBottom, TAB_BAR_CLEARANCE } from '@/lib/layout';
 import { useScrollRoom } from '@/lib/scroll-room';
 
 /**
@@ -419,7 +419,7 @@ export default function HomeScreen() {
       {data.records && data.current && (
         <View
           pointerEvents="box-none"
-          style={{ bottom: insets.bottom + TAB_BAR_CLEARANCE + 16 }}
+          style={{ bottom: floatingButtonBottom(insets.bottom, QUICK_ADD_SIZE) }}
           className="absolute right-6"
         >
           <QuickAddButton
