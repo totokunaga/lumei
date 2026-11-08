@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Add ${amount} in ${category}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${category}に${amount}を追加"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter ${amount} dans ${category}"
+          }
+        }
+      }
+    },
     "Add Expense": {
       "localizations": {
         "ja": {
@@ -13,22 +29,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajouter une dépense"
-          }
-        }
-      }
-    },
-    "Records an expense in Lumei. Pass it the current location from Get Current Location to save where you spent.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lumeiに支出を記録します。「現在地を取得」の現在地を渡すと、支出した場所も保存されます。"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistre une dépense dans Lumei. Transmettez-lui la position de « Obtenir la position actuelle » pour enregistrer où vous avez dépensé."
           }
         }
       }
@@ -49,22 +49,6 @@
         }
       }
     },
-    "How much did you spend?": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いくら使いましたか？"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Combien avez-vous dépensé ?"
-          }
-        }
-      }
-    },
     "Category": {
       "localizations": {
         "ja": {
@@ -81,82 +65,18 @@
         }
       }
     },
-    "Which category?": {
+    "Category?": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "どのカテゴリですか？"
+            "value": "カテゴリは？"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelle catégorie ?"
-          }
-        }
-      }
-    },
-    "Location": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "場所"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lieu"
-          }
-        }
-      }
-    },
-    "Add ${amount} in ${category}": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "${category}に${amount}を追加"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajouter ${amount} dans ${category}"
-          }
-        }
-      }
-    },
-    "Added %@ in %@.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%2$@に%1$@を追加しました。"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ ajouté dans %2$@."
-          }
-        }
-      }
-    },
-    "Open Lumei and finish setting it up first.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先にLumeiを開いて、設定を完了してください。"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvrez d’abord Lumei et terminez sa configuration."
+            "value": "Catégorie ?"
           }
         }
       }
@@ -177,18 +97,34 @@
         }
       }
     },
-    "That category was archived or deleted. Choose another one.": {
+    "How much?": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "そのカテゴリはアーカイブまたは削除されています。別のカテゴリを選んでください。"
+            "value": "いくら？"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette catégorie a été archivée ou supprimée. Choisissez-en une autre."
+            "value": "Combien ?"
+          }
+        }
+      }
+    },
+    "Location": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "場所"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lieu"
           }
         }
       }
@@ -205,6 +141,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lumei n’a pas pu enregistrer la dépense. Réessayez."
+          }
+        }
+      }
+    },
+    "Open Lumei and finish setting it up first.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先にLumeiを開いて、設定を完了してください。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez d’abord Lumei et terminez sa configuration."
+          }
+        }
+      }
+    },
+    "Records an expense in Lumei. Pass it the current location from Get Current Location to save where you spent.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lumeiに支出を記録します。「現在地を取得」の現在地を渡すと、支出した場所も保存されます。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre une dépense dans Lumei. Transmettez-lui la position de « Obtenir la position actuelle » pour enregistrer où vous avez dépensé."
+          }
+        }
+      }
+    },
+    "That category was archived or deleted. Choose another one.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのカテゴリはアーカイブまたは削除されています。別のカテゴリを選んでください。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette catégorie a été archivée ou supprimée. Choisissez-en une autre."
           }
         }
       }

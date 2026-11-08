@@ -66,10 +66,10 @@ struct AddExpenseIntent: AppIntent {
   // Saves in the background; the app opens only if the user taps the result.
   static let openAppWhenRun = false
 
-  @Parameter(title: "Amount", requestValueDialog: "How much did you spend?")
+  @Parameter(title: "Amount", requestValueDialog: "How much?")
   var amount: Double
 
-  @Parameter(title: "Category", requestValueDialog: "Which category?")
+  @Parameter(title: "Category", requestValueDialog: "Category?")
   var category: CategoryEntity
 
   @Parameter(title: "Location")
@@ -81,11 +81,11 @@ struct AddExpenseIntent: AppIntent {
     }
   }
 
-  /// Saves the expense, dated now (BR-EXP-02), and tells the app.
-  /// - Returns: A dialog naming what was saved, e.g. "Added ¥1,200 in 🍔 Eat Out."
+  /// Saves the expense, dated now (BR-EXP-02), and tells the app. It
+  /// finishes quietly, with nothing to show.
   /// - Throws: `AddExpenseError` when no one is signed in, the amount isn't
   ///   valid (BR-EXP-08), the category can't be used (BR-CAT-03), or the save fails.
-  func perform() async throws -> some IntentResult & ProvidesDialog {
+  func perform() async throws -> some IntentResult {
     guard let account = ShortcutAccount.load() else { throw AddExpenseError.notReady }
     guard let minor = minorUnits(amount, digits: account.minorDigits) else {
       throw AddExpenseError.invalidAmount
@@ -109,11 +109,7 @@ struct AddExpenseIntent: AppIntent {
       throw AddExpenseError.saveFailed
     }
     NotificationCenter.default.post(name: expenseShortcutDidAddExpense, object: nil)
-
-    let money = Decimal(minor) / pow(10, account.minorDigits)
-    let formatted = money.formatted(.currency(code: account.currency))
-    let label = "\(category.emoji) \(category.name)"
-    return .result(dialog: "Added \(formatted) in \(label).")
+    return .result()
   }
 }
 
