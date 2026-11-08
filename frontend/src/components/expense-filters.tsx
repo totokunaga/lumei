@@ -1,7 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { ScrollView, Text } from 'react-native';
 
-import { type CategorySpending, type ExpenseFilter, sameFilter } from '@/domain/spending';
+import {
+  type CategorySpending,
+  type ExpenseFilter,
+  type FilterChip,
+  isChipSelected,
+  toggleChip,
+} from '@/domain/spending';
 
 import { PressableScale } from './pressable-scale';
 
@@ -17,9 +23,10 @@ interface ExpenseFiltersProps {
 
 /**
  * Renders the chips that filter a period's expense list (BR-EXP-10): all
- * expenses, one category's, or, always last, only the big purchases, in a
- * row that scrolls sideways. The selected chip is filled. Screen readers read each
- * as a button, with the selected one marked.
+ * expenses, those of any categories chosen, or, always last, only the big
+ * purchases, in a row that scrolls sideways. Categories toggle on and off
+ * together; "All" clears them. Selected chips are a soft slate gray with an outline.
+ * Screen readers read each as a button, with the selected ones marked.
  */
 export function ExpenseFilters({
   categories,
@@ -28,19 +35,19 @@ export function ExpenseFilters({
   onChange,
 }: ExpenseFiltersProps) {
   const { t } = useTranslation();
-  const chips: { key: string; label: string; filter: ExpenseFilter }[] = [
-    { key: 'all', label: t('spending.all'), filter: { kind: 'all' } },
+  const chips: { key: string; label: string; chip: FilterChip }[] = [
+    { key: 'all', label: t('spending.all'), chip: { kind: 'all' } },
     ...categories.map((category) => ({
       key: category.categoryId,
       label: `${category.emoji} ${category.name}`,
-      filter: { kind: 'category', categoryId: category.categoryId } as const,
+      chip: { kind: 'category', categoryId: category.categoryId } as const,
     })),
     ...(hasBigPurchases
       ? [
           {
             key: 'bigPurchases',
             label: t('spending.bigPurchases'),
-            filter: { kind: 'bigPurchases' } as const,
+            chip: { kind: 'bigPurchases' } as const,
           },
         ]
       : []),
@@ -55,25 +62,27 @@ export function ExpenseFilters({
       className="-mx-6"
       contentContainerClassName="gap-2 px-6"
     >
-      {chips.map((chip) => {
-        const selected = sameFilter(chip.filter, value);
+      {chips.map(({ key, label, chip }) => {
+        const selected = isChipSelected(value, chip);
         return (
           <PressableScale
-            key={chip.key}
+            key={key}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            onPress={() => onChange(chip.filter)}
-            className={`h-9 justify-center rounded-full px-4 ${
-              selected ? 'bg-black dark:bg-white' : 'bg-gray-100 dark:bg-gray-900'
+            onPress={() => onChange(toggleChip(value, chip))}
+            className={`h-9 justify-center rounded-full border px-4 ${
+              selected
+                ? 'border-slate-400 bg-slate-200 dark:border-slate-500 dark:bg-slate-700'
+                : 'border-transparent bg-gray-100 dark:bg-gray-900'
             }`}
           >
             <Text
               numberOfLines={1}
               className={`text-sm font-semibold ${
-                selected ? 'text-white dark:text-black' : 'text-black dark:text-white'
+                selected ? 'text-slate-900 dark:text-white' : 'text-black dark:text-white'
               }`}
             >
-              {chip.label}
+              {label}
             </Text>
           </PressableScale>
         );

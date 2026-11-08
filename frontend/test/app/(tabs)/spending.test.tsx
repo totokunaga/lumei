@@ -100,7 +100,7 @@ describe('Spending by category and filters on home (BR-HIS-04, BR-EXP-10)', () =
     expect(screen.queryByRole('button', { name: 'All' })).toBeNull();
   });
 
-  it('filters the list by category, or to the big purchases, with each day’s total of what shows', async () => {
+  it('filters the list by one or more categories, or to the big purchases, with each day’s total of what shows', async () => {
     await finishedSetup();
     await savedExpenses(november);
     await renderHome();
@@ -118,14 +118,32 @@ describe('Spending by category and filters on home (BR-HIS-04, BR-EXP-10)', () =
     expect(rows()).toEqual(['Konbini, ¥1,000']);
     expect(screen.getByRole('header', { name: 'November 13: ¥1,000 in total' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: '🏪 Konbini' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'All' })).not.toBeSelected();
+
+    // A second category adds its expenses to the first's.
+    await fireEvent.press(screen.getByRole('button', { name: '🍔 Eat Out' }));
+
+    expect(rows()).toHaveLength(3);
+    expect(screen.getByRole('button', { name: '🍔 Eat Out' })).toBeSelected();
+    expect(screen.getByRole('button', { name: '🏪 Konbini' })).toBeSelected();
+
+    await fireEvent.press(screen.getByRole('button', { name: '🍔 Eat Out' }));
+
+    expect(rows()).toEqual(['Konbini, ¥1,000']);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Big purchases' }));
 
     expect(rows()).toEqual(['Eat Out, ¥27,000']);
 
+    await fireEvent.press(screen.getByRole('button', { name: '🍔 Eat Out' }));
+    await fireEvent.press(screen.getByRole('button', { name: '🏪 Konbini' }));
     await fireEvent.press(screen.getByRole('button', { name: 'All' }));
 
     expect(rows()).toHaveLength(3);
+    // All clears every chosen category.
+    expect(screen.getByRole('button', { name: 'All' })).toBeSelected();
+    expect(screen.getByRole('button', { name: '🍔 Eat Out' })).not.toBeSelected();
+    expect(screen.getByRole('button', { name: '🏪 Konbini' })).not.toBeSelected();
   });
 
   it('filters to a category tapped in its spending, from the income list too', async () => {

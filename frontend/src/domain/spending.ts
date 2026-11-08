@@ -63,13 +63,29 @@ export const spendingByCategory = (expenses: readonly CategorizedExpense[]): Spe
 
 /**
  * Which of a period's expenses the list shows (BR-EXP-10): all of them, only
- * the big purchases, or one category's.
+ * the big purchases, or those of one or more categories.
  */
 export type ExpenseFilter =
+  | { kind: 'all' }
+  | { kind: 'bigPurchases' }
+  | { kind: 'categories'; categoryIds: readonly string[] };
+
+/** A filter chip: all expenses, one category, or the big purchases (BR-EXP-10). */
+export type FilterChip =
   { kind: 'all' } | { kind: 'bigPurchases' } | { kind: 'category'; categoryId: string };
 
 /** The filter the list starts with. */
 export const ALL_EXPENSES: ExpenseFilter = { kind: 'all' };
+
+/**
+ * Builds the filter that shows one category's expenses, e.g. for a category
+ * tapped in the spending card (BR-HIS-04).
+ * @returns A filter of that category alone.
+ */
+export const categoryFilter = (categoryId: string): ExpenseFilter => ({
+  kind: 'categories',
+  categoryIds: [categoryId],
+});
 
 /**
  * Keeps the expenses a filter shows, in their order (BR-EXP-10).
@@ -84,18 +100,47 @@ export const filterExpenses = <T extends Pick<CategorizedExpense, 'isBigPurchase
       return [...expenses];
     case 'bigPurchases':
       return expenses.filter((expense) => expense.isBigPurchase);
-    case 'category':
-      return expenses.filter((expense) => expense.categoryId === filter.categoryId);
+    case 'categories':
+      return expenses.filter((expense) => filter.categoryIds.includes(expense.categoryId));
   }
 };
 
 /**
- * Checks whether two filters are the same, e.g. to mark the selected chip.
- * @returns True for the same kind and category.
+ * Checks whether a chip shows as selected under a filter (BR-EXP-10): "All"
+ * only when no category or big purchases are chosen, a category when it is
+ * one of those chosen.
+ * @returns True when the chip is selected.
  */
-export const sameFilter = (a: ExpenseFilter, b: ExpenseFilter): boolean =>
-  a.kind === b.kind &&
-  (a.kind !== 'category' || (b.kind === 'category' && a.categoryId === b.categoryId));
+export const isChipSelected = (filter: ExpenseFilter, chip: FilterChip): boolean => {
+  if (chip.kind === 'category') {
+    return filter.kind === 'categories' && filter.categoryIds.includes(chip.categoryId);
+  }
+  return filter.kind === chip.kind;
+};
+
+/**
+ * Works out the filter after a chip is tapped (BR-EXP-10). Categories add up:
+ * tapping one adds it to those chosen, or removes it if chosen, and removing
+ * the last shows all again. "All" and "Big purchases" each replace the
+ * filter; tapping "Big purchases" again shows all.
+ * @returns The new filter, e.g. Eat Out and Konbini after tapping Konbini
+ *   with Eat Out chosen.
+ */
+export const toggleChip = (filter: ExpenseFilter, chip: FilterChip): ExpenseFilter => {
+  switch (chip.kind) {
+    case 'all':
+      return ALL_EXPENSES;
+    case 'bigPurchases':
+      return filter.kind === 'bigPurchases' ? ALL_EXPENSES : { kind: 'bigPurchases' };
+    case 'category': {
+      const chosen = filter.kind === 'categories' ? filter.categoryIds : [];
+      const categoryIds = chosen.includes(chip.categoryId)
+        ? chosen.filter((id) => id !== chip.categoryId)
+        : [...chosen, chip.categoryId];
+      return categoryIds.length > 0 ? { kind: 'categories', categoryIds } : ALL_EXPENSES;
+    }
+  }
+};
 
 /**
  * Formats a share as a whole percentage, the app language's way; a share

@@ -48,11 +48,13 @@ import { type CurrencyCode, formatMoney, type Minor } from '@/domain/money';
 import { formatPeriodName, inPeriod } from '@/domain/period';
 import {
   ALL_EXPENSES,
+  categoryFilter,
   type ExpenseFilter,
   filterExpenses,
   spendingByCategory,
 } from '@/domain/spending';
 import { TAB_BAR_CLEARANCE } from '@/lib/layout';
+import { useScrollRoom } from '@/lib/scroll-room';
 
 /**
  * Renders the home screen, the Home tab. Its title names the period shown
@@ -65,7 +67,7 @@ import { TAB_BAR_CLEARANCE } from '@/lib/layout';
  * either, the chart (BR-CHT-01) and, swiped to beside it, the period's
  * spending by category (BR-HIS-04), and its expenses
  * by day, newest first, each day with its total (BR-DSH-06), filtered by
- * category or to the big purchases (BR-EXP-10); tapping a category's
+ * categories or to the big purchases (BR-EXP-10); tapping a category’s
  * spending filters to it. The filter resets on another period. Every number is worked out on the device from the
  * account's records (BR-OFF-02), and updates as soon as a record changes
  * (BR-DSH-04, BR-NFR-04) and at local midnight (BR-DSH-05).
@@ -74,6 +76,7 @@ export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const room = useScrollRoom(insets.top + 16);
   const today = useToday();
   const version = useDataVersion();
   // A day of the period shown; null for the current one, which follows today.
@@ -130,11 +133,17 @@ export default function HomeScreen() {
     if (chosenFilter.periodId !== (data.period?.id ?? null)) {
       return ALL_EXPENSES;
     }
-    if (
-      chosen.kind === 'category' &&
-      !data.spending.categories.some((c) => c.categoryId === chosen.categoryId)
-    ) {
-      return ALL_EXPENSES;
+    if (chosen.kind === 'categories') {
+      // Drop chosen categories whose expenses are all gone; all again without any.
+      const categoryIds = chosen.categoryIds.filter((id) =>
+        data.spending.categories.some((c) => c.categoryId === id),
+      );
+      if (categoryIds.length === 0) {
+        return ALL_EXPENSES;
+      }
+      return categoryIds.length === chosen.categoryIds.length
+        ? chosen
+        : { kind: 'categories', categoryIds };
     }
     if (chosen.kind === 'bigPurchases' && !data.expenses.some((e) => e.isBigPurchase)) {
       return ALL_EXPENSES;
@@ -143,14 +152,17 @@ export default function HomeScreen() {
   })();
   /** Filters the expense list, and shows it (BR-EXP-10). */
   const applyFilter = (next: ExpenseFilter) => {
+    // Keep the chips where they are, however many rows the filter leaves.
+    room.hold();
     setChosenFilter({ periodId: data.period?.id ?? null, filter: next });
     setList('expenses');
   };
+  const filterKey = filter.kind === 'categories' ? filter.categoryIds.join() : filter.kind;
   const shownExpenses = useMemo(
     () => filterExpenses(data.expenses, filter),
     // `filter` is rebuilt each render; its parts decide what it keeps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data.expenses, filter.kind, filter.kind === 'category' ? filter.categoryId : null],
+    [data.expenses, filterKey],
   );
 
   /** Shows a period, or the current one, which then follows today again. */
@@ -196,7 +208,7 @@ export default function HomeScreen() {
   );
 
   const header = (
-    <View className="gap-6 pb-3">
+    <View onLayout={room.onHeaderLayout} className="gap-6 pb-3">
       <View className="flex-row items-center justify-between gap-2">
         <PeriodArrow
           direction="previous"
@@ -275,7 +287,7 @@ export default function HomeScreen() {
                       <CategorySpending
                         spending={data.spending}
                         money={money}
-                        onSelect={(categoryId) => applyFilter({ kind: 'category', categoryId })}
+                        onSelect={(categoryId) => applyFilter(categoryFilter(categoryId))}
                       />
                     ),
                   },
@@ -380,6 +392,11 @@ export default function HomeScreen() {
           }
         }}
         ListHeaderComponent={header}
+        ListFooterComponent={<View style={{ height: room.spacer }} />}
+        // Rows a filter adds or removes don't scroll the list: the header and chips stay still.
+        maintainVisibleContentPosition={{ disabled: true }}
+        onLayout={room.onLayout}
+        onContentSizeChange={room.onContentSizeChange}
         ListEmptyComponent={
           data.records ? (
             <Text className="px-1 py-3 text-base text-gray-500 dark:text-gray-400">
@@ -392,7 +409,7 @@ export default function HomeScreen() {
           ) : null
         }
         contentContainerStyle={{
-          paddingTop: insets.top + 16,
+          paddingTop: insets.top + 16, // as in useScrollRoom
           paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + 88,
           paddingHorizontal: 24,
         }}

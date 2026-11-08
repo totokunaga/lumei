@@ -1,8 +1,10 @@
 import {
   type ExpenseFilter,
   filterExpenses,
+  type FilterChip,
   formatShare,
-  sameFilter,
+  isChipSelected,
+  toggleChip,
   spendingByCategory,
 } from '@/domain/spending';
 
@@ -61,29 +63,65 @@ describe('filterExpenses (BR-EXP-10)', () => {
   it.each<{ name: string; filter: ExpenseFilter; ids: string[] }>([
     { name: 'every expense for all', filter: { kind: 'all' }, ids: ['1', '2', '3'] },
     { name: 'the big purchases', filter: { kind: 'bigPurchases' }, ids: ['2', '3'] },
-    { name: 'one category’s', filter: { kind: 'category', categoryId: 'food' }, ids: ['1', '3'] },
-    { name: 'none for a category without any', filter: { kind: 'category', categoryId: 'tea' }, ids: [] },
+    {
+      name: 'one category’s',
+      filter: { kind: 'categories', categoryIds: ['food'] },
+      ids: ['1', '3'],
+    },
+    {
+      name: 'several categories’',
+      filter: { kind: 'categories', categoryIds: ['shop', 'food'] },
+      ids: ['1', '2', '3'],
+    },
+    {
+      name: 'none for a category without any',
+      filter: { kind: 'categories', categoryIds: ['tea'] },
+      ids: [],
+    },
   ])('keeps $name, in order', ({ filter, ids }) => {
     expect(filterExpenses(expenses, filter).map((e) => e.id)).toEqual(ids);
   });
+});
 
-  it.each<{ name: string; a: ExpenseFilter; b: ExpenseFilter; same: boolean }>([
-    { name: 'the same kind', a: { kind: 'all' }, b: { kind: 'all' }, same: true },
-    { name: 'another kind', a: { kind: 'all' }, b: { kind: 'bigPurchases' }, same: false },
+describe('expense filter chips (BR-EXP-10)', () => {
+  const all: ExpenseFilter = { kind: 'all' };
+  const big: ExpenseFilter = { kind: 'bigPurchases' };
+  const food: FilterChip = { kind: 'category', categoryId: 'food' };
+  const shop: FilterChip = { kind: 'category', categoryId: 'shop' };
+  const foodAndShop: ExpenseFilter = { kind: 'categories', categoryIds: ['food', 'shop'] };
+
+  it.each<{ name: string; filter: ExpenseFilter; chip: FilterChip; next: ExpenseFilter }>([
+    { name: 'a category from all', filter: all, chip: food, next: { kind: 'categories', categoryIds: ['food'] } },
     {
-      name: 'the same category',
-      a: { kind: 'category', categoryId: 'food' },
-      b: { kind: 'category', categoryId: 'food' },
-      same: true,
+      name: 'a second category to the first',
+      filter: { kind: 'categories', categoryIds: ['food'] },
+      chip: shop,
+      next: foodAndShop,
     },
     {
-      name: 'another category',
-      a: { kind: 'category', categoryId: 'food' },
-      b: { kind: 'category', categoryId: 'shop' },
-      same: false,
+      name: 'a chosen category off',
+      filter: foodAndShop,
+      chip: food,
+      next: { kind: 'categories', categoryIds: ['shop'] },
     },
-  ])('sameFilter is $same for $name', ({ a, b, same }) => {
-    expect(sameFilter(a, b)).toBe(same);
+    { name: 'the last category off, to all', filter: { kind: 'categories', categoryIds: ['food'] }, chip: food, next: all },
+    { name: 'all, clearing the categories', filter: foodAndShop, chip: { kind: 'all' }, next: all },
+    { name: 'big purchases, replacing the categories', filter: foodAndShop, chip: { kind: 'bigPurchases' }, next: big },
+    { name: 'big purchases off, to all', filter: big, chip: { kind: 'bigPurchases' }, next: all },
+    { name: 'a category, replacing big purchases', filter: big, chip: food, next: { kind: 'categories', categoryIds: ['food'] } },
+  ])('toggleChip turns $name', ({ filter, chip, next }) => {
+    expect(toggleChip(filter, chip)).toEqual(next);
+  });
+
+  it.each<{ name: string; filter: ExpenseFilter; chip: FilterChip; selected: boolean }>([
+    { name: 'all with nothing chosen', filter: all, chip: { kind: 'all' }, selected: true },
+    { name: 'all with categories chosen', filter: foodAndShop, chip: { kind: 'all' }, selected: false },
+    { name: 'a category with all', filter: all, chip: food, selected: false },
+    { name: 'a chosen category', filter: foodAndShop, chip: shop, selected: true },
+    { name: 'a category not chosen', filter: { kind: 'categories', categoryIds: ['food'] }, chip: shop, selected: false },
+    { name: 'big purchases when chosen', filter: big, chip: { kind: 'bigPurchases' }, selected: true },
+  ])('isChipSelected is $selected for $name', ({ filter, chip, selected }) => {
+    expect(isChipSelected(filter, chip)).toBe(selected);
   });
 });
 
