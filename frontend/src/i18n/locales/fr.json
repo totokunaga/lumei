@@ -141,6 +141,7 @@
       "title": "Quand commence votre période ?",
       "description": "Choisissez le jour du mois où commence votre période, par exemple votre jour de paie.",
       "day": "Le {{day}}",
+      "today": "Le {{day}}, aujourd’hui",
       "current": "Votre période actuelle",
       "shortMonths": "Les mois sans {{day}}e jour, la période commence le dernier jour du mois."
     },

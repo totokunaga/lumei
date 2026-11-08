@@ -48,6 +48,18 @@ describe('StartDayScreen (BR-PER-05)', () => {
   });
   afterEach(() => jest.useRealTimers());
 
+  it('picks the day from this month’s calendar, today marked (BR-PER-01)', async () => {
+    await openStartDay();
+
+    // November 2026 starts on a Sunday, so the 1st opens the first week; 31 follows the 30th.
+    const days = screen.getAllByRole('radio').map((day) => day.props.accessibilityLabel);
+    expect(days.slice(0, 3)).toEqual(['Day 1', 'Day 2', 'Day 3']);
+    expect(days.slice(-2)).toEqual(['Day 30', 'Day 31']);
+    expect(screen.getByLabelText('Day 10, today')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Day 10')).toBeNull();
+    expect(screen.getByLabelText('Day 25')).toBeSelected();
+  });
+
   it('asks where the days before the new start go, with the dates each choice gives', async () => {
     await openStartDay();
 

@@ -75,16 +75,6 @@ export const inPeriod = (period: Period, date: IsoDate): boolean =>
 export const periodDays = (period: Period): number => daysBetween(period.start, period.end) + 1;
 
 /**
- * Checks whether a period is exactly one calendar month, which decides if
- * its label needs a date range (BR-PER-06).
- * @returns True if the period runs from the 1st to the last day of the same month.
- */
-export const isCalendarMonth = (period: Period): boolean => {
-  const { year, month, day } = dateParts(period.start);
-  return day === 1 && period.end === makeDate(year, month, daysInMonth(year, month));
-};
-
-/**
  * Finds the month a period is named after (BR-PER-06): the one with the most
  * of its days, or the later one on a tie.
  * @returns The month's first day, e.g. `'2026-11-01'` for Oct 25 – Nov 24.
@@ -121,18 +111,17 @@ export const formatPeriodName = (period: Period, locale: string): string =>
 
 /**
  * Builds the label a period is shown under where its dates help (BR-PER-06):
- * its name, plus its date range when it isn't a calendar month.
+ * its name and its date range, calendar months included.
  * @param t Translates the label pattern into the app language.
  * @param locale Formats the month and dates, e.g. `'en'`.
- * @returns E.g. "November 2026", or "November 2026 (Oct 25 – Nov 24)" for start day 25.
+ * @returns E.g. "November 2026 (Nov 1 – Nov 30)" for start day 1, and
+ *   "November 2026 (Oct 25 – Nov 24)" for start day 25.
  */
-export const formatPeriodLabel = (period: Period, t: TFunction, locale: string): string => {
-  const month = formatPeriodName(period, locale);
-  if (isCalendarMonth(period)) {
-    return month;
-  }
-  return t('period.labelWithRange', { month, ...rangeParts(period, locale) });
-};
+export const formatPeriodLabel = (period: Period, t: TFunction, locale: string): string =>
+  t('period.labelWithRange', {
+    month: formatPeriodName(period, locale),
+    ...rangeParts(period, locale),
+  });
 
 /**
  * Formats a period's first and last days as a short month and day each.

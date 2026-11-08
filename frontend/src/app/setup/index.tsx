@@ -18,7 +18,8 @@ import { useSetupFlow } from '@/setup/navigation';
  * Renders the first setup step: the app language, then the region, which
  * decides the default categories (BR-SET-06, BR-CAT-01), each chosen from a
  * dropdown. A world map above them zooms to the region's countries, and the
- * emojis of the categories it starts with are shown below. The regions come
+ * categories it starts with are shown below as tags, each with its emoji and
+ * its name in the app language. The regions come
  * from the seed data on the API (BR-CAT-07); the one matching the device's
  * region setting is preselected. This step can't be skipped (BR-ACC-06).
  */
@@ -92,9 +93,21 @@ export default function RegionStep() {
               <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 {t('setup.region.startsWith')}
               </Text>
-              <Text className="text-2xl leading-9">
-                {selected.categories.map((category) => category.emoji).join(' ')}
-              </Text>
+              <View className="flex-row flex-wrap gap-2 pt-1">
+                {selected.categories.map((category) => (
+                  <View
+                    key={category.key}
+                    accessible
+                    accessibilityLabel={`${category.emoji} ${category.name[language]}`}
+                    className="flex-row items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 dark:bg-gray-900"
+                  >
+                    <Text className="text-base">{category.emoji}</Text>
+                    <Text className="text-sm font-medium text-black dark:text-white">
+                      {category.name[language]}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
         </View>

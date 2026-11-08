@@ -98,14 +98,28 @@ export const detectRegion = (
   return sets.find((set) => code && set.countries.includes(code))?.region ?? GLOBAL_REGION;
 };
 
+/** The currency of each region with one of its own (BR-SET-03). "Other" has none. */
+const REGION_CURRENCIES: Partial<Record<string, CurrencyCode>> = {
+  jp: 'JPY',
+  us: 'USD',
+  eu: 'EUR',
+};
+
 /**
- * Picks the currency setup suggests: the device region's currency when it is
- * supported, and USD otherwise (BR-SET-03).
+ * Picks the currency setup suggests (BR-SET-03): the chosen region's, e.g.
+ * JPY for Japan. For "Other", or a region the app doesn't know yet, the
+ * device region's currency when it is supported, and USD otherwise.
+ * @param region The chosen region, e.g. `'jp'`, or null before one is chosen.
  * @param deviceCurrency The device's ISO 4217 currency code, e.g. `'JPY'`, or null if unknown.
- * @returns e.g. `'JPY'` for `'JPY'`, and `'USD'` for an unsupported `'KRW'`.
+ * @returns e.g. `'EUR'` for `'eu'` on a device set to JPY; for `'global'`,
+ *   `'JPY'` for `'JPY'`, and `'USD'` for an unsupported `'KRW'`.
  */
-export const suggestCurrency = (deviceCurrency: string | null | undefined): CurrencyCode =>
-  deviceCurrency && isCurrencyCode(deviceCurrency) ? deviceCurrency : 'USD';
+export const suggestCurrency = (
+  region: string | null | undefined,
+  deviceCurrency: string | null | undefined,
+): CurrencyCode =>
+  (region && REGION_CURRENCIES[region]) ||
+  (deviceCurrency && isCurrencyCode(deviceCurrency) ? deviceCurrency : 'USD');
 
 /**
  * Turns the user's setup choices into the account's first records: the

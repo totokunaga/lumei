@@ -100,6 +100,7 @@ export default function StartDayScreen() {
             setDay(d);
             setChoice(null);
           }}
+          today={today}
         />
 
         {current && (

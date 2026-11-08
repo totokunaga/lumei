@@ -15,7 +15,9 @@ const CODES = Object.keys(CURRENCIES) as CurrencyCode[];
 
 /**
  * Renders the currency step (BR-SET-03): every supported currency, with the
- * device region's preselected, or USD when it isn't supported. It says the
+ * chosen region's preselected, e.g. JPY for Japan. For "Other", the device
+ * region's is preselected, or USD when it isn't supported. Once the user has
+ * picked one, changing the region keeps it, so amounts entered in it stay. It says the
  * currency can't change after setup (BR-SET-04), and can't be skipped
  * (BR-ACC-06). It opens scrolled to the selected currency, which can be far
  * down the list. A choice is kept as soon as it is made, so going back a step
@@ -26,7 +28,8 @@ export default function CurrencyStep() {
   const flow = useSetupFlow();
   const chosen = useSetupDraft((s) => s.currency);
   const chooseCurrency = useSetupDraft((s) => s.chooseCurrency);
-  const currency = chosen ?? suggestCurrency(getLocales()[0]?.currencyCode);
+  const region = useSetupDraft((s) => s.set?.region);
+  const currency = chosen ?? suggestCurrency(region, getLocales()[0]?.currencyCode);
   const selectedRef = useRef<ComponentRef<typeof View>>(null);
 
   return (

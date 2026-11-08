@@ -185,6 +185,39 @@ describe('Setup (BR-ACC-06)', () => {
     expect(screen.getByRole('radio', { name: new RegExp(expected.currency) })).toBeSelected();
   });
 
+  it.each([
+    { name: 'the euro for the EU', region: 'European Union', currency: 'Euro' },
+    { name: 'the device currency for "Other"', region: 'Other', currency: 'Japanese yen' },
+  ])('preselects $name, whatever the device region (BR-SET-03)', async ({ region, currency }) => {
+    await openSetup();
+    await press(region);
+    await press('Continue');
+    await screen.findByText('Your currency');
+    expect(screen.getByRole('radio', { name: new RegExp(currency) })).toBeSelected();
+  });
+
+  it('follows another region until the currency is picked, then keeps it (BR-SET-03)', async () => {
+    await openSetup();
+    await press('Continue');
+    await screen.findByText('Your currency');
+    expect(screen.getByRole('radio', { name: /Japanese yen/ })).toBeSelected();
+
+    await fireEvent.press(screen.getByLabelText('Back'));
+    await screen.findByText('Where do you live?');
+    await press('European Union');
+    await press('Continue');
+    await screen.findByText('Your currency');
+    expect(screen.getByRole('radio', { name: /Euro/ })).toBeSelected();
+
+    await press('Swedish krona');
+    await fireEvent.press(screen.getByLabelText('Back'));
+    await screen.findByText('Where do you live?');
+    await press('Japan');
+    await press('Continue');
+    await screen.findByText('Your currency');
+    expect(screen.getByRole('radio', { name: /Swedish krona/ })).toBeSelected();
+  });
+
   it('opens the currency step scrolled to the selected currency', async () => {
     // The selected row is 1200 points down a 2000-point list, in a 700-point viewport.
     jest.spyOn(ScrollView.prototype as never, 'getInnerViewRef').mockReturnValue({} as never);
@@ -211,12 +244,16 @@ describe('Setup (BR-ACC-06)', () => {
   it('zooms the map to the region chosen from the dropdown (BR-SET-06)', async () => {
     await openSetup();
     expect(screen.getByRole('image', { name: 'Map showing Japan' })).toBeOnTheScreen();
-    expect(screen.getByText('🍔 🏪')).toBeOnTheScreen();
+    // Each category it starts with, by emoji and name.
+    expect(screen.getByLabelText('🍔 Eat Out')).toBeOnTheScreen();
+    expect(screen.getByLabelText('🏪 Konbini')).toBeOnTheScreen();
 
     await press('European Union');
 
     expect(screen.getByRole('image', { name: 'Map showing European Union' })).toBeOnTheScreen();
     expect(screen.getByRole('radio', { name: 'European Union' })).toBeSelected();
+    expect(screen.getByLabelText('🥖 Bakery')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('🏪 Konbini')).toBeNull();
   });
 
   it('can’t continue past the region and currency steps without them (BR-ACC-06)', async () => {

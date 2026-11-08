@@ -141,6 +141,7 @@
       "title": "When does your period start?",
       "description": "Pick the day of the month your saving period starts, e.g. your payday.",
       "day": "Day {{day}}",
+      "today": "Day {{day}}, today",
       "current": "Your current period",
       "shortMonths": "In months without day {{day}}, the period starts on the month's last day."
     },

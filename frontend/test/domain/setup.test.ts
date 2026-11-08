@@ -22,11 +22,16 @@ describe('detectRegion (BR-SET-06)', () => {
 
 describe('suggestCurrency (BR-SET-03)', () => {
   it.each([
-    { name: 'the device currency when supported', deviceCurrency: 'JPY', expected: 'JPY' },
-    { name: 'USD for an unsupported currency', deviceCurrency: 'KRW', expected: 'USD' },
-    { name: 'USD when the device has none', deviceCurrency: null, expected: 'USD' },
-  ])('suggests $name', ({ deviceCurrency, expected }) => {
-    expect(suggestCurrency(deviceCurrency)).toBe(expected);
+    { name: 'JPY for Japan', region: 'jp', deviceCurrency: 'USD', expected: 'JPY' },
+    { name: 'USD for the United States', region: 'us', deviceCurrency: 'JPY', expected: 'USD' },
+    { name: 'the euro for the EU', region: 'eu', deviceCurrency: 'SEK', expected: 'EUR' },
+    { name: 'the device currency for "Other"', region: 'global', deviceCurrency: 'GBP', expected: 'GBP' },
+    { name: 'the device currency for an unknown region', region: 'kr', deviceCurrency: 'SGD', expected: 'SGD' },
+    { name: 'the device currency before a region', region: null, deviceCurrency: 'JPY', expected: 'JPY' },
+    { name: 'USD for "Other" and an unsupported currency', region: 'global', deviceCurrency: 'KRW', expected: 'USD' },
+    { name: 'USD for "Other" when the device has none', region: 'global', deviceCurrency: null, expected: 'USD' },
+  ])('suggests $name', ({ region, deviceCurrency, expected }) => {
+    expect(suggestCurrency(region, deviceCurrency)).toBe(expected);
   });
 });
 

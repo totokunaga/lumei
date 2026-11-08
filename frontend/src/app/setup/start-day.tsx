@@ -10,9 +10,9 @@ import { useSetupDraft } from '@/setup/draft';
 import { useSetupFlow } from '@/setup/navigation';
 
 /**
- * Renders the period start day step (BR-PER-01): a grid of the days 1–31 and
- * the current period the chosen day gives, labelled as the app labels periods
- * (BR-PER-06). For days 29–31 it says how shorter months are handled
+ * Renders the period start day step (BR-PER-01): a calendar of this month to
+ * pick the day from, today marked, and the current period the chosen day
+ * gives, labelled as the app labels periods (BR-PER-06). For days 29–31 it says how shorter months are handled
  * (BR-PER-02). Skipping keeps day 1, calendar months.
  */
 export default function StartDayStep() {
@@ -20,7 +20,8 @@ export default function StartDayStep() {
   const flow = useSetupFlow();
   const day = useSetupDraft((s) => s.periodStartDay);
   const setPeriodStartDay = useSetupDraft((s) => s.setPeriodStartDay);
-  const period = periodContaining(localToday(), day);
+  const today = localToday();
+  const period = periodContaining(today, day);
 
   return (
     <SetupStep
@@ -33,7 +34,7 @@ export default function StartDayStep() {
         flow.next('/setup/income');
       }}
     >
-      <DayGrid value={day} onChange={setPeriodStartDay} />
+      <DayGrid value={day} onChange={setPeriodStartDay} today={today} />
 
       <View className="gap-1 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
         <Text className="text-sm font-medium uppercase text-gray-500">

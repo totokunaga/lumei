@@ -3,7 +3,9 @@ import {
   formatPeriodName,
   formatPeriodRange,
   periodMonth,
-  isCalendarMonth, periodContaining, periodDays } from '@/domain/period';
+  periodContaining,
+  periodDays,
+} from '@/domain/period';
 import i18n from '@/i18n';
 
 jest.mock('expo-localization', () => ({ getLocales: () => [] }));
@@ -73,30 +75,16 @@ describe('periodDays (BR-CALC-01)', () => {
   });
 });
 
-describe('isCalendarMonth', () => {
-  it.each([
-    { name: 'a full month', period: { start: '2026-02-01', end: '2026-02-28' }, expected: true },
-    {
-      name: 'a shifted month',
-      period: { start: '2026-10-25', end: '2026-11-24' },
-      expected: false,
-    },
-    { name: 'a short month', period: { start: '2026-02-01', end: '2026-02-27' }, expected: false },
-  ])('is $expected for $name', ({ period, expected }) => {
-    expect(isCalendarMonth(period)).toBe(expected);
-  });
-});
-
 describe('formatPeriodLabel (BR-PER-06)', () => {
   const calendarMonth = { start: '2026-11-01', end: '2026-11-30' };
   const shifted = { start: '2026-10-25', end: '2026-11-24' };
 
   it.each([
-    { language: 'en', period: calendarMonth, expected: 'November 2026' },
+    { language: 'en', period: calendarMonth, expected: 'November 2026 (Nov 1 – Nov 30)' },
     { language: 'en', period: shifted, expected: 'November 2026 (Oct 25 – Nov 24)' },
-    { language: 'ja', period: calendarMonth, expected: '2026年11月' },
+    { language: 'ja', period: calendarMonth, expected: '2026年11月（11月1日～11月30日）' },
     { language: 'ja', period: shifted, expected: '2026年11月（10月25日～11月24日）' },
-    { language: 'fr', period: calendarMonth, expected: 'novembre 2026' },
+    { language: 'fr', period: calendarMonth, expected: 'novembre 2026 (1 nov. – 30 nov.)' },
     { language: 'fr', period: shifted, expected: 'novembre 2026 (25 oct. – 24 nov.)' },
   ])('labels $period.start – $period.end in $language', ({ language, period, expected }) => {
     expect(formatPeriodLabel(period, i18n.getFixedT(language), language)).toBe(expected);
