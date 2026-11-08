@@ -52,7 +52,18 @@
     "incomeLabel": "{{name}}, {{amount}}, {{when}}",
     "addIncome": "Ajouter un revenu",
     "chartCard": "Graphique",
-    "showCard": "Afficher : {{card}}"
+    "showCard": "Afficher : {{card}}",
+    "thisWeek": "Cette semaine",
+    "thisPeriod": "Cette période",
+    "remainingWeek_one": "Reste cette semaine ({{count}} jour)",
+    "remainingWeek_other": "Reste cette semaine ({{count}} jours)",
+    "remainingPeriod_one": "Reste sur la période ({{count}} jour)",
+    "remainingPeriod_other": "Reste sur la période ({{count}} jours)",
+    "spentWeek": "Dépensé cette semaine",
+    "weekAllowance": "Budget de la semaine",
+    "spentOfWeekAllowance": "Dépensé cette semaine / Budget de la semaine",
+    "spendingBudget": "Budget de dépenses",
+    "spentOfBudget": "Dépensé jusqu'ici / Budget de dépenses"
   },
   "account": {
     "title": "Compte",

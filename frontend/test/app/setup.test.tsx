@@ -121,8 +121,8 @@ describe('Setup (BR-ACC-06)', () => {
 
     await screen.findByLabelText('Add expense');
     expect(screen).toHavePathname('/');
-    await fireEvent.press(screen.getByLabelText('Period details'));
-    expect(screen.getByLabelText('Budget left: ¥420,808')).toBeOnTheScreen();
+    // The period's card leads with the budget left (BR-DSH-07).
+    expect(screen.getByLabelText(/^Remaining this period \(\d+ days?\): ¥420,808$/)).toBeOnTheScreen();
 
     const period = periodContaining(localToday(), 25);
     expect(records.readSettings(database())).toMatchObject({

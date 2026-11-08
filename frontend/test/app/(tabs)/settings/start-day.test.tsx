@@ -34,7 +34,7 @@ const openStartDay = async (prepare: () => void = () => {}) => {
   await renderRouter(routes, { initialUrl: '/settings' });
   prepare();
   await fireEvent.press(await screen.findByLabelText('Period start day, Day 25'));
-  await screen.findByText('This period');
+  await screen.findByText(/^Periods after the current one will start on this day/);
 };
 
 const save = () => screen.getByRole('button', { name: 'Save' });

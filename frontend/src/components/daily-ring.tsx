@@ -65,13 +65,41 @@ const circle = (() => {
   return builder.detach();
 })();
 
+/** What the ring and the amounts measure, e.g. today's spending against the daily allowance. */
+export interface AllowanceLabels {
+  /** e.g. "Spent today". */
+  spent: string;
+  /** e.g. "Daily allowance". */
+  allowance: string;
+  /** Both, as the amounts' heading, e.g. "Spent today / Daily allowance". */
+  heading: string;
+}
+
 /** Props of `DailyRing` and `DailyAmounts`. */
 interface DailyProps {
   spent: Minor;
   allowance: Minor;
   /** Formats an amount in the account currency, e.g. 2000 as "¥2,000". */
   money: (amount: Minor) => string;
+  /** What they measure; today's spending against the daily allowance when omitted. */
+  labels?: AllowanceLabels;
 }
+
+/**
+ * Names today's spending against the daily allowance (BR-DSH-01), which the
+ * ring and the amounts show unless given other labels.
+ * @returns The labels in the app language.
+ */
+const useLabels = (labels: AllowanceLabels | undefined): AllowanceLabels => {
+  const { t } = useTranslation();
+  return (
+    labels ?? {
+      spent: t('home.spentToday'),
+      allowance: t('home.allowance'),
+      heading: t('home.spentOfAllowance'),
+    }
+  );
+};
 
 /**
  * Works out how much of today's allowance is spent (BR-DSH-01).
@@ -94,7 +122,8 @@ const shareOf = (spent: Minor, allowance: Minor, locale: string) => {
 
 /**
  * Renders today's spending against the daily allowance as a ring
- * (BR-DSH-01): the arc fills clockwise from the top toward the allowance,
+ * (BR-DSH-01), or, given other labels, this week's against the weekly
+ * allowance or the period's against its budget (BR-DSH-07): the arc fills clockwise from the top toward the allowance,
  * with a dot at its end carrying a radar pulse, as the chart's today dot
  * does, and the share spent in its center. It is green below 65% of the
  * allowance, amber from 65%, and red from 80%. Over the allowance, or without
@@ -105,8 +134,9 @@ const shareOf = (spent: Minor, allowance: Minor, locale: string) => {
  * to screen readers, e.g. "Spent today: ¥2,000, Daily allowance: ¥6,000, 33%"
  * (BR-NFR-07).
  */
-export function DailyRing({ spent, allowance, money }: DailyProps) {
+export function DailyRing({ spent, allowance, money, labels }: DailyProps) {
   const { t, i18n } = useTranslation();
+  const names = useLabels(labels);
   const colors = COLORS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const reduceMotion = useReduceMotion();
   const focused = useScreenFocused();
@@ -149,8 +179,8 @@ export function DailyRing({ spent, allowance, money }: DailyProps) {
     <View
       accessible
       accessibilityLabel={`${t('home.pair', {
-        first: t('home.labelled', { label: t('home.spentToday'), value: money(spent) }),
-        second: t('home.labelled', { label: t('home.allowance'), value: money(allowance) }),
+        first: t('home.labelled', { label: names.spent, value: money(spent) }),
+        second: t('home.labelled', { label: names.allowance, value: money(allowance) }),
       })}, ${share.text}`}
       style={{ width: SIZE, height: SIZE }}
       className="items-center justify-center"
@@ -199,8 +229,8 @@ export function DailyRing({ spent, allowance, money }: DailyProps) {
  * its new value; spent today turns red over the allowance (BR-DSH-02).
  * Screen readers skip it: `DailyRing` reads both amounts.
  */
-export function DailyAmounts({ spent, allowance, money }: DailyProps) {
-  const { t } = useTranslation();
+export function DailyAmounts({ spent, allowance, money, labels }: DailyProps) {
+  const names = useLabels(labels);
   const use = allowanceUse(spent, allowance);
   return (
     <View
@@ -208,7 +238,7 @@ export function DailyAmounts({ spent, allowance, money }: DailyProps) {
       importantForAccessibility="no-hide-descendants"
       className="gap-0.5"
     >
-      <Text className="text-sm text-gray-600 dark:text-gray-400">{t('home.spentOfAllowance')}</Text>
+      <Text className="text-sm text-gray-600 dark:text-gray-400">{names.heading}</Text>
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit

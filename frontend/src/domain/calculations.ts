@@ -1,7 +1,7 @@
-// The calculations of the business requirements (BR-CALC-01 to BR-CALC-08).
+// The calculations of the business requirements (BR-CALC-01 to BR-CALC-10).
 // They run on the device, so today's status and the chart work offline
 // (BR-OFF-02).
-import { addDays, daysBetween, type IsoDate } from '@/domain/date';
+import { addDays, daysBetween, type IsoDate, toUtcDate } from '@/domain/date';
 import { Fraction } from '@/domain/fraction';
 import type { Minor } from '@/domain/money';
 import { inPeriod, periodDays, type Period } from '@/domain/period';
@@ -139,6 +139,97 @@ export const todayStatus = (records: PeriodRecords, today: IsoDate): TodayStatus
   };
 };
 
+/** This week's numbers for the home screen (BR-CALC-10, BR-DSH-07). */
+export interface WeekStatus {
+  /** The week's first day in the period: its Monday, or the period's start if later. */
+  start: IsoDate;
+  /** The week's last day in the period: its Sunday, or the period's end if earlier. */
+  end: IsoDate;
+  /** The week's days in the period, 1–7: fewer than 7 in a week the period cuts short. */
+  days: number;
+  /** The week's days from today to its end, today included: 1 on its last day. */
+  daysLeft: number;
+  /**
+   * How much the user can spend this week and stay on track. Fixed for the
+   * week: the week's expenses lower `remaining`, not this. 0 while the period
+   * is overspent.
+   */
+  allowance: Minor;
+  /** The week's expenses so far, big purchases excluded. */
+  spent: Minor;
+  /** `allowance − spent`, negative when the week is overspent; null while the period is overspent. */
+  remaining: Minor | null;
+  /** As in `TodayStatus`: how far every expense in the period is over the budget, or 0. */
+  periodOverspend: Minor;
+}
+
+/**
+ * Finds the Monday–Sunday week containing a day, cut to the period
+ * (BR-CALC-10).
+ * @returns The week's first and last days in the period, e.g. Oct 26 – Nov 1
+ *   for Oct 29, 2026, or Oct 25 – Oct 25 for a period starting on Sunday Oct 25.
+ */
+export const weekIn = (period: Period, day: IsoDate): { start: IsoDate; end: IsoDate } => {
+  // getUTCDay is 0 for Sunday, so Monday is 6 days back from Sunday.
+  const monday = addDays(day, -((toUtcDate(day).getUTCDay() + 6) % 7));
+  const sunday = addDays(monday, 6);
+  return {
+    start: monday < period.start ? period.start : monday,
+    end: sunday > period.end ? period.end : sunday,
+  };
+};
+
+/**
+ * Works out this week's numbers for the home screen (BR-CALC-10, BR-DSH-07):
+ * the weekly allowance, what was spent this week, and what is left. The
+ * allowance is set as the daily allowance is (BR-CALC-03), from the week's
+ * first day: what the budget leaves after big purchases and the expenses
+ * before the week, shared over the days left from that day, times the week's
+ * days. It is rounded down to the minor unit.
+ * @returns This week's status; see `WeekStatus` for each field.
+ * @throws RangeError if today is outside the period.
+ */
+export const weekStatus = (records: PeriodRecords, today: IsoDate): WeekStatus => {
+  daysLeft(records.period, today);
+  const { start, end } = weekIn(records.period, today);
+  const days = daysBetween(start, end) + 1;
+  const left = daysBetween(today, end) + 1;
+  const expenses = expensesIn(records);
+  const bigPurchases = sum(expenses.filter((e) => e.isBigPurchase).map((e) => e.amount));
+  const others = expenses.filter((e) => !e.isBigPurchase);
+  const spentBefore = sum(others.filter((e) => e.date < start).map((e) => e.amount));
+  const spent = sum(others.filter((e) => e.date >= start && e.date <= end).map((e) => e.amount));
+
+  const available = spendingBudget(records, today) - bigPurchases - spentBefore;
+  // Expenses can't be dated after today (BR-EXP-02), so this is every expense in the period.
+  const periodOverspend = Math.max(0, spent - available);
+  if (periodOverspend > 0) {
+    return {
+      start,
+      end,
+      days,
+      daysLeft: left,
+      allowance: 0,
+      spent,
+      remaining: null,
+      periodOverspend,
+    };
+  }
+  const daysFromStart = daysBetween(start, records.period.end) + 1;
+  // Integer division, so the allowance is exact and rounded down to the minor unit.
+  const allowance = Number((BigInt(available) * BigInt(days)) / BigInt(daysFromStart));
+  return {
+    start,
+    end,
+    days,
+    daysLeft: left,
+    allowance,
+    spent,
+    remaining: allowance - spent,
+    periodOverspend: 0,
+  };
+};
+
 export interface PeriodResult {
   /**
    * Planned and extra income − fixed expenses − every expense, big purchases
@@ -171,6 +262,8 @@ export interface PeriodSummary {
   fixedExpenses: Minor;
   bigPurchases: Minor;
   savingTarget: Minor;
+  /** The spending budget as of today (BR-CALC-02), which the period card measures spending against. */
+  budget: Minor;
   /** Every expense in the period so far, big purchases included (BR-CALC-08). */
   spentToDate: Minor;
   /** `budget − spentToDate`, negative once the period is overspent (BR-CALC-08). */
@@ -188,14 +281,16 @@ export interface PeriodSummary {
 export const periodSummary = (records: PeriodRecords, today: IsoDate): PeriodSummary => {
   const expenses = expensesIn(records);
   const spentToDate = sum(expenses.map((e) => e.amount));
+  const budget = spendingBudget(records, today);
   return {
+    budget,
     income: sum(records.income),
     extraIncome: extraIncomeBy(records, today),
     fixedExpenses: sum(records.fixedExpenses),
     bigPurchases: sum(expenses.filter((e) => e.isBigPurchase).map((e) => e.amount)),
     savingTarget: records.savingTarget,
     spentToDate,
-    budgetLeft: spendingBudget(records, today) - spentToDate,
+    budgetLeft: budget - spentToDate,
     daysLeft: daysLeft(records.period, today),
   };
 };

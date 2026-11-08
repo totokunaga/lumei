@@ -56,7 +56,8 @@ const renderHome = () =>
 const expectShown = (label: string, value: string) => {
   // Spent today and the daily allowance read as one element: "Spent today: ¥0, Daily allowance: ¥9,375".
   const text = `${label}: ${value}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  expect(screen.getByLabelText(new RegExp(`(^|, )${text}(,|$)`))).toBeOnTheScreen();
+  // A number can show twice, e.g. spending to date on the period card and in its summary.
+  expect(screen.getAllByLabelText(new RegExp(`(^|, )${text}(,|$)`))[0]).toBeOnTheScreen();
 };
 
 describe('HomeScreen', () => {
@@ -132,27 +133,57 @@ describe('HomeScreen', () => {
     expect(screen.queryByLabelText('Next period')).toBeNull();
   });
 
-  it('shows only today’s numbers until the card is expanded, budget left included (BR-DSH-03)', async () => {
+  it('shows today, this week, and the period side by side, the period expanding to its summary (BR-DSH-03, BR-DSH-07)', async () => {
     await finishedSetup();
+    await savedExpenses([
+      { amount: 3_000, date: '2026-11-08' },
+      { amount: 1_000, date: '2026-11-10' },
+      { amount: 2_000, date: '2026-11-15' },
+    ]);
     await openUserDatabase(testUser.id);
+    const errors = jest.spyOn(console, 'error');
     await renderHome();
-    const toggle = screen.getByRole('button', { name: 'Period details' });
+    // The cards' pager and the chart's are siblings, so their keys must differ.
+    const messages = errors.mock.calls.map((call) => call.map(String).join(' '));
+    expect(messages.filter((message) => message.includes('same key'))).toEqual([]);
+    errors.mockRestore();
 
-    expectShown('Remaining today', '¥9,375');
-    expectShown('Spent today', '¥0');
-    expect(screen.queryByLabelText(/^Budget left/)).toBeNull();
+    // Each hero says how many days are left, today included; Nov 15, 2026 is the week's Sunday.
+    expect(screen.queryByRole('header', { name: /^This week/ })).toBeNull();
+    // (150,000 − 3,000 before Monday) × 7 / 22 days from Monday = 46,772.7…; ¥3,000 spent since.
+    expectShown('Remaining this week (1 day)', '¥43,772');
+    expectShown('Spent this week', '¥3,000');
+    expectShown('Weekly allowance', '¥46,772');
+    expectShown('Remaining this period (16 days)', '¥144,000');
+    expectShown('Spending budget', '¥150,000');
+    // Its dots switch between them, today first.
+    expect(screen.getByRole('button', { name: 'Show Today' })).toBeSelected();
+
+    const toggle = screen.getByRole('button', { name: 'Period details' });
     expect(screen.queryByText('Planned income')).toBeNull();
     expect(toggle).not.toBeExpanded();
 
     await fireEvent.press(toggle);
     expectShown('Planned income', '¥300,000');
-    expectShown('Budget left', '¥150,000');
     expect(toggle).toBeExpanded();
 
     // Tapping anywhere on the card collapses it too.
-    await fireEvent.press(screen.getByText('Remaining today'));
+    await fireEvent.press(screen.getByText('Remaining this period (16 days)'));
     expect(screen.queryByText('Planned income')).toBeNull();
     expect(toggle).not.toBeExpanded();
+  });
+
+  it('collapses the period’s summary when another card is shown (BR-DSH-03)', async () => {
+    await finishedSetup();
+    await openUserDatabase(testUser.id);
+    await renderHome();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Show This period' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Period details' }));
+    expectShown('Planned income', '¥300,000');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Show Today' }));
+    expect(screen.queryByText('Planned income')).toBeNull();
   });
 
   it('updates as soon as an expense is saved (BR-DSH-04, BR-NFR-04)', async () => {
@@ -200,7 +231,7 @@ describe('HomeScreen', () => {
     const dayHeadings = screen
       .getAllByRole('header')
       .map((h) => h.props.accessibilityLabel)
-      .filter((label) => label && !label.startsWith('Spending by category'));
+      .filter((label) => label?.endsWith('in total') && !label.startsWith('Spending by category'));
     expect(dayHeadings).toEqual([
       'Today: ¥2,000 in total',
       'Yesterday: ¥800 in total',

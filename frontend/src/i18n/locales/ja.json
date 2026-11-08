@@ -52,7 +52,18 @@
     "incomeLabel": "{{name}}、{{amount}}、{{when}}",
     "addIncome": "収入を追加",
     "chartCard": "グラフ",
-    "showCard": "{{card}}を表示"
+    "showCard": "{{card}}を表示",
+    "thisWeek": "今週",
+    "thisPeriod": "今期",
+    "remainingWeek_one": "今週の残り（あと{{count}}日）",
+    "remainingWeek_other": "今週の残り（あと{{count}}日）",
+    "remainingPeriod_one": "今期の残り（あと{{count}}日）",
+    "remainingPeriod_other": "今期の残り（あと{{count}}日）",
+    "spentWeek": "今週の支出",
+    "weekAllowance": "1週間の予算",
+    "spentOfWeekAllowance": "今週の支出 / 1週間の予算",
+    "spendingBudget": "使える予算",
+    "spentOfBudget": "これまでの支出 / 使える予算"
   },
   "account": {
     "title": "アカウント",

@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -29,6 +29,15 @@ export interface CardPage {
 /** Props of `CardPager`. */
 interface CardPagerProps {
   pages: CardPage[];
+  /**
+   * How tall the cards are: `first`, the first card's height, which a later
+   * card fills, scrolling its own content if needed; or `tallest`, the
+   * tallest card's, which every card stretches to, e.g. as one expands.
+   * `first` when omitted.
+   */
+  height?: 'first' | 'tallest';
+  /** Hears which card is in view, by index, after a swipe or a dot's press. */
+  onPageChange?: (index: number) => void;
 }
 
 /**
@@ -37,11 +46,12 @@ interface CardPagerProps {
  * swiping left shows the next, which snaps into place. The cards scroll from
  * the screen's edges and line up with the list's padding. Every card takes
  * the first one's height, which follows the screen's size; a later card fills
- * it, scrolling its own content if needed. Dots under them show which card is in view, and the
+ * it, scrolling its own content if needed. With `height="tallest"`, they take
+ * the tallest card's instead. Dots under them show which card is in view, and the
  * active one's fill follows the swipe; each dot is a button that shows its
  * card, so screen readers can switch too.
  */
-export function CardPager({ pages }: CardPagerProps) {
+export function CardPager({ pages, height: sizing = 'first', onPageChange }: CardPagerProps) {
   const { t } = useTranslation();
   const reduceMotion = useReduceMotion();
   // The screen's width less the list's padding until the pager is laid out.
@@ -53,6 +63,11 @@ export function CardPager({ pages }: CardPagerProps) {
   const scroller = useAnimatedRef<Animated.ScrollView>();
   const offset = useSharedValue(0);
   const step = width + GAP;
+  useEffect(() => {
+    onPageChange?.(current);
+    // Only a change of card is news; a new callback each render isn't.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
 
   const onScroll = useAnimatedScrollHandler((event) => {
     offset.set(event.contentOffset.x);
@@ -79,10 +94,18 @@ export function CardPager({ pages }: CardPagerProps) {
           step > 0 && setCurrent(Math.round(event.nativeEvent.contentOffset.x / step))
         }
         style={{ marginHorizontal: -SIDE }}
-        contentContainerStyle={{ paddingHorizontal: SIDE, gap: GAP, alignItems: 'flex-start' }}
+        contentContainerStyle={{
+          paddingHorizontal: SIDE,
+          gap: GAP,
+          alignItems: sizing === 'tallest' ? 'stretch' : 'flex-start',
+        }}
       >
         {pages.map((page, index) =>
-          index === 0 ? (
+          sizing === 'tallest' ? (
+            <View key={page.key} style={{ width }}>
+              {page.card}
+            </View>
+          ) : index === 0 ? (
             // The first card sets the height, so it is laid out at its own.
             <View
               key={page.key}

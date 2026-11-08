@@ -5,6 +5,8 @@ import {
   progressChart,
   spendingBudget,
   todayStatus,
+  weekIn,
+  weekStatus,
   type BigPurchaseSpread,
   type Expense,
   type PeriodRecords,
@@ -233,6 +235,126 @@ describe('periodResult (BR-CALC-07)', () => {
   });
 });
 
+describe('weekIn (BR-CALC-10)', () => {
+  const period = { start: '2026-10-25', end: '2026-11-24' };
+
+  it.each([
+    { name: 'Monday to Sunday', day: '2026-10-29', start: '2026-10-26', end: '2026-11-01' },
+    { name: 'the same week on its Monday', day: '2026-10-26', start: '2026-10-26', end: '2026-11-01' },
+    { name: 'the same week on its Sunday', day: '2026-11-01', start: '2026-10-26', end: '2026-11-01' },
+    { name: 'a first week cut to the period’s start', day: '2026-10-25', start: '2026-10-25', end: '2026-10-25' },
+    { name: 'a last week cut to the period’s end', day: '2026-11-24', start: '2026-11-23', end: '2026-11-24' },
+  ])('finds $name', ({ day, start, end }) => {
+    expect(weekIn(period, day)).toEqual({ start, end });
+  });
+});
+
+describe('weekStatus (BR-CALC-10)', () => {
+  it.each([
+    {
+      // (170,231 − 28,000 big purchase − 3,000 on Oct 25) × 7 / 30 days from Oct 26 = 32,487.2…
+      name: 'the worked example’s week, its expenses so far against an allowance set on Monday',
+      records: workedExample,
+      date: today,
+      expected: {
+        start: '2026-10-26',
+        end: '2026-11-01',
+        days: 7,
+        daysLeft: 4,
+        allowance: 32_487,
+        spent: 12_007,
+        remaining: 20_480,
+        periodOverspend: 0,
+      },
+    },
+    {
+      // The period starts on a Sunday, so its first week is that day alone: (170,231 − 28,000) / 31.
+      name: 'a first week of one day, the period’s start on a Sunday',
+      records: workedExample,
+      date: '2026-10-25',
+      expected: {
+        start: '2026-10-25',
+        end: '2026-10-25',
+        days: 1,
+        daysLeft: 1,
+        allowance: 4_588,
+        spent: 3_000,
+        remaining: 1_588,
+        periodOverspend: 0,
+      },
+    },
+    {
+      // Nov 9 – Nov 10: 10,000 − 1,000 before the week, over 2 days, for 2 days.
+      name: 'a last week of two days, the period’s end on a Tuesday',
+      records: usd([expense('2026-11-02', 1_000), expense('2026-11-09', 300)]),
+      date: '2026-11-10',
+      expected: {
+        start: '2026-11-09',
+        end: '2026-11-10',
+        days: 2,
+        daysLeft: 1,
+        allowance: 9_000,
+        spent: 300,
+        remaining: 8_700,
+        periodOverspend: 0,
+      },
+    },
+    {
+      // Nov 2 – Nov 8, from Monday: 10,000 × 7 / 9 days = 7,777.7…, rounded down.
+      name: 'an allowance rounded down to the minor unit',
+      records: usd([]),
+      date: '2026-11-04',
+      expected: {
+        start: '2026-11-02',
+        end: '2026-11-08',
+        days: 7,
+        daysLeft: 5,
+        allowance: 7_777,
+        spent: 0,
+        remaining: 7_777,
+        periodOverspend: 0,
+      },
+    },
+    {
+      // A big purchase during the week lowers the allowance; it isn't spent this week.
+      name: 'a big purchase this week, which lowers the allowance but not spent this week',
+      records: usd([expense('2026-11-03', 4_500, true), expense('2026-11-04', 500)]),
+      date: '2026-11-04',
+      expected: {
+        start: '2026-11-02',
+        end: '2026-11-08',
+        days: 7,
+        daysLeft: 5,
+        allowance: 4_277,
+        spent: 500,
+        remaining: 3_777,
+        periodOverspend: 0,
+      },
+    },
+    {
+      name: 'an overspent period: no allowance, and the overspend',
+      records: usd([expense('2026-11-01', 6_000, true), expense('2026-11-03', 4_500)]),
+      date: '2026-11-03',
+      expected: {
+        start: '2026-11-02',
+        end: '2026-11-08',
+        days: 7,
+        daysLeft: 6,
+        allowance: 0,
+        spent: 4_500,
+        remaining: null,
+        periodOverspend: 500,
+      },
+    },
+  ])('returns $name', ({ records, date, expected }) => {
+    expect(weekStatus(records, date)).toEqual(expected);
+  });
+
+  it('rejects a day outside the period', () => {
+    expect(() => weekStatus(usd([]), '2026-11-11')).toThrow(RangeError);
+  });
+});
+
 describe('periodSummary (BR-CALC-08, BR-DSH-03)', () => {
   it.each([
     {
@@ -245,6 +367,7 @@ describe('periodSummary (BR-CALC-08, BR-DSH-03)', () => {
         fixedExpenses: 70_577,
         bigPurchases: 28_000,
         savingTarget: 400_000,
+        budget: 170_231,
         spentToDate: 43_007,
         budgetLeft: 127_224,
         daysLeft: 27,

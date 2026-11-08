@@ -19,7 +19,7 @@ import { QuickAddButton } from '@/components/quick-add-button';
 import { ResultCard } from '@/components/result-card';
 
 import type { EditableItem } from '@/components/summary-rows';
-import { TodayCard } from '@/components/today-card';
+import { PeriodCard, TodayCard, WeekCard } from '@/components/status-cards';
 import { useDataVersion } from '@/db/changes';
 import { database } from '@/db/client';
 import {
@@ -40,6 +40,7 @@ import {
   periodSummary,
   progressChart,
   todayStatus,
+  weekStatus,
 } from '@/domain/calculations';
 import type { IsoDate } from '@/domain/date';
 import { formatDayHeading, groupByDay, todayUse } from '@/domain/expense';
@@ -57,7 +58,8 @@ import { TAB_BAR_CLEARANCE } from '@/lib/layout';
  * Renders the home screen, the Home tab. Its title names the period shown
  * (BR-PER-06), with arrows to the previous and next periods where there are
  * any (BR-HIS-01). For the current period: today's numbers (BR-DSH-01,
- * BR-DSH-02) in a card that expands to the period summary (BR-DSH-03), and
+ * BR-DSH-02), with this week's and the period's a swipe to the left
+ * (BR-DSH-07), the period's card expanding to its summary (BR-DSH-03), and
  * the button that records an expense (BR-EXP-09). For a past period: its
  * result (BR-HIS-02) as it stood at its end, editable (BR-HIS-03). Under
  * either, the chart (BR-CHT-01) and, swiped to beside it, the period's
@@ -78,6 +80,8 @@ export default function HomeScreen() {
   const [shownDay, setShownDay] = useState<IsoDate | null>(null);
   // Which list shows under the card; expenses first (BR-DSH-06).
   const [list, setList] = useState<'expenses' | 'income'>('expenses');
+  // Whether the period's card shows its summary; showing another card collapses it (BR-DSH-03).
+  const [periodExpanded, setPeriodExpanded] = useState(false);
   // The expense list's filter (BR-EXP-10), for the period it was chosen in.
   const [chosenFilter, setChosenFilter] = useState<{
     periodId: string | null;
@@ -103,6 +107,7 @@ export default function HomeScreen() {
       extraIncome: readPeriodExtraIncome(db, day),
       plannedIncome: period ? (readPeriodItems(db, period.id)?.incomes ?? []) : [],
       status: records && current ? todayStatus(records, today) : null,
+      week: records && current ? weekStatus(records, today) : null,
       // A past period's totals as they stood at its end (BR-HIS-01).
       summary: records && periodSummary(records, current ? today : records.period.end),
       result: records && !current ? periodResult(records) : null,
@@ -215,8 +220,38 @@ export default function HomeScreen() {
 
       {data.records && data.summary ? (
         <>
-          {data.status ? (
-            <TodayCard status={data.status} summary={data.summary} money={money} onEdit={edit} />
+          {data.status && data.week ? (
+            // Keyed by period, so another period starts on today again.
+            <CardPager
+              key={`status-${data.period?.id}`}
+              height="tallest"
+              onPageChange={(page) => page !== 2 && setPeriodExpanded(false)}
+              pages={[
+                {
+                  key: 'today',
+                  label: t('home.today'),
+                  card: <TodayCard status={data.status} money={money} />,
+                },
+                {
+                  key: 'week',
+                  label: t('home.thisWeek'),
+                  card: <WeekCard status={data.week} period={data.records.period} money={money} />,
+                },
+                {
+                  key: 'period',
+                  label: t('home.thisPeriod'),
+                  card: (
+                    <PeriodCard
+                      summary={data.summary}
+                      money={money}
+                      onEdit={edit}
+                      expanded={periodExpanded}
+                      onToggle={() => setPeriodExpanded((open) => !open)}
+                    />
+                  ),
+                },
+              ]}
+            />
           ) : (
             data.result && (
               <ResultCard result={data.result} summary={data.summary} money={money} onEdit={edit} />
@@ -226,7 +261,7 @@ export default function HomeScreen() {
             (data.spending.categories.length > 0 ? (
               // Keyed by period, so another period starts on the chart again.
               <CardPager
-                key={data.period?.id}
+                key={`chart-${data.period?.id}`}
                 pages={[
                   {
                     key: 'chart',

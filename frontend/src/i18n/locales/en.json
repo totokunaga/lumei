@@ -52,7 +52,18 @@
     "incomeLabel": "{{name}}, {{amount}}, {{when}}",
     "addIncome": "Add income",
     "chartCard": "Chart",
-    "showCard": "Show {{card}}"
+    "showCard": "Show {{card}}",
+    "thisWeek": "This week",
+    "thisPeriod": "This period",
+    "remainingWeek_one": "Remaining this week ({{count}} day)",
+    "remainingWeek_other": "Remaining this week ({{count}} days)",
+    "remainingPeriod_one": "Remaining this period ({{count}} day)",
+    "remainingPeriod_other": "Remaining this period ({{count}} days)",
+    "spentWeek": "Spent this week",
+    "weekAllowance": "Weekly allowance",
+    "spentOfWeekAllowance": "Spent this week / Weekly allowance",
+    "spendingBudget": "Spending budget",
+    "spentOfBudget": "Spent so far / Spending budget"
   },
   "account": {
     "title": "Account",
