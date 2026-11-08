@@ -33,17 +33,27 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
       status: "¥3,000 over today's spending limit",
       label: "Spent ¥33,000 so far. ¥3,000 over today's spending limit.",
     },
-  ])('says how far today is from the limit: $name (BR-CHT-02)', async ({ spent, status, label }) => {
-    await render(<ProgressChart chart={progressChart(records(spent), '2026-11-03', 'daysLeft')} money={money} />);
+  ])(
+    'says how far today is from the limit: $name (BR-CHT-02)',
+    async ({ spent, status, label }) => {
+      await render(
+        <ProgressChart
+          chart={progressChart(records(spent), '2026-11-03', 'daysLeft')}
+          money={money}
+        />,
+      );
 
-    expect(screen.getByText(status)).toBeOnTheScreen();
-    // One sentence for screen readers (BR-NFR-07).
-    expect(screen.getByLabelText(label)).toBeOnTheScreen();
-  });
+      expect(screen.getByText(status)).toBeOnTheScreen();
+      // One sentence for screen readers (BR-NFR-07).
+      expect(screen.getByLabelText(label)).toBeOnTheScreen();
+    },
+  );
 
   /** Renders the chart on a day, laid out 300 points wide. */
   const renderOn = async (today: string, spent = 1_000) => {
-    await render(<ProgressChart chart={progressChart(records(spent), today, 'daysLeft')} money={money} />);
+    await render(
+      <ProgressChart chart={progressChart(records(spent), today, 'daysLeft')} money={money} />,
+    );
     await fireEvent(screen.getByTestId('chart-plot'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 150 } },
     });
@@ -56,7 +66,12 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
     { name: 'red over it', spent: 30_001, color: 'text-red-600' },
   ])('colors the heading $name', async ({ spent, color }) => {
     // The limit by Nov 3 is ¥30,000.
-    await render(<ProgressChart chart={progressChart(records(spent), '2026-11-03', 'daysLeft')} money={money} />);
+    await render(
+      <ProgressChart
+        chart={progressChart(records(spent), '2026-11-03', 'daysLeft')}
+        money={money}
+      />,
+    );
 
     expect(screen.getByText(/today's spending limit$/)).toHaveProp(
       'className',
@@ -66,7 +81,11 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
 
   it('says the same for a past period, as of its end', async () => {
     await render(
-      <ProgressChart chart={progressChart(records(88_000), '2026-11-10', 'daysLeft')} money={money} ended />,
+      <ProgressChart
+        chart={progressChart(records(88_000), '2026-11-10', 'daysLeft')}
+        money={money}
+        ended
+      />,
     );
 
     expect(screen.getByText("¥12,000 under the period's spending limit")).toBeOnTheScreen();
@@ -81,9 +100,21 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
   });
 
   it.each([
-    { name: 'between the first and last days, which show too', today: '2026-11-05', dates: ['Nov 1', 'Nov 5', 'Nov 10'] },
-    { name: 'instead of the first day, next to it', today: '2026-11-01', dates: ['Nov 1', 'Nov 10'] },
-    { name: 'instead of the last day, next to it', today: '2026-11-10', dates: ['Nov 1', 'Nov 10'] },
+    {
+      name: 'between the first and last days, which show too',
+      today: '2026-11-05',
+      dates: ['Nov 1', 'Nov 5', 'Nov 10'],
+    },
+    {
+      name: 'instead of the first day, next to it',
+      today: '2026-11-01',
+      dates: ['Nov 1', 'Nov 10'],
+    },
+    {
+      name: 'instead of the last day, next to it',
+      today: '2026-11-10',
+      dates: ['Nov 1', 'Nov 10'],
+    },
   ])('puts today’s date on the date axis $name', async ({ today, dates }) => {
     await renderOn(today);
 
@@ -96,6 +127,73 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
     await renderOn('2026-11-05', 21_600);
 
     expect(screen.getByText('¥21,600')).toBeOnTheScreen();
+  });
+});
+
+describe('ProgressChart’s recent days (BR-CHT-06)', () => {
+  beforeAll(() => i18n.changeLanguage('en'));
+
+  /** Renders the chart on a day, laid out 300 points wide. */
+  const renderChart = async (today: string, ended = false) => {
+    const result = await render(
+      <ProgressChart
+        chart={progressChart(records(1_000), today, 'daysLeft')}
+        money={money}
+        ended={ended}
+      />,
+    );
+    await fireEvent(screen.getByTestId('chart-plot'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 150 } },
+    });
+    return result;
+  };
+
+  it.each([
+    {
+      name: 'the 5 days ending today',
+      today: '2026-11-08',
+      dates: ['Nov 4', 'Nov 5', 'Nov 6', 'Nov 7', 'Nov 8'],
+    },
+    {
+      name: 'the first 5 days early in the period',
+      today: '2026-11-02',
+      dates: ['Nov 1', 'Nov 2', 'Nov 3', 'Nov 4', 'Nov 5'],
+    },
+  ])('shows $name, each under its date', async ({ today, dates }) => {
+    await renderChart(today);
+    expect(screen.getByRole('button', { name: 'Show the whole period' })).toBeSelected();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Show the last 5 days' }));
+
+    expect(screen.getByRole('button', { name: 'Show the last 5 days' })).toBeSelected();
+    for (const date of dates) {
+      expect(screen.getByText(date)).toBeOnTheScreen();
+    }
+    expect(screen.queryByText('Nov 10')).toBeNull();
+  });
+
+  it('remembers the chosen view for the next time', async () => {
+    const { unmount } = await renderChart('2026-11-08');
+    await fireEvent.press(screen.getByRole('button', { name: 'Show the last 5 days' }));
+    await unmount();
+
+    await renderChart('2026-11-08');
+
+    expect(screen.getByText('Nov 4')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Show the whole period' }));
+    expect(screen.queryByText('Nov 4')).toBeNull();
+    expect(screen.getByText('Nov 1')).toBeOnTheScreen();
+  });
+
+  it('offers no switch for a past period, which shows whole', async () => {
+    const { unmount } = await renderChart('2026-11-08');
+    await fireEvent.press(screen.getByRole('button', { name: 'Show the last 5 days' }));
+    await unmount();
+
+    await renderChart('2026-11-10', true);
+
+    expect(screen.queryByRole('button', { name: 'Show the last 5 days' })).toBeNull();
+    expect(screen.getByText('Nov 1')).toBeOnTheScreen();
   });
 });
 

@@ -16,6 +16,7 @@ make lint            # golangci-lint v2 (lint-fix to auto-fix)
 make generate        # typespec → oapi-codegen → wire → mockgen
 make migrate-create NAME=<name>  # New migration pair from migration/template.*.sql
 make migrate-up      # Apply migrations to the dev database (also migrate-down, migrate-status, migrate-validate)
+make seed-expenses EMAIL=<email>  # Dev only: fill the user's current period until yesterday with random expenses under the spending limit (ARGS="-dry-run -seed 42")
 make help            # Every target
 ```
 

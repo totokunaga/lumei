@@ -1,4 +1,4 @@
-.PHONY: help up up-d up-deps up-migrate up-build down build logs ps clean wire typespec oapi-codegen mockgen generate lint lint-fix build-bin run tidy env test test-down migrate-create migrate-up migrate-down migrate-down-all migrate-status migrate-validate migrate-dry-run
+.PHONY: help up up-d up-deps up-migrate up-build down build logs ps clean wire typespec oapi-codegen mockgen generate lint lint-fix build-bin run tidy env test test-down migrate-create migrate-up migrate-down migrate-down-all migrate-status migrate-validate migrate-dry-run seed-expenses
 
 # Environment file consumed by dotenvx. Override with `make run ENV_FILE=.env.other`.
 ENV_FILE ?= .env.dev
@@ -93,6 +93,10 @@ build-bin: ## Build the server binary
 
 run: ## Run the server on the host against the compose database (run `make up-d` first)
 	RDB_USER=$(RDB_USER) RDB_PASSWORD=$(RDB_PASSWORD) $(DOTENVX_RUN) go run ./cmd
+
+seed-expenses: ## Fill the current period until yesterday with random expenses (EMAIL=<email>, ARGS="-dry-run -seed 42")
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required. Usage: make seed-expenses EMAIL=you@example.com"; exit 1; fi
+	RDB_USER=$(RDB_USER) RDB_PASSWORD=$(RDB_PASSWORD) $(DOTENVX_RUN) go run ./cmd/seed-expenses -email "$(EMAIL)" $(ARGS)
 
 tidy: ## Tidy go.mod/go.sum
 	go mod tidy

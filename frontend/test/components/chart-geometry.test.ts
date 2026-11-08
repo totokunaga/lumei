@@ -1,4 +1,4 @@
-import { chartGeometry } from '@/components/chart-geometry';
+import { chartGeometry, recentDays } from '@/components/chart-geometry';
 import { type PeriodRecords, progressChart } from '@/domain/calculations';
 
 // A USD period of 4 days with a budget of $100.00: Nov 1 – Nov 4, today Nov 2.
@@ -72,5 +72,44 @@ describe('chartGeometry (BR-CHT-01 to BR-CHT-03)', () => {
     expect(chartGeometry(progressChart(records, '2026-11-02', 'daysLeft'), 0, 112).x).toEqual([
       0, 0, 0, 0,
     ]);
+  });
+});
+
+describe('recentDays (BR-CHT-06)', () => {
+  // A 10-day period, Nov 1 – Nov 10, with a budget of $100.00.
+  const period: PeriodRecords = { ...records, period: { start: '2026-11-01', end: '2026-11-10' } };
+
+  it.each([
+    { name: 'the 5 days ending today', today: '2026-11-08', from: '2026-11-04', to: '2026-11-08' },
+    {
+      name: 'the first 5 days on day 2, the limit after today',
+      today: '2026-11-02',
+      from: '2026-11-01',
+      to: '2026-11-05',
+    },
+    {
+      name: 'the last 5 days on the last day',
+      today: '2026-11-10',
+      from: '2026-11-06',
+      to: '2026-11-10',
+    },
+  ])('keeps $name', ({ today, from, to }) => {
+    const days = recentDays(progressChart(period, today, 'daysLeft')).days;
+
+    expect(days).toHaveLength(5);
+    expect(days[0].date).toBe(from);
+    expect(days[4].date).toBe(to);
+  });
+
+  it('fits the amount axis to those days alone', () => {
+    const chart = progressChart(period, '2026-11-02', 'daysLeft');
+
+    // $50 by Nov 5, the highest in view, reaches the top: 100 points.
+    expect(chartGeometry(recentDays(chart), 400, 116).limit[4]).toBe(100);
+    expect(chartGeometry(chart, 400, 116).limit[4]).toBe(50);
+  });
+
+  it('keeps a period of 5 days or fewer whole', () => {
+    expect(recentDays(progressChart(records, '2026-11-02', 'daysLeft')).days).toHaveLength(4);
   });
 });

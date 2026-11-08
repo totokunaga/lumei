@@ -294,7 +294,13 @@
     "limit": "上限",
     "daily": "1日の支出",
     "underEnded": "期間の支出上限まであと{{amount}}",
-    "overEnded": "期間の支出上限を{{amount}}超えました"
+    "overEnded": "期間の支出上限を{{amount}}超えました",
+    "recent_one": "{{count}}日間",
+    "recent_other": "{{count}}日間",
+    "period": "期間全体",
+    "showRecent_one": "直近{{count}}日間を表示",
+    "showRecent_other": "直近{{count}}日間を表示",
+    "showPeriod": "期間全体を表示"
   },
   "categories": {
     "title": "カテゴリ",

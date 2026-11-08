@@ -294,7 +294,13 @@
     "limit": "Limit",
     "daily": "Daily spending",
     "underEnded": "{{amount}} under the period's spending limit",
-    "overEnded": "{{amount}} over the period's spending limit"
+    "overEnded": "{{amount}} over the period's spending limit",
+    "recent_one": "{{count}} day",
+    "recent_other": "{{count}} days",
+    "period": "Period",
+    "showRecent_one": "Show the last {{count}} day",
+    "showRecent_other": "Show the last {{count}} days",
+    "showPeriod": "Show the whole period"
   },
   "categories": {
     "title": "Categories",

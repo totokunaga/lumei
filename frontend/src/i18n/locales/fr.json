@@ -294,7 +294,13 @@
     "limit": "Limite",
     "daily": "Dépenses du jour",
     "underEnded": "{{amount}} sous la limite de dépenses de la période",
-    "overEnded": "{{amount}} au-dessus de la limite de dépenses de la période"
+    "overEnded": "{{amount}} au-dessus de la limite de dépenses de la période",
+    "recent_one": "{{count}} jour",
+    "recent_other": "{{count}} jours",
+    "period": "Période",
+    "showRecent_one": "Afficher le dernier jour",
+    "showRecent_other": "Afficher les {{count}} derniers jours",
+    "showPeriod": "Afficher toute la période"
   },
   "categories": {
     "title": "Catégories",

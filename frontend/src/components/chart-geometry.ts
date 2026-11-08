@@ -76,3 +76,21 @@ export const chartGeometry = (
     baseline: height - BOTTOM,
   };
 };
+
+/** How many days the chart's recent view shows (BR-CHT-06). */
+export const RECENT_DAYS = 5;
+
+/**
+ * Narrows the chart to its recent days (BR-CHT-06): the `days` days ending
+ * today, never starting before the period does, so early in a period it
+ * shows its first days and the limit after today. Laid out by
+ * `chartGeometry`, both axes then fit those days alone.
+ * @returns e.g. on day 9 of 30, days 5–9; on day 2, days 1–5. A chart of
+ *   `days` days or fewer comes back whole.
+ */
+export const recentDays = (chart: ProgressChart, days = RECENT_DAYS): ProgressChart => {
+  const shown = chart.days.filter((day) => day.cumulative !== null).length;
+  const end = Math.min(chart.days.length, Math.max(shown, days));
+  const start = Math.max(0, end - days);
+  return { ...chart, days: chart.days.slice(start, end) };
+};

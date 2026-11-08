@@ -1,7 +1,7 @@
 import { Canvas, Circle, DashPathEffect, Line, Path, Skia, vec } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text, useColorScheme, View } from 'react-native';
+import { Pressable, Text, useColorScheme, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   ReduceMotion,
@@ -16,9 +16,10 @@ import type { ProgressChart as ChartData } from '@/domain/calculations';
 import type { Minor } from '@/domain/money';
 import { limitUse } from '@/domain/expense';
 import { formatShortDate } from '@/domain/period';
+import { type ChartView, useChartView } from '@/lib/chart-view';
 import { useScreenFocused } from '@/lib/use-screen-focused';
 
-import { chartGeometry } from './chart-geometry';
+import { chartGeometry, RECENT_DAYS, recentDays } from './chart-geometry';
 import { EASE_IN_OUT, EASE_OUT, useReduceMotion } from './motion';
 
 /** The canvas's height, in points. */
@@ -64,6 +65,8 @@ const COLORS = {
 
 const drawIn = { duration: 1500, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
 const morph = { duration: 400, easing: EASE_IN_OUT, reduceMotion: ReduceMotion.System };
+/** Switching views draws the chart in again, quicker than on first show. */
+const redraw = { duration: 700, easing: EASE_OUT, reduceMotion: ReduceMotion.System };
 
 /** One radar ring around today's dot: it grows from the dot and fades out, eased, never bouncing. */
 const ping = { duration: 1600, easing: EASE_OUT };
@@ -107,6 +110,11 @@ interface ProgressChartProps {
  * heights. While the line draws in, today's dot travels along its tip, as
  * if drawing it. A radar ring pulses around today's dot while the screen is in
  * front, except with Reduce Motion on. It reads as one sentence to screen readers (BR-NFR-07).
+ *
+ * For the current period, a control switches between the whole period and
+ * its last 5 days, each day under its date, with both axes fitted to them
+ * (BR-CHT-06); the chart draws in again on the switch, and the choice is
+ * remembered on the device.
  */
 export function ProgressChart({ chart, money, ended = false }: ProgressChartProps) {
   const { t, i18n } = useTranslation();
@@ -114,7 +122,12 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
   const reduceMotion = useReduceMotion();
   const focused = useScreenFocused();
   const [width, setWidth] = useState(0);
-  const geometry = useMemo(() => chartGeometry(chart, width, HEIGHT), [chart, width]);
+  const [view, setView] = useChartView();
+  // Only the current period has recent days to zoom to, and only past 5 days.
+  const zoomable = !ended && chart.today !== null && chart.days.length > RECENT_DAYS;
+  const recent = zoomable && view === 'recent';
+  const plotted = useMemo(() => (recent ? recentDays(chart) : chart), [chart, recent]);
+  const geometry = useMemo(() => chartGeometry(plotted, width, HEIGHT), [plotted, width]);
 
   const under = chart.today ? chart.today.underLimit.round() : 0;
   const over = under < 0;
@@ -138,7 +151,12 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
     to.set({ bar: geometry.bar, limit: geometry.limit, cumulative: geometry.cumulative });
     progress.set(0);
     progress.set(withTiming(1, morph));
-  }, [geometry, from, to, progress]);
+    // Another view's days draw in again rather than jump.
+    if (!sameDays) {
+      reveal.set(0);
+      reveal.set(withTiming(1, redraw));
+    }
+  }, [geometry, from, to, progress, reveal]);
   useEffect(() => {
     if (width > 0) {
       reveal.set(withTiming(1, drawIn));
@@ -251,138 +269,217 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
   const label = chart.today
     ? t('chart.label', { spent: money(chart.today.cumulative.round()), status })
     : t('chart.title');
-  const first = chart.days[0]?.date;
-  const final = chart.days.at(-1)?.date;
+  const first = plotted.days[0]?.date;
+  const final = plotted.days.at(-1)?.date;
+  const step = plotted.days.length > 0 ? width / plotted.days.length : 0;
 
   return (
-    <View
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={label}
-      className="gap-3 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900"
-    >
-      {status && <Text className={`text-base font-semibold ${STATUS_TEXT[use]}`}>{status}</Text>}
-      <View className="flex-row" style={{ height: HEIGHT }}>
-        <View
-          testID="chart-plot"
-          className="flex-1"
-          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        >
-          {width > 0 && (
-            <Canvas style={{ width, height: HEIGHT }}>
-              <Line p1={vec(0.5, 0)} p2={vec(0.5, baseline)} color={colors.axis} strokeWidth={1} />
-              <Line
-                p1={vec(0, baseline + 0.5)}
-                p2={vec(width, baseline + 0.5)}
-                color={colors.axis}
-                strokeWidth={1}
-              />
-              {shown > 0 && (
-                <>
-                  <Line
-                    p1={toAmountAxis}
-                    p2={atDot}
-                    color={line}
-                    strokeWidth={1}
-                    opacity={guideOpacity}
-                  >
-                    <DashPathEffect intervals={[2, 3]} />
-                  </Line>
-                  <Line
-                    p1={atDot}
-                    p2={vec(markerX, baseline)}
-                    color={line}
-                    strokeWidth={1}
-                    opacity={0.35}
-                  >
-                    <DashPathEffect intervals={[2, 3]} />
-                  </Line>
-                </>
-              )}
-              <Path path={bars} color={bar} />
-              <Path path={limit} style="stroke" strokeWidth={1.5} color={colors.limit}>
-                <DashPathEffect intervals={[5, 4]} />
-              </Path>
-              <Path
-                path={spent}
-                style="stroke"
-                strokeWidth={2.5}
-                strokeJoin="round"
-                strokeCap="round"
-                color={line}
-                end={reveal}
-              />
-              {shown > 0 && (
-                <>
-                  {pulsing && (
-                    <Circle
-                      cx={dotX}
-                      cy={dotY}
-                      r={pulseRadius}
+    <View className="gap-3 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900">
+      <View accessible accessibilityRole="image" accessibilityLabel={label} className="gap-3">
+        {/* The status leaves room for the view switch, which sits over the card's top right. */}
+        {status && (
+          <Text
+            className={`text-base font-semibold ${STATUS_TEXT[use]} ${zoomable ? 'pr-32' : ''}`}
+          >
+            {status}
+          </Text>
+        )}
+        {!status && zoomable && <View style={{ height: 24 }} />}
+        <View className="flex-row" style={{ height: HEIGHT }}>
+          <View
+            testID="chart-plot"
+            className="flex-1"
+            onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+          >
+            {width > 0 && (
+              <Canvas style={{ width, height: HEIGHT }}>
+                <Line
+                  p1={vec(0.5, 0)}
+                  p2={vec(0.5, baseline)}
+                  color={colors.axis}
+                  strokeWidth={1}
+                />
+                <Line
+                  p1={vec(0, baseline + 0.5)}
+                  p2={vec(width, baseline + 0.5)}
+                  color={colors.axis}
+                  strokeWidth={1}
+                />
+                {shown > 0 && (
+                  <>
+                    <Line
+                      p1={toAmountAxis}
+                      p2={atDot}
                       color={line}
-                      style="stroke"
-                      strokeWidth={2}
-                      opacity={pulseOpacity}
-                    />
-                  )}
-                  <Circle cx={dotX} cy={dotY} r={5.5} color={colors.ring} />
-                  <Circle cx={dotX} cy={dotY} r={3.5} color={line} />
-                </>
-              )}
-            </Canvas>
-          )}
-          {/* Today's amount spent, on the amount axis inside the chart, level
+                      strokeWidth={1}
+                      opacity={guideOpacity}
+                    >
+                      <DashPathEffect intervals={[2, 3]} />
+                    </Line>
+                    <Line
+                      p1={atDot}
+                      p2={vec(markerX, baseline)}
+                      color={line}
+                      strokeWidth={1}
+                      opacity={0.35}
+                    >
+                      <DashPathEffect intervals={[2, 3]} />
+                    </Line>
+                  </>
+                )}
+                <Path path={bars} color={bar} />
+                <Path path={limit} style="stroke" strokeWidth={1.5} color={colors.limit}>
+                  <DashPathEffect intervals={[5, 4]} />
+                </Path>
+                <Path
+                  path={spent}
+                  style="stroke"
+                  strokeWidth={2.5}
+                  strokeJoin="round"
+                  strokeCap="round"
+                  color={line}
+                  end={reveal}
+                />
+                {shown > 0 && (
+                  <>
+                    {pulsing && (
+                      <Circle
+                        cx={dotX}
+                        cy={dotY}
+                        r={pulseRadius}
+                        color={line}
+                        style="stroke"
+                        strokeWidth={2}
+                        opacity={pulseOpacity}
+                      />
+                    )}
+                    <Circle cx={dotX} cy={dotY} r={5.5} color={colors.ring} />
+                    <Circle cx={dotX} cy={dotY} r={3.5} color={line} />
+                  </>
+                )}
+              </Canvas>
+            )}
+            {/* Today's amount spent, on the amount axis inside the chart, level
               with the dot, on the card's color so the lines behind it don't show. */}
-          {chart.today && shown > 0 && width > 0 && (
-            <Animated.View
-              pointerEvents="none"
-              style={[amountLabel, { left: markerX < AMOUNT_WIDTH + 8 ? markerX + 10 : 4 }]}
-              className="absolute top-0 rounded-full bg-gray-100 px-1.5 dark:bg-gray-900"
-            >
-              <Text style={{ color: line }} className="text-xs font-semibold">
-                {money(chart.today.cumulative.round())}
+            {chart.today && shown > 0 && width > 0 && (
+              <Animated.View
+                pointerEvents="none"
+                style={[amountLabel, { left: markerX < AMOUNT_WIDTH + 8 ? markerX + 10 : 4 }]}
+                className="absolute top-0 rounded-full bg-gray-100 px-1.5 dark:bg-gray-900"
+              >
+                <Text style={{ color: line }} className="text-xs font-semibold">
+                  {money(chart.today.cumulative.round())}
+                </Text>
+              </Animated.View>
+            )}
+          </View>
+        </View>
+        {/* The date axis: the period's first and last dates, and today's under the dot. */}
+        {recent && width > 0 ? (
+          // The recent days each under their date, today's in the chart's color.
+          <View style={{ height: 16 }}>
+            {plotted.days.map((day, index) => (
+              <Text
+                key={day.date}
+                style={[
+                  { left: step * index, width: step },
+                  index === shown - 1 ? { color: line } : null,
+                ]}
+                className={`absolute text-center text-xs ${
+                  index === shown - 1 ? 'font-semibold' : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                {formatShortDate(day.date, i18n.language)}
               </Text>
-            </Animated.View>
-          )}
+            ))}
+          </View>
+        ) : (
+          first &&
+          final && (
+            <View style={{ height: 16 }}>
+              {showFirst && (
+                <Text className="absolute left-0 text-xs text-gray-500 dark:text-gray-400">
+                  {formatShortDate(first, i18n.language)}
+                </Text>
+              )}
+              {showFinal && (
+                <Text className="absolute right-0 text-xs text-gray-500 dark:text-gray-400">
+                  {formatShortDate(final, i18n.language)}
+                </Text>
+              )}
+              {chart.today && shown > 0 && (
+                <Animated.Text
+                  style={[guides, { left: todayLeft, width: DATE_WIDTH, color: line }]}
+                  className="absolute text-center text-xs font-semibold"
+                >
+                  {formatShortDate(plotted.days[shown - 1].date, i18n.language)}
+                </Animated.Text>
+              )}
+            </View>
+          )
+        )}
+        <View className="flex-row flex-wrap gap-x-4 gap-y-1">
+          <Legend label={t('chart.spentSoFar')}>
+            <View style={{ backgroundColor: line }} className="h-0.5 w-4 rounded-full" />
+          </Legend>
+          <Legend label={t('chart.limit')}>
+            <View
+              style={{ borderColor: colors.limit }}
+              className="h-0 w-4 border-t-2 border-dashed"
+            />
+          </Legend>
+          <Legend label={t('chart.daily')}>
+            <View style={{ backgroundColor: bar }} className="h-3 w-1.5 rounded-full" />
+          </Legend>
         </View>
       </View>
-      {/* The date axis: the period's first and last dates, and today's under the dot. */}
-      {first && final && (
-        <View style={{ height: 16 }}>
-          {showFirst && (
-            <Text className="absolute left-0 text-xs text-gray-500 dark:text-gray-400">
-              {formatShortDate(first, i18n.language)}
-            </Text>
-          )}
-          {showFinal && (
-            <Text className="absolute right-0 text-xs text-gray-500 dark:text-gray-400">
-              {formatShortDate(final, i18n.language)}
-            </Text>
-          )}
-          {chart.today && shown > 0 && (
-            <Animated.Text
-              style={[guides, { left: todayLeft, width: DATE_WIDTH, color: line }]}
-              className="absolute text-center text-xs font-semibold"
-            >
-              {formatShortDate(chart.days[shown - 1].date, i18n.language)}
-            </Animated.Text>
-          )}
+      {zoomable && (
+        <View className="absolute right-5 top-5">
+          <ViewSwitch view={recent ? 'recent' : 'period'} onChange={setView} />
         </View>
       )}
-      <View className="flex-row flex-wrap gap-x-4 gap-y-1">
-        <Legend label={t('chart.spentSoFar')}>
-          <View style={{ backgroundColor: line }} className="h-0.5 w-4 rounded-full" />
-        </Legend>
-        <Legend label={t('chart.limit')}>
-          <View
-            style={{ borderColor: colors.limit }}
-            className="h-0 w-4 border-t-2 border-dashed"
-          />
-        </Legend>
-        <Legend label={t('chart.daily')}>
-          <View style={{ backgroundColor: bar }} className="h-3 w-1.5 rounded-full" />
-        </Legend>
-      </View>
+    </View>
+  );
+}
+
+/**
+ * Renders the switch between the chart's views (BR-CHT-06): the last 5 days
+ * and the whole period, as two buttons, the chosen one raised.
+ */
+function ViewSwitch({ view, onChange }: { view: ChartView; onChange: (view: ChartView) => void }) {
+  const { t } = useTranslation();
+  const options: { value: ChartView; label: string; name: string }[] = [
+    {
+      value: 'recent',
+      label: t('chart.recent', { count: RECENT_DAYS }),
+      name: t('chart.showRecent', { count: RECENT_DAYS }),
+    },
+    { value: 'period', label: t('chart.period'), name: t('chart.showPeriod') },
+  ];
+  return (
+    <View className="flex-row rounded-full bg-gray-200 p-0.5 dark:bg-gray-800">
+      {options.map((option) => {
+        const selected = option.value === view;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="button"
+            accessibilityLabel={option.name}
+            accessibilityState={{ selected }}
+            hitSlop={6}
+            onPress={() => onChange(option.value)}
+            className={`rounded-full px-2.5 py-1 ${selected ? 'bg-white dark:bg-gray-600' : ''}`}
+          >
+            <Text
+              className={`text-xs font-semibold ${
+                selected ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
