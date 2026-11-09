@@ -37,6 +37,8 @@ interface GlassSurfaceProps {
   children: ReactNode;
   /** Tints the glass, e.g. with the accent for the primary action. */
   tintColor?: string;
+  /** `regular` for controls, `clear` for glass that floats over rich content; `regular` when omitted. */
+  glassStyle?: 'regular' | 'clear';
   /** Makes the glass react to touches, for things the user presses. */
   interactive?: boolean;
   /**
@@ -57,6 +59,7 @@ interface GlassSurfaceProps {
 export function GlassSurface({
   children,
   tintColor,
+  glassStyle = 'regular',
   interactive = false,
   fallbackClassName,
   style,
@@ -66,7 +69,7 @@ export function GlassSurface({
   if (glassAvailable && !reduceTransparency) {
     return (
       <GlassView
-        glassEffectStyle="regular"
+        glassEffectStyle={glassStyle}
         isInteractive={interactive}
         tintColor={tintColor}
         style={style}

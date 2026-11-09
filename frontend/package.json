@@ -102,5 +102,14 @@
     "moduleNameMapper": {
       "\\.css$": "<rootDir>/test/helpers/empty-module.ts"
     }
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-sqlite"
+        ]
+      }
+    }
   }
 }
