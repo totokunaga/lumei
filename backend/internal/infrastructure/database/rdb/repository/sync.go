@@ -299,6 +299,10 @@ func (r *SyncRepository) Apply(
 		_, err := tx.NewRaw(
 			"INSERT INTO sync_state (user_id) VALUES (?) ON CONFLICT DO NOTHING", userID,
 		).Exec(ctx)
+		if sqlState(err) == foreignKeyViolation {
+			// The account was deleted after the access token was issued (BR-ACC-05).
+			return fmt.Errorf("failed to create the change counter: %w", application.ErrAccountGone)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create the change counter: %w", err)
 		}

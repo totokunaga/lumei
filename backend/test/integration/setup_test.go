@@ -50,7 +50,11 @@ func TestMain(m *testing.M) {
 	setEnvDefaults(idp.env())
 
 	signingKey, signingKeyPEM = newSigningKey()
-	setEnvDefaults(map[string]string{"AUTH_JWT_SIGNING_KEY": signingKeyPEM})
+	setEnvDefaults(map[string]string{
+		"AUTH_JWT_SIGNING_KEY": signingKeyPEM,
+		// A fixed key, for tests only: it encrypts the providers' tokens (BR-ACC-05).
+		"AUTH_TOKEN_ENCRYPTION_KEY": "dGVzdC1vbmx5LWtleS1mb3ItbHVtZWktdG9rZW5zISE=",
+	})
 
 	code := m.Run()
 	idp.server.Close()

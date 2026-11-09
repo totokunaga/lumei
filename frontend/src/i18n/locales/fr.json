@@ -80,6 +80,27 @@
     "failed_one": "{{count}} modification n'a pas pu être synchronisée.",
     "failed_other": "{{count}} modifications n'ont pas pu être synchronisées."
   },
+  "deleteAccount": {
+    "title": "Supprimer le compte",
+    "intro": "Cela supprime définitivement votre compte Lumei et tout son contenu, sur tous vos appareils :",
+    "items": {
+      "expenses": "Toutes les dépenses, avec leur position",
+      "budget": "Vos revenus, dépenses fixes et objectifs d'épargne",
+      "categories": "Vos catégories et réglages"
+    },
+    "signIns": "L'accès de Lumei à vos connexions Apple et Google est aussi retiré. C'est irréversible.",
+    "unsynced_one": "{{count}} modification sur cet appareil n'est pas synchronisée. Elle sera aussi supprimée.",
+    "unsynced_other": "{{count}} modifications sur cet appareil ne sont pas synchronisées. Elles seront aussi supprimées.",
+    "online": "La suppression nécessite une connexion Internet.",
+    "word": "SUPPRIMER",
+    "typeToConfirm": "Saisissez {{word}} pour confirmer",
+    "confirm": "Supprimer le compte",
+    "errors": {
+      "unavailable": "Apple ou Google ne peut pas confirmer pour le moment ; rien n'a été supprimé. Réessayez dans quelques minutes.",
+      "network": "Impossible de joindre Lumei ; rien n'a été supprimé. Vérifiez votre connexion et réessayez.",
+      "unknown": "Un problème est survenu et rien n'a été supprimé. Réessayez."
+    }
+  },
   "expense": {
     "title": "Nouvelle dépense",
     "close": "Fermer",

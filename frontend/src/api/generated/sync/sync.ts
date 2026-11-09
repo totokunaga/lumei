@@ -243,7 +243,8 @@ export const getPushChangesUrl = () => {
  * (BR-OFF-03).
  *
  * Errors: 400 `invalid_request` when the body isn't a list of up to 200
- * rows of the known tables.
+ * rows of the known tables; 401 `unauthenticated` also when the account
+ * was deleted after the access token was issued (BR-ACC-05).
  * @summary Push the device's changes
  */
 export const pushChanges = async (

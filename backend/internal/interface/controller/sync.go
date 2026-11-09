@@ -33,6 +33,9 @@ func (a *APIController) PushChanges(ctx *gin.Context) {
 	switch {
 	case errors.Is(err, application.ErrTooManyRows):
 		writeError(ctx, http.StatusBadRequest, "invalid_request", err.Error())
+	case errors.Is(err, application.ErrAccountGone):
+		writeError(ctx, http.StatusUnauthorized, "unauthenticated",
+			"the account was deleted; sign in again")
 	case err != nil:
 		a.internalError(ctx, "failed to push the changes", err)
 	default:

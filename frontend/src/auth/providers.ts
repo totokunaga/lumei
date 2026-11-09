@@ -7,6 +7,17 @@ import { Platform } from 'react-native';
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
+/**
+ * What a provider's sign-in hands the app: the ID token the API verifies,
+ * and the one-time code the API trades for a token that revokes the app's
+ * access when the account is deleted (BR-ACC-05). The code is missing when
+ * the provider didn't return one.
+ */
+export interface ProviderCredential {
+  idToken: string;
+  authorizationCode?: string;
+}
+
 /** Expo Go lacks Google Sign-In's native module; a development build has it. */
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -28,10 +39,10 @@ export const isGoogleSignInAvailable = (): boolean =>
 
 /**
  * Shows Apple's sign-in sheet, asking for the email address.
- * @returns Apple's ID token, or null if the user cancelled.
+ * @returns Apple's ID token and authorization code, or null if the user cancelled.
  * @throws If Apple fails, or returns no token.
  */
-export const signInWithApple = async (): Promise<string | null> => {
+export const signInWithApple = async (): Promise<ProviderCredential | null> => {
   try {
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [AppleAuthentication.AppleAuthenticationScope.EMAIL],
@@ -39,7 +50,10 @@ export const signInWithApple = async (): Promise<string | null> => {
     if (!credential.identityToken) {
       throw new Error('Sign in with Apple returned no identity token');
     }
-    return credential.identityToken;
+    return {
+      idToken: credential.identityToken,
+      authorizationCode: credential.authorizationCode ?? undefined,
+    };
   } catch (error) {
     if (isErrorWithCode(error, 'ERR_REQUEST_CANCELED')) {
       return null;
@@ -50,14 +64,21 @@ export const signInWithApple = async (): Promise<string | null> => {
 
 /**
  * Shows Google's account picker. The library is loaded only here, so merely
- * importing this file works in Expo Go, which lacks its native module.
- * @returns Google's ID token for the web client ID, or null if the user cancelled.
+ * importing this file works in Expo Go, which lacks its native module. It
+ * asks for offline access, so Google also returns a server auth code
+ * (BR-ACC-05).
+ * @returns Google's ID token for the web client ID and its server auth code,
+ *   or null if the user cancelled.
  * @throws If Google fails, or returns no token.
  */
-export const signInWithGoogle = async (): Promise<string | null> => {
+export const signInWithGoogle = async (): Promise<ProviderCredential | null> => {
   const { GoogleSignin, isSuccessResponse } =
     await import('@react-native-google-signin/google-signin');
-  GoogleSignin.configure({ webClientId: googleWebClientId, iosClientId: googleIosClientId });
+  GoogleSignin.configure({
+    webClientId: googleWebClientId,
+    iosClientId: googleIosClientId,
+    offlineAccess: true,
+  });
   await GoogleSignin.hasPlayServices();
   const response = await GoogleSignin.signIn();
   if (!isSuccessResponse(response)) {
@@ -66,7 +87,10 @@ export const signInWithGoogle = async (): Promise<string | null> => {
   if (!response.data.idToken) {
     throw new Error('Sign in with Google returned no ID token');
   }
-  return response.data.idToken;
+  return {
+    idToken: response.data.idToken,
+    authorizationCode: response.data.serverAuthCode ?? undefined,
+  };
 };
 
 /**

@@ -16,6 +16,7 @@ import (
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/identity"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/logger"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/router"
+	"github.com/totokunaga/lumei/backend/internal/infrastructure/secretbox"
 	"github.com/totokunaga/lumei/backend/internal/infrastructure/token"
 	"github.com/totokunaga/lumei/backend/internal/interface/controller"
 )
@@ -116,9 +117,28 @@ func ProvideIdentityVerifier(cfg config.AuthConfig) application.IdentityVerifier
 	return identity.New(cfg, &http.Client{Timeout: 10 * time.Second})
 }
 
-// ProvideUserRepository provides the user repository.
-func ProvideUserRepository(connector *rdb.Connector) application.UserRepository {
-	return repository.NewUserRepository(connector.DB())
+// ProvideSignInRevoker provides the exchange and revocation of Apple and
+// Google tokens (BR-ACC-05).
+func ProvideSignInRevoker(cfg config.AuthConfig) (application.SignInRevoker, error) {
+	revoker, err := identity.NewRevoker(cfg, &http.Client{Timeout: 10 * time.Second}, time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the sign-in revoker: %w", err)
+	}
+	return revoker, nil
+}
+
+// ProvideUserRepository provides the user repository, which encrypts the
+// providers' tokens it stores with AUTH_TOKEN_ENCRYPTION_KEY.
+func ProvideUserRepository(
+	cfg config.AuthConfig,
+	connector *rdb.Connector,
+) (application.UserRepository, error) {
+
+	box, err := secretbox.New(cfg.TokenEncryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read AUTH_TOKEN_ENCRYPTION_KEY: %w", err)
+	}
+	return repository.NewUserRepository(connector.DB(), box), nil
 }
 
 // ProvideSessionRepository provides the session repository.
@@ -142,6 +162,8 @@ func ProvideAuthenticator(
 	users application.UserRepository,
 	sessions application.SessionRepository,
 	issuer application.AccessTokenIssuer,
+	revoker application.SignInRevoker,
+	log *slog.Logger,
 ) application.Authenticator {
 
 	policy := application.AuthPolicy{
@@ -149,7 +171,17 @@ func ProvideAuthenticator(
 		AccessTokenTTL:    cfg.AccessTokenTTL,
 		RefreshReuseGrace: cfg.RefreshReuseGrace,
 	}
-	return application.NewAuthenticator(verifier, users, sessions, issuer, policy, time.Now)
+	return application.NewAuthenticator(verifier, users, sessions, issuer, revoker, policy, time.Now, log)
+}
+
+// ProvideAccountDeleter provides the account deletion use case (BR-ACC-05).
+func ProvideAccountDeleter(
+	users application.UserRepository,
+	revoker application.SignInRevoker,
+	log *slog.Logger,
+) application.AccountDeleter {
+
+	return application.NewAccountDeleter(users, revoker, log)
 }
 
 // ProvideCategorySetRepository provides the default category set repository.
@@ -176,6 +208,7 @@ func ProvideSyncer(records application.SyncRepository) application.Syncer {
 func ProvideAPIController(
 	healthChecker application.HealthChecker,
 	auth application.Authenticator,
+	accounts application.AccountDeleter,
 	categorySets application.CategorySetLister,
 	sync application.Syncer,
 	log *slog.Logger,
@@ -184,6 +217,7 @@ func ProvideAPIController(
 	return controller.NewAPIController(&controller.APIControllerInput{
 		HealthChecker: healthChecker,
 		Auth:          auth,
+		Accounts:      accounts,
 		CategorySets:  categorySets,
 		Sync:          sync,
 		Logger:        log,

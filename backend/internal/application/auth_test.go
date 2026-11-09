@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -53,6 +54,7 @@ type authMocks struct {
 	users    *mock.MockUserRepository
 	sessions *mock.MockSessionRepository
 	issuer   *mock.MockAccessTokenIssuer
+	revoker  *mock.MockSignInRevoker
 }
 
 func newAuthTestEnv(ctrl *gomock.Controller) authMocks {
@@ -61,13 +63,14 @@ func newAuthTestEnv(ctrl *gomock.Controller) authMocks {
 		users:    mock.NewMockUserRepository(ctrl),
 		sessions: mock.NewMockSessionRepository(ctrl),
 		issuer:   mock.NewMockAccessTokenIssuer(ctrl),
+		revoker:  mock.NewMockSignInRevoker(ctrl),
 	}
 }
 
 // newAuthUsecase builds the use case under test from the mocks, with a fixed clock.
 func newAuthUsecase(m authMocks) *application.AuthUsecase {
-	return application.NewAuthenticator(m.verifier, m.users, m.sessions, m.issuer, authPolicy,
-		func() time.Time { return authNow })
+	return application.NewAuthenticator(m.verifier, m.users, m.sessions, m.issuer, m.revoker, authPolicy,
+		func() time.Time { return authNow }, slog.New(slog.DiscardHandler))
 }
 
 // expectVerified makes the verifier accept the test's ID token.

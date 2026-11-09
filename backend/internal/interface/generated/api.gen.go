@@ -568,6 +568,13 @@ type SignInProvider string
 
 // SignInRequest defines model for SignInRequest.
 type SignInRequest struct {
+	// AuthorizationCode The one-time code the provider returned with the ID token: Apple's
+	// `authorizationCode`, or Google's `serverAuthCode`. The server trades it
+	// for a token that revokes the app's access to this sign-in when the
+	// account is deleted (BR-ACC-05). Optional: without it, or if the trade
+	// fails, the sign-in still succeeds.
+	AuthorizationCode *string `json:"authorization_code,omitempty"`
+
 	// IdToken The ID token Sign in with Apple or Google returned to the app. For `dev`,
 	// the email address to sign in as.
 	IdToken  string         `json:"id_token"`
@@ -892,6 +899,9 @@ type ServerInterface interface {
 	// Detailed health check with dependency status
 	// (GET /health/full)
 	GetHealthFull(c *gin.Context)
+	// Delete the signed-in user's account
+	// (DELETE /me)
+	DeleteMe(c *gin.Context)
 	// Get the signed-in user
 	// (GET /me)
 	GetMe(c *gin.Context)
@@ -994,6 +1004,21 @@ func (siw *ServerInterfaceWrapper) GetHealthFull(c *gin.Context) {
 	siw.Handler.GetHealthFull(c)
 }
 
+// DeleteMe operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMe(c *gin.Context) {
+
+	c.Set(string(BearerAuthScopes), []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMe(c)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
 
@@ -1086,6 +1111,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/category-sets", wrapper.ListCategorySets)
 	router.GET(options.BaseURL+"/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/health/full", wrapper.GetHealthFull)
+	router.DELETE(options.BaseURL+"/me", wrapper.DeleteMe)
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)
 	router.GET(options.BaseURL+"/sync/pull", wrapper.PullChanges)
 	router.POST(options.BaseURL+"/sync/push", wrapper.PushChanges)

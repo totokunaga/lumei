@@ -155,10 +155,38 @@ type AuthConfig struct {
 	// without proof. Only for local development: never enable it in a
 	// deployed environment.
 	DevSignIn bool `env:"AUTH_DEV_SIGN_IN" envDefault:"false"`
+
+	// TokenEncryptionKey is the base64-encoded 256-bit AES key that encrypts
+	// the Apple and Google refresh tokens stored to revoke sign-ins when an
+	// account is deleted (BR-ACC-05).
+	TokenEncryptionKey string `env:"AUTH_TOKEN_ENCRYPTION_KEY"`
+
+	// AppleTeamID, AppleKeyID, and ApplePrivateKey sign the client secret
+	// Apple's token and revoke endpoints need: the Apple Developer team, and
+	// the ID and PEM-encoded (PKCS #8) contents of a Sign in with Apple .p8
+	// key. Set all three, or none to skip storing and revoking Apple tokens.
+	AppleTeamID     string `env:"AUTH_APPLE_TEAM_ID"`
+	AppleKeyID      string `env:"AUTH_APPLE_KEY_ID"`
+	ApplePrivateKey string `env:"AUTH_APPLE_PRIVATE_KEY"`
+	AppleTokenURL   string `env:"AUTH_APPLE_TOKEN_URL" envDefault:"https://appleid.apple.com/auth/token"`
+	AppleRevokeURL  string `env:"AUTH_APPLE_REVOKE_URL" envDefault:"https://appleid.apple.com/auth/revoke"`
+
+	// GoogleClientSecret is the web OAuth client's secret, which exchanges
+	// the app's server auth code for a refresh token. Empty skips storing
+	// and revoking Google tokens.
+	GoogleClientSecret string `env:"AUTH_GOOGLE_CLIENT_SECRET"`
+	GoogleTokenURL     string `env:"AUTH_GOOGLE_TOKEN_URL" envDefault:"https://oauth2.googleapis.com/token"`
+	GoogleRevokeURL    string `env:"AUTH_GOOGLE_REVOKE_URL" envDefault:"https://oauth2.googleapis.com/revoke"`
 }
 
-// Validate rejects lifetimes that would end every session at once, and a
-// missing signing key.
+// AppleRevocationEnabled reports whether the Apple client secret can be
+// signed, so Apple tokens can be stored and revoked.
+func (c AuthConfig) AppleRevocationEnabled() bool {
+	return c.AppleTeamID != "" && c.AppleKeyID != "" && c.ApplePrivateKey != ""
+}
+
+// Validate rejects lifetimes that would end every session at once, a
+// missing signing or encryption key, and an incomplete Apple key.
 func (c AuthConfig) Validate() error {
 	if c.SessionTTL <= 0 {
 		return errors.New("AUTH_SESSION_TTL must be positive")
@@ -171,6 +199,19 @@ func (c AuthConfig) Validate() error {
 	}
 	if c.JWTSigningKey == "" {
 		return errors.New("AUTH_JWT_SIGNING_KEY must not be empty")
+	}
+	if c.TokenEncryptionKey == "" {
+		return errors.New("AUTH_TOKEN_ENCRYPTION_KEY must not be empty")
+	}
+	set := 0
+	for _, v := range []string{c.AppleTeamID, c.AppleKeyID, c.ApplePrivateKey} {
+		if v != "" {
+			set++
+		}
+	}
+	if set != 0 && set != 3 {
+		return errors.New(
+			"AUTH_APPLE_TEAM_ID, AUTH_APPLE_KEY_ID, and AUTH_APPLE_PRIVATE_KEY must be set together")
 	}
 	return nil
 }

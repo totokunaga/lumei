@@ -7,8 +7,8 @@ import { localToday } from '@/domain/date';
 import { forgetShortcutAccount } from '@/lib/expense-shortcut';
 import { syncOnce } from '@/sync/engine';
 
-import { closeUserDatabase, deleteUserDatabase, openUserDatabase } from './client';
-import { ensureCurrentPeriod, readSettings } from './records';
+import { closeUserDatabase, database, deleteUserDatabase, openUserDatabase } from './client';
+import { countPendingChanges, ensureCurrentPeriod, readSettings } from './records';
 
 /** The state of the account's database on the device. */
 interface LocalDataState {
@@ -38,7 +38,49 @@ interface LocalDataState {
    * (BR-ACC-04), and stops the Add Expense shortcut recording into it (BR-EXP-12).
    */
   forget: (userId: string) => void;
+  /**
+   * Deletes the account's data from the device if every change has synced,
+   * after its session ended elsewhere: the device's copy then only repeats
+   * what the API holds, or held before the account was deleted (BR-ACC-05).
+   * With unsynced changes it keeps the file, so signing in again uploads them
+   * (BR-OFF-04).
+   */
+  forgetIfSynced: (userId: string) => void;
 }
+
+/**
+ * The account whose session ended while its database was still opening, so
+ * `open` decides whether to keep its data once the file is open.
+ */
+let forgetOnceOpen: string | null = null;
+
+/**
+ * Deletes the open account database if every change in it has synced
+ * (BR-ACC-05), and otherwise closes it, keeping the file, so signing in again
+ * uploads the changes (BR-OFF-04).
+ */
+const closeOrDiscard = (userId: string): void => {
+  if (countPendingChanges(database()) > 0) {
+    closeUserDatabase();
+    return;
+  }
+  forgetShortcutAccount();
+  deleteUserDatabase(userId);
+};
+
+/**
+ * Settles a session that ended while `open` was still opening the account's
+ * database, now that the file is open.
+ * @returns True if it ended, so `open` stops.
+ */
+const endedWhileOpening = (userId: string): boolean => {
+  if (forgetOnceOpen !== userId) {
+    return false;
+  }
+  forgetOnceOpen = null;
+  closeOrDiscard(userId);
+  return true;
+};
 
 /**
  * Holds the state of the account's database.
@@ -57,7 +99,14 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
     set({ status: 'opening', userId, setupCompleted: false });
     try {
       const db = await openUserDatabase(userId);
-      if (readSettings(db) === null && (await syncOnce(db)) !== 'synced') {
+      if (endedWhileOpening(userId)) {
+        return;
+      }
+      const downloaded = readSettings(db) !== null || (await syncOnce(db)) === 'synced';
+      if (endedWhileOpening(userId)) {
+        return;
+      }
+      if (!downloaded) {
         if (get().userId === userId) {
           set({ status: 'unreachable' });
         }
@@ -69,6 +118,9 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
         set({ status: 'ready', setupCompleted: readSettings(db) !== null });
       }
     } catch {
+      if (forgetOnceOpen === userId) {
+        forgetOnceOpen = null;
+      }
       if (get().userId === userId) {
         set({ status: 'failed' });
       }
@@ -76,7 +128,11 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
   },
 
   close: () => {
-    closeUserDatabase();
+    // A file still opening after its session ended is left to `open`, which
+    // decides whether to keep it.
+    if (forgetOnceOpen === null) {
+      closeUserDatabase();
+    }
     set({ status: 'closed', userId: null, setupCompleted: false });
   },
 
@@ -87,5 +143,20 @@ export const useLocalData = create<LocalDataState>()((set, get) => ({
     forgetShortcutAccount();
     deleteUserDatabase(userId);
     set({ status: 'closed', userId: null, setupCompleted: false });
+  },
+
+  forgetIfSynced: (userId) => {
+    const { status } = get();
+    if (get().userId !== userId) {
+      return;
+    }
+    if (status === 'opening') {
+      forgetOnceOpen = userId;
+      return;
+    }
+    if (status === 'ready') {
+      closeOrDiscard(userId);
+      set({ status: 'closed', userId: null, setupCompleted: false });
+    }
   },
 }));

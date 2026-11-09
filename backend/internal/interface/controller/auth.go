@@ -20,10 +20,14 @@ func (a *APIController) SignIn(ctx *gin.Context) {
 		return
 	}
 
-	out, err := a.Auth.SignIn(ctx.Request.Context(), application.SignInInput{
+	input := application.SignInInput{
 		Provider: application.Provider(body.Provider),
 		IDToken:  body.IdToken,
-	})
+	}
+	if body.AuthorizationCode != nil {
+		input.AuthorizationCode = *body.AuthorizationCode
+	}
+	out, err := a.Auth.SignIn(ctx.Request.Context(), input)
 	switch {
 	case errors.Is(err, application.ErrUnsupportedProvider):
 		writeError(ctx, http.StatusBadRequest, "unsupported_provider",

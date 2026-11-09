@@ -21,6 +21,11 @@ model UserOk {
   @body body: User;
 }
 
+/** The account and all of its data are deleted. */
+model AccountDeleted {
+  @statusCode statusCode: 204;
+}
+
 @tag("users")
 interface Users {
   /** Returns the signed-in user. The app calls it on start to check the stored session (BR-ACC-03). */
@@ -30,4 +35,22 @@ interface Users {
   @get
   @route("/me")
   getMe(): UserOk | Unauthorized;
+
+  /**
+   * Deletes the signed-in user's account (BR-ACC-05). It first revokes the
+   * app's access to every Apple and Google sign-in linked to the account,
+   * then permanently deletes the account and all of its data: every
+   * session, sign-in, and synced record, including expense locations. Every
+   * device is signed out: refreshing its tokens fails, and so does pushing
+   * changes, even with an access token issued before.
+   *
+   * Errors: 503 `revocation_unavailable` when Apple or Google can't revoke
+   * a sign-in right now; nothing is deleted then, so try again later.
+   */
+  @summary("Delete the signed-in user's account")
+  @operationId("deleteMe")
+  @useAuth(BearerAuth)
+  @delete
+  @route("/me")
+  deleteMe(): AccountDeleted | Unauthorized | ServiceUnavailable;
 }

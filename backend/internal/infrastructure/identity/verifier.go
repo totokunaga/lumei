@@ -79,10 +79,10 @@ func (v *Verifier) Verify(
 	if err != nil {
 		return application.Identity{}, fmt.Errorf("%w: %w", application.ErrInvalidIDToken, err)
 	}
-	if !slices.ContainsFunc(token.Audience, func(aud string) bool {
+	audience := slices.IndexFunc(token.Audience, func(aud string) bool {
 		return slices.Contains(p.clientIDs, aud)
-	}) {
-
+	})
+	if audience < 0 {
 		return application.Identity{}, fmt.Errorf("%w: unexpected audience %q",
 			application.ErrInvalidIDToken, token.Audience)
 	}
@@ -102,6 +102,7 @@ func (v *Verifier) Verify(
 		Subject:       token.Subject,
 		Email:         claims.Email,
 		EmailVerified: bool(claims.EmailVerified),
+		ClientID:      token.Audience[audience],
 	}, nil
 }
 

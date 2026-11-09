@@ -16,7 +16,9 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -253,16 +255,66 @@ func uniqueEmail() string {
 const (
 	testAppleClientID  = "com.example.lumei.test"
 	testGoogleClientID = "lumei-test.apps.googleusercontent.com"
+	// testAppleTeamID and testAppleKeyID name the Apple key the server signs
+	// client secrets with; testGoogleClientSecret is the Google web client's
+	// secret. The fake providers accept only these (BR-ACC-05).
+	testAppleTeamID        = "TESTTEAM01"
+	testAppleKeyID         = "TESTKEY001"
+	testGoogleClientSecret = "test-google-secret"
 )
 
 // fakeIdentityProvider stands in for Sign in with Apple and Google. It serves
 // a JWKS with its public key and signs ID tokens with the private key, so the
 // tests exercise the server's real token verification.
+//
+// It also stands in for their OAuth token and revoke endpoints (BR-ACC-05).
+// The token endpoints trade a code from newCode for the refresh token
+// "rt-<rest of the code>", and the revoke endpoints record the tokens they
+// revoke. The code's kind picks how the endpoints answer; see newCode.
 type fakeIdentityProvider struct {
 	server *httptest.Server
 	key    *rsa.PrivateKey
 	// strangerKey signs tokens the JWKS has no key for, i.e. forged tokens.
 	strangerKey *rsa.PrivateKey
+	// appleKey is the Sign in with Apple key the server signs client
+	// secrets with, and appleKeyPEM its PKCS #8 PEM.
+	appleKey    *ecdsa.PrivateKey
+	appleKeyPEM string
+	// revoked holds the refresh tokens the revoke endpoints accepted.
+	revoked sync.Map
+}
+
+// The kinds of code newCode makes, which pick how the fake answers.
+const (
+	// codeValid trades for a token that revokes normally.
+	codeValid = "valid"
+	// codeUnknown is a code the token endpoints reject with invalid_grant.
+	codeUnknown = "unknown"
+	// codeAlreadyRevoked trades for a token the revoke endpoints no longer
+	// know: they answer 400 invalid_token, as after the user removed the
+	// app's access.
+	codeAlreadyRevoked = "revoked"
+	// codeUnavailable trades for a token the revoke endpoints answer 503 for.
+	codeUnavailable = "unavailable"
+	// codeRejected trades for a token the revoke endpoints answer 401
+	// invalid_client for, as for a misconfigured client.
+	codeRejected = "rejected"
+)
+
+// newCode returns an authorization code of a kind no other case uses.
+func newCode(kind string) string {
+	return "code-" + kind + "-" + randomHex(6)
+}
+
+// refreshTokenFor returns the refresh token the fake trades code for.
+func refreshTokenFor(code string) string {
+	return "rt-" + strings.TrimPrefix(code, "code-")
+}
+
+// wasRevoked reports whether a revoke endpoint accepted the token of code.
+func (p *fakeIdentityProvider) wasRevoked(code string) bool {
+	_, ok := p.revoked.Load(refreshTokenFor(code))
+	return ok
 }
 
 // idp is the suite's fake provider, started by TestMain before any test runs
@@ -279,14 +331,92 @@ func newFakeIdentityProvider() *fakeIdentityProvider {
 	if err != nil {
 		panic(err)
 	}
+	appleKey, appleKeyPEM := newSigningKey()
+	p := &fakeIdentityProvider{key: key, strangerKey: strangerKey, appleKey: appleKey, appleKeyPEM: appleKeyPEM}
+
 	jwks := jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{
 		Key: &key.PublicKey, KeyID: "test-key", Algorithm: string(jose.RS256), Use: "sig",
 	}}}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /apple/token", p.serveToken(p.appleClient))
+	mux.HandleFunc("POST /google/token", p.serveToken(googleClient))
+	mux.HandleFunc("POST /apple/revoke", p.serveRevoke(p.appleClient))
+	mux.HandleFunc("POST /google/revoke", p.serveRevoke(func(url.Values) bool { return true }))
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(jwks)
-	}))
-	return &fakeIdentityProvider{server: server, key: key, strangerKey: strangerKey}
+	})
+	p.server = httptest.NewServer(mux)
+	return p
+}
+
+// appleClient reports whether a request carries a client secret signed
+// with the Apple key, for its own client ID, as Apple requires.
+func (p *fakeIdentityProvider) appleClient(form url.Values) bool {
+	secret, err := jwt.ParseSigned(form.Get("client_secret"), []jose.SignatureAlgorithm{jose.ES256})
+	if err != nil || len(secret.Headers) != 1 || secret.Headers[0].KeyID != testAppleKeyID {
+		return false
+	}
+	var claims jwt.Claims
+	if err := secret.Claims(&p.appleKey.PublicKey, &claims); err != nil {
+		return false
+	}
+	return claims.Issuer == testAppleTeamID && claims.Subject == form.Get("client_id") &&
+		claims.Audience.Contains("https://appleid.apple.com") &&
+		claims.ValidateWithLeeway(jwt.Expected{Time: time.Now()}, 0) == nil
+}
+
+// googleClient reports whether a request carries the Google web client's
+// ID and secret.
+func googleClient(form url.Values) bool {
+	return form.Get("client_id") == testGoogleClientID && form.Get("client_secret") == testGoogleClientSecret
+}
+
+// serveToken answers a token request: the refresh token for a known code.
+func (p *fakeIdentityProvider) serveToken(authorized func(url.Values) bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		code := r.PostForm.Get("code")
+		switch {
+		case !authorized(r.PostForm):
+			writeOAuthError(w, http.StatusUnauthorized, "invalid_client")
+		case r.PostForm.Get("grant_type") != "authorization_code" ||
+			!strings.HasPrefix(code, "code-") || strings.HasPrefix(code, "code-"+codeUnknown):
+			writeOAuthError(w, http.StatusBadRequest, "invalid_grant")
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at-" + randomHex(6), "refresh_token": refreshTokenFor(code),
+				"token_type": "Bearer", "expires_in": 3600,
+			})
+		}
+	}
+}
+
+// serveRevoke answers a revoke request as the token's kind says.
+func (p *fakeIdentityProvider) serveRevoke(authorized func(url.Values) bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		token := r.PostForm.Get("token")
+		switch {
+		case !authorized(r.PostForm) || strings.HasPrefix(token, "rt-"+codeRejected):
+			writeOAuthError(w, http.StatusUnauthorized, "invalid_client")
+		case strings.HasPrefix(token, "rt-"+codeAlreadyRevoked):
+			writeOAuthError(w, http.StatusBadRequest, "invalid_token")
+		case strings.HasPrefix(token, "rt-"+codeUnavailable):
+			w.WriteHeader(http.StatusServiceUnavailable)
+		default:
+			p.revoked.Store(token, true)
+			w.WriteHeader(http.StatusOK)
+		}
+	}
+}
+
+// writeOAuthError answers with an OAuth error body.
+func writeOAuthError(w http.ResponseWriter, status int, code string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": code})
 }
 
 // env returns the variables that point the server's verification at p.
@@ -296,6 +426,15 @@ func (p *fakeIdentityProvider) env() map[string]string {
 		"AUTH_APPLE_CLIENT_IDS":  testAppleClientID,
 		"AUTH_GOOGLE_JWKS_URL":   p.server.URL,
 		"AUTH_GOOGLE_CLIENT_IDS": testGoogleClientID,
+
+		"AUTH_APPLE_TEAM_ID":        testAppleTeamID,
+		"AUTH_APPLE_KEY_ID":         testAppleKeyID,
+		"AUTH_APPLE_PRIVATE_KEY":    p.appleKeyPEM,
+		"AUTH_APPLE_TOKEN_URL":      p.server.URL + "/apple/token",
+		"AUTH_APPLE_REVOKE_URL":     p.server.URL + "/apple/revoke",
+		"AUTH_GOOGLE_CLIENT_SECRET": testGoogleClientSecret,
+		"AUTH_GOOGLE_TOKEN_URL":     p.server.URL + "/google/token",
+		"AUTH_GOOGLE_REVOKE_URL":    p.server.URL + "/google/revoke",
 	}
 }
 
@@ -389,6 +528,32 @@ func signInReq(provider generated.SignInProvider, idToken string) req {
 	}
 }
 
+// signInWithCodeReq builds a POST /auth/sign-in request that also carries
+// the provider's authorization code (BR-ACC-05).
+func signInWithCodeReq(provider generated.SignInProvider, idToken, code string) req {
+	return req{
+		method: http.MethodPost,
+		path:   "/auth/sign-in",
+		body:   generated.SignInRequest{Provider: provider, IdToken: idToken, AuthorizationCode: &code},
+	}
+}
+
+// signInWithCode signs in to ts with an authorization code and returns the
+// new session.
+func signInWithCode(
+	t *testing.T,
+	ts *TestServer,
+	provider generated.SignInProvider,
+	idToken, code string,
+) generated.SessionResponse {
+
+	t.Helper()
+
+	resp := do(t, ts, signInWithCodeReq(provider, idToken, code))
+	require.Equal(t, http.StatusCreated, resp.status, "sign-in failed: %s", resp.body)
+	return decode[generated.SessionResponse](t, resp.body)
+}
+
 // signIn signs in to ts and returns the new session.
 func signIn(t *testing.T, ts *TestServer, provider generated.SignInProvider, idToken string) generated.SessionResponse {
 	t.Helper()
@@ -437,6 +602,11 @@ func meReq(accessToken string) req {
 // accessToken.
 func categorySetsReq(accessToken string) req {
 	return req{method: http.MethodGet, path: "/category-sets", headers: bearer(accessToken)}
+}
+
+// deleteMeReq builds a DELETE /me request authenticated with accessToken.
+func deleteMeReq(accessToken string) req {
+	return req{method: http.MethodDelete, path: "/me", headers: bearer(accessToken)}
 }
 
 // signOutReq builds a POST /auth/sign-out request authenticated with accessToken.

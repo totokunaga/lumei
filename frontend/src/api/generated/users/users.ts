@@ -5,15 +5,18 @@
  * API server for Lumei.
  * OpenAPI spec version: 1.0.0
  */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from '@tanstack/react-query';
@@ -157,3 +160,89 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export type deleteMeResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deleteMeResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type deleteMeResponse503 = {
+  data: ErrorResponse;
+  status: 503;
+};
+
+export type deleteMeResponseSuccess = deleteMeResponse204 & {
+  headers: Headers;
+};
+export type deleteMeResponseError = (deleteMeResponse401 | deleteMeResponse503) & {
+  headers: Headers;
+};
+
+export type deleteMeResponse = deleteMeResponseSuccess | deleteMeResponseError;
+
+export const getDeleteMeUrl = () => {
+  return `/me`;
+};
+
+/**
+ * Deletes the signed-in user's account (BR-ACC-05). It first revokes the
+ * app's access to every Apple and Google sign-in linked to the account,
+ * then permanently deletes the account and all of its data: every
+ * session, sign-in, and synced record, including expense locations. Every
+ * device is signed out: refreshing its tokens fails, and so does pushing
+ * changes, even with an access token issued before.
+ *
+ * Errors: 503 `revocation_unavailable` when Apple or Google can't revoke
+ * a sign-in right now; nothing is deleted then, so try again later.
+ * @summary Delete the signed-in user's account
+ */
+export const deleteMe = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<deleteMeResponse> => {
+  return apiFetch<deleteMeResponse>(getDeleteMeUrl(), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getDeleteMeMutationKey = () => ['deleteMe'] as const;
+
+export const getDeleteMeMutationOptions = <TError = ErrorResponse, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteMe>>, TError, void, TContext>;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<Awaited<ReturnType<typeof deleteMe>>, TError, void, TContext> => {
+  const mutationKey = getDeleteMeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMe>>, void> = () => {
+    return deleteMe(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMe>>>;
+
+export type DeleteMeMutationError = ErrorResponse;
+
+/**
+ * @summary Delete the signed-in user's account
+ */
+export const useDeleteMe = <TError = ErrorResponse, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteMe>>, TError, void, TContext>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof deleteMe>>, TError, void, TContext> => {
+  return useMutation(getDeleteMeMutationOptions(options), queryClient);
+};

@@ -1,5 +1,6 @@
 import '@/global.css';
 import '@/i18n';
+import '@/lib/ignored-warnings';
 
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';

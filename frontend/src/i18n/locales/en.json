@@ -80,6 +80,27 @@
     "failed_one": "{{count}} change couldn't sync.",
     "failed_other": "{{count}} changes couldn't sync."
   },
+  "deleteAccount": {
+    "title": "Delete account",
+    "intro": "This permanently deletes your Lumei account and everything in it, on every device:",
+    "items": {
+      "expenses": "Every expense, with its location",
+      "budget": "Your income, fixed expenses, and saving targets",
+      "categories": "Your categories and settings"
+    },
+    "signIns": "Lumei's access to your Apple and Google sign-ins is removed too. This can't be undone.",
+    "unsynced_one": "{{count}} change on this device hasn't synced. It will be deleted too.",
+    "unsynced_other": "{{count}} changes on this device haven't synced. They will be deleted too.",
+    "online": "Deleting needs an internet connection.",
+    "word": "DELETE",
+    "typeToConfirm": "Type {{word}} to confirm",
+    "confirm": "Delete account",
+    "errors": {
+      "unavailable": "Apple or Google can't confirm right now, so nothing was deleted. Try again in a few minutes.",
+      "network": "Can't reach Lumei, so nothing was deleted. Check your connection and try again.",
+      "unknown": "Something went wrong, and nothing was deleted. Try again."
+    }
+  },
   "expense": {
     "title": "New expense",
     "close": "Close",

@@ -13,6 +13,7 @@ import {
 import type { SessionResponse, SignInProvider } from '@/api/generated/model';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/auth/session-storage';
 import { signOutOfGoogle } from '@/auth/providers';
+import { useLocalData } from '@/db/store';
 import { queryClient } from '@/lib/query-client';
 
 /** Why a sign-in failed, as shown to the user. The first three are the API's error codes. */
@@ -42,8 +43,14 @@ interface AuthState {
   session: StoredSession | null;
   /** Reads the stored session at launch, then checks it with the API. */
   restore: () => Promise<void>;
-  /** Exchanges a provider's ID token for a session. */
-  signIn: (provider: SignInProvider, idToken: string) => Promise<void>;
+  /**
+   * Exchanges a provider's ID token for a session. The authorization code,
+   * when there is one, lets the API revoke the sign-in when the account is
+   * deleted (BR-ACC-05).
+   */
+  signIn: (provider: SignInProvider, idToken: string, authorizationCode?: string) => Promise<void>;
+  /** Signs out on the device after the account was deleted, forgetting its data (BR-ACC-05). */
+  forgetDeleted: () => Promise<void>;
   /** Ends the session on the server and on the device. */
   signOut: () => Promise<void>;
   /** Drops the session on the device after the API rejected it. */
@@ -120,10 +127,14 @@ export const useAuth = create<AuthState>()((set, get) => ({
    * @throws SignInError with the API's error code, `network` if the API
    *   can't be reached, or `unknown`.
    */
-  signIn: async (provider, idToken) => {
+  signIn: async (provider, idToken, authorizationCode) => {
     let res;
     try {
-      res = await requestSignIn({ provider, id_token: idToken });
+      res = await requestSignIn({
+        provider,
+        id_token: idToken,
+        ...(authorizationCode ? { authorization_code: authorizationCode } : {}),
+      });
     } catch {
       throw new SignInError('network');
     }
@@ -157,12 +168,29 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
 
   /**
-   * Signs out on the device only, after the API rejected the session (it
-   * expired, or was ended elsewhere). Safe to call more than once.
+   * Signs out on the device after `DELETE /me` deleted the account
+   * (BR-ACC-05). Its sessions are gone on the server, so nothing is sent.
    */
-  expire: async () => {
+  forgetDeleted: async () => {
+    await signOutOfGoogle();
     await resetLocalData();
     set({ status: 'signedOut', session: null });
+  },
+
+  /**
+   * Signs out on the device only, after the API rejected the session (it
+   * expired, was ended elsewhere, or its account was deleted). The account's
+   * data goes too unless it has unsynced changes, so a deleted account
+   * leaves nothing on its other devices (BR-ACC-05). Safe to call more than
+   * once.
+   */
+  expire: async () => {
+    const userId = get().session?.user.id;
+    await resetLocalData();
+    set({ status: 'signedOut', session: null });
+    if (userId) {
+      useLocalData.getState().forgetIfSynced(userId);
+    }
   },
 
   /**

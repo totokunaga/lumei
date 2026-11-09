@@ -14,4 +14,12 @@ export interface SignInRequest {
    * the email address to sign in as.
    */
   id_token: string;
+  /**
+   * The one-time code the provider returned with the ID token: Apple's
+   * `authorizationCode`, or Google's `serverAuthCode`. The server trades it
+   * for a token that revokes the app's access to this sign-in when the
+   * account is deleted (BR-ACC-05). Optional: without it, or if the trade
+   * fails, the sign-in still succeeds.
+   */
+  authorization_code?: string;
 }

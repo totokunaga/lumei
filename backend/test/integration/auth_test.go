@@ -91,6 +91,43 @@ func TestSignIn(t *testing.T) {
 			assertFunc:     assertNewSession(appleEmail),
 		},
 		{
+			name: "201 with an authorization code the provider doesn't accept, storing no token (BR-ACC-05)",
+			prepare: func(t *testing.T, _ *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				email := uniqueEmail()
+				return signInWithCodeReq(generated.Apple, idp.sign(appleToken(newSubject(), email)),
+					newCode(codeUnknown)), assertNewSession(email)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "201 with an authorization code where Apple revocation isn't set up",
+			configure: func(cfg *config.Config) {
+				cfg.Auth.AppleTeamID, cfg.Auth.AppleKeyID, cfg.Auth.ApplePrivateKey = "", "", ""
+			},
+			prepare: func(t *testing.T, _ *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				email := uniqueEmail()
+				return signInWithCodeReq(generated.Apple, idp.sign(appleToken(newSubject(), email)),
+					newCode(codeValid)), assertNewSession(email)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "201 storing the newest token when the same sign-in comes back with a code",
+			prepare: func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				token := googleToken(newSubject(), uniqueEmail())
+				first := signInWithCode(t, ts, generated.Google, idp.sign(token), newCode(codeValid))
+				return signInWithCodeReq(generated.Google, idp.sign(token), newCode(codeValid)),
+					assertSessionUser(first.User.Id, true)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
 			name: "201 opening the same account on the next sign-in with the same Google account",
 			prepare: func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
 				t.Helper()

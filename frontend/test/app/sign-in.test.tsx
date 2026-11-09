@@ -36,17 +36,26 @@ describe('SignInScreen (BR-ACC-01)', () => {
       setup: () =>
         jest.mocked(AppleAuthentication.signInAsync).mockResolvedValue({
           identityToken: 'apple-id-token',
+          authorizationCode: 'apple-code',
         } as AppleAuthentication.AppleAuthenticationCredential),
-      expected: { provider: 'apple', id_token: 'apple-id-token' },
+      // The code lets the API revoke the sign-in when the account is deleted (BR-ACC-05).
+      expected: { provider: 'apple', id_token: 'apple-id-token', authorization_code: 'apple-code' },
     },
     {
       name: 'Google',
       button: 'Sign in with Google',
       setup: () => {
         jest.spyOn(providers, 'isGoogleSignInAvailable').mockReturnValue(true);
-        jest.spyOn(providers, 'signInWithGoogle').mockResolvedValue('google-id-token');
+        jest.spyOn(providers, 'signInWithGoogle').mockResolvedValue({
+          idToken: 'google-id-token',
+          authorizationCode: 'google-code',
+        });
       },
-      expected: { provider: 'google', id_token: 'google-id-token' },
+      expected: {
+        provider: 'google',
+        id_token: 'google-id-token',
+        authorization_code: 'google-code',
+      },
     },
   ])('signs in with $name and opens home', async ({ button, setup, expected }) => {
     setup();

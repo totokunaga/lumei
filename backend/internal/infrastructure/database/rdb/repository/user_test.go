@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -53,7 +55,23 @@ type userRepoMocks struct {
 }
 
 func newUserRepoTestEnv(db *bun.DB, dbMock sqlmock.Sqlmock) userRepoMocks {
-	return userRepoMocks{repo: NewUserRepository(db), db: dbMock}
+	return userRepoMocks{repo: NewUserRepository(db, prefixCipher{}), db: dbMock}
+}
+
+// prefixCipher stands in for the token cipher: it seals by prefixing
+// "sealed:", and fails to open anything else.
+type prefixCipher struct{}
+
+func (prefixCipher) Seal(plaintext []byte) []byte {
+	return append([]byte("sealed:"), plaintext...)
+}
+
+func (prefixCipher) Open(sealed []byte) ([]byte, error) {
+	token, ok := bytes.CutPrefix(sealed, []byte("sealed:"))
+	if !ok {
+		return nil, errors.New("not sealed")
+	}
+	return token, nil
 }
 
 func TestUserRepository_CreateWithIdentity(t *testing.T) {
@@ -105,5 +123,117 @@ func TestUserRepository_AddIdentity(t *testing.T) {
 	runRepositoryTestCases(t, tests, newUserRepoTestEnv,
 		func(ctx context.Context, m userRepoMocks, _ struct{}) (struct{}, error) {
 			return struct{}{}, m.repo.AddIdentity(ctx, repoUser.ID, repoIdentity)
+		})
+}
+
+func TestUserRepository_SaveProviderToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []testRepositoryInput[struct{}, struct{}, userRepoMocks]{
+		{
+			name: "seals the token before storing it (BR-ACC-05)",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectExec(`UPDATE "user_identities" .*'\\x7365616c65643a72742d31'.*'web-client'`).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+			},
+			assertFunc: assertOutput[struct{}],
+		},
+		{
+			name: "wraps a failed update",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectExec(`UPDATE "user_identities"`).WillReturnError(errConnReset)
+			},
+			expectedErrMsg: "failed to store the revocation token",
+			assertFunc:     assertWrappedNotSentinel[struct{}](translatedSentinels...),
+		},
+		{
+			name: "wraps a failure to count the updated rows",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectExec(`UPDATE "user_identities"`).
+					WillReturnResult(sqlmock.NewErrorResult(errConnReset))
+			},
+			expectedErrMsg: "failed to count the identities updated",
+			assertFunc:     assertWrappedNotSentinel[struct{}](translatedSentinels...),
+		},
+		{
+			name: "ErrNotFound when the identity was unlinked meanwhile",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectExec(`UPDATE "user_identities"`).WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+			assertFunc: assertSentinel[struct{}](application.ErrNotFound),
+		},
+	}
+
+	runRepositoryTestCases(t, tests, newUserRepoTestEnv,
+		func(ctx context.Context, m userRepoMocks, _ struct{}) (struct{}, error) {
+			token := application.ProviderToken{ClientID: "web-client", Token: "rt-1"}
+			return struct{}{}, m.repo.SaveProviderToken(ctx, application.ProviderGoogle, "sub-1", token)
+		})
+}
+
+func TestUserRepository_LinkedIdentities(t *testing.T) {
+	t.Parallel()
+
+	columns := []string{"provider", "subject", "revocation_token", "revocation_client_id"}
+	tests := []testRepositoryInput[struct{}, []application.LinkedIdentity, userRepoMocks]{
+		{
+			name: "opens each stored token, and leaves the others without one (BR-ACC-05)",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectQuery(`SELECT .* FROM "user_identities"`).WillReturnRows(
+					sqlmock.NewRows(columns).
+						AddRow("google", "sub-1", []byte("sealed:rt-1"), "web-client").
+						AddRow("apple", "sub-2", nil, nil))
+			},
+			expectedOutput: []application.LinkedIdentity{
+				{
+					Provider: application.ProviderGoogle, Subject: "sub-1",
+					Token: &application.ProviderToken{ClientID: "web-client", Token: "rt-1"},
+				},
+				{Provider: application.ProviderApple, Subject: "sub-2"},
+			},
+			assertFunc: assertOutput[[]application.LinkedIdentity],
+		},
+		{
+			name: "fails on a token that won't open, e.g. sealed under another key",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectQuery(`SELECT .* FROM "user_identities"`).WillReturnRows(
+					sqlmock.NewRows(columns).AddRow("google", "sub-1", []byte("garbage"), "web-client"))
+			},
+			expectedErrMsg: "failed to open the google revocation token",
+			assertFunc:     assertError[[]application.LinkedIdentity],
+		},
+		{
+			name: "wraps a failed select",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectQuery(`SELECT .* FROM "user_identities"`).WillReturnError(errConnReset)
+			},
+			expectedErrMsg: "failed to select the identities",
+			assertFunc:     assertWrappedNotSentinel[[]application.LinkedIdentity](translatedSentinels...),
+		},
+	}
+
+	runRepositoryTestCases(t, tests, newUserRepoTestEnv,
+		func(ctx context.Context, m userRepoMocks, _ struct{}) ([]application.LinkedIdentity, error) {
+			return m.repo.LinkedIdentities(ctx, repoUser.ID)
+		})
+}
+
+func TestUserRepository_Delete(t *testing.T) {
+	t.Parallel()
+
+	tests := []testRepositoryInput[struct{}, struct{}, userRepoMocks]{
+		{
+			name: "wraps a failed delete",
+			setupMocks: func(m userRepoMocks) {
+				m.db.ExpectExec(`DELETE FROM "users"`).WillReturnError(errConnReset)
+			},
+			expectedErrMsg: "failed to delete the user",
+			assertFunc:     assertWrappedNotSentinel[struct{}](translatedSentinels...),
+		},
+	}
+
+	runRepositoryTestCases(t, tests, newUserRepoTestEnv,
+		func(ctx context.Context, m userRepoMocks, _ struct{}) (struct{}, error) {
+			return struct{}{}, m.repo.Delete(ctx, repoUser.ID)
 		})
 }

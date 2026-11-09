@@ -6,6 +6,7 @@ import HomeScreen from '@/app/(tabs)/index';
 import SettingsLayout from '@/app/(tabs)/settings/_layout';
 import SettingsScreen from '@/app/(tabs)/settings/index';
 import CategoriesScreen from '@/app/(tabs)/settings/categories';
+import DeleteAccountScreen from '@/app/(tabs)/settings/delete-account';
 import StartDayScreen from '@/app/(tabs)/settings/start-day';
 import EditCategoryScreen from '@/app/category/[id]';
 import NewCategoryScreen from '@/app/category/new';
@@ -34,6 +35,7 @@ export const routes = {
   '(tabs)/settings/index': SettingsScreen,
   '(tabs)/settings/start-day': StartDayScreen,
   '(tabs)/settings/categories': CategoriesScreen,
+  '(tabs)/settings/delete-account': DeleteAccountScreen,
   'sign-in': SignInScreen,
   'expense/new': NewExpenseScreen,
   'expense/[id]': EditExpenseScreen,

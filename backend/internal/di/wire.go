@@ -21,6 +21,8 @@ var appSet = wire.NewSet(
 	ProvideHealthChecks,
 	ProvideHealthChecker,
 	ProvideIdentityVerifier,
+	ProvideSignInRevoker,
+	ProvideAccountDeleter,
 	ProvideUserRepository,
 	ProvideSessionRepository,
 	ProvideAccessTokenIssuer,

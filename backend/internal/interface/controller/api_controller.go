@@ -19,6 +19,7 @@ type APIController struct {
 type APIControllerInput struct {
 	HealthChecker application.HealthChecker
 	Auth          application.Authenticator
+	Accounts      application.AccountDeleter
 	CategorySets  application.CategorySetLister
 	Sync          application.Syncer
 	Logger        *slog.Logger

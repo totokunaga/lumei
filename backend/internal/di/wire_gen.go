@@ -33,19 +33,29 @@ func InitializeApp() (*App, func(), error) {
 	healthChecker := ProvideHealthChecker(serverConfig, v)
 	authConfig := ProvideAuthConfig(config)
 	identityVerifier := ProvideIdentityVerifier(authConfig)
-	userRepository := ProvideUserRepository(connector)
+	userRepository, err := ProvideUserRepository(authConfig, connector)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	sessionRepository := ProvideSessionRepository(connector)
 	accessTokenIssuer, err := ProvideAccessTokenIssuer(authConfig)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer)
+	signInRevoker, err := ProvideSignInRevoker(authConfig)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer, signInRevoker, logger)
+	accountDeleter := ProvideAccountDeleter(userRepository, signInRevoker, logger)
 	categorySetRepository := ProvideCategorySetRepository(connector)
 	categorySetLister := ProvideCategorySetLister(categorySetRepository)
 	syncRepository := ProvideSyncRepository(connector)
 	syncer := ProvideSyncer(syncRepository)
-	apiController := ProvideAPIController(healthChecker, authenticator, categorySetLister, syncer, logger)
+	apiController := ProvideAPIController(healthChecker, authenticator, accountDeleter, categorySetLister, syncer, logger)
 	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
@@ -70,19 +80,29 @@ func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
 	healthChecker := ProvideHealthChecker(serverConfig, v)
 	authConfig := ProvideAuthConfig(cfg)
 	identityVerifier := ProvideIdentityVerifier(authConfig)
-	userRepository := ProvideUserRepository(connector)
+	userRepository, err := ProvideUserRepository(authConfig, connector)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	sessionRepository := ProvideSessionRepository(connector)
 	accessTokenIssuer, err := ProvideAccessTokenIssuer(authConfig)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer)
+	signInRevoker, err := ProvideSignInRevoker(authConfig)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authenticator := ProvideAuthenticator(authConfig, identityVerifier, userRepository, sessionRepository, accessTokenIssuer, signInRevoker, logger)
+	accountDeleter := ProvideAccountDeleter(userRepository, signInRevoker, logger)
 	categorySetRepository := ProvideCategorySetRepository(connector)
 	categorySetLister := ProvideCategorySetLister(categorySetRepository)
 	syncRepository := ProvideSyncRepository(connector)
 	syncer := ProvideSyncer(syncRepository)
-	apiController := ProvideAPIController(healthChecker, authenticator, categorySetLister, syncer, logger)
+	apiController := ProvideAPIController(healthChecker, authenticator, accountDeleter, categorySetLister, syncer, logger)
 	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
@@ -105,6 +125,8 @@ var appSet = wire.NewSet(
 	ProvideHealthChecks,
 	ProvideHealthChecker,
 	ProvideIdentityVerifier,
+	ProvideSignInRevoker,
+	ProvideAccountDeleter,
 	ProvideUserRepository,
 	ProvideSessionRepository,
 	ProvideAccessTokenIssuer,

@@ -50,8 +50,9 @@ function Section({
 /**
  * Renders the Settings tab: the period start day (BR-PER-05), how big
  * purchases are spread on the charts (BR-SET-05), the app language
- * (BR-SET-01), the categories (BR-CAT-02, BR-CAT-03), and the account: whether every change has synced (BR-OFF-04)
- * and signing out (BR-ACC-04). Signing out first tries to sync the unsynced
+ * (BR-SET-01), the categories (BR-CAT-02, BR-CAT-03), and the account:
+ * whether every change has synced (BR-OFF-04), signing out (BR-ACC-04), and
+ * deleting the account (BR-ACC-05). Signing out first tries to sync the unsynced
  * changes, and asks for confirmation if some still haven't, since they would
  * be lost.
  */
@@ -164,6 +165,11 @@ export default function SettingsScreen() {
             {t('account.signOut')}
           </Text>
         </PressableScale>
+        <SettingsRow
+          label={t('deleteAccount.title')}
+          destructive
+          onPress={() => router.push('/settings/delete-account')}
+        />
       </Section>
     </ScrollView>
   );

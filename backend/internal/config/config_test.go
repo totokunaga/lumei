@@ -15,6 +15,8 @@ func validAuthConfig() AuthConfig {
 		AccessTokenTTL:    15 * time.Minute,
 		RefreshReuseGrace: time.Minute,
 		JWTSigningKey:     "-----BEGIN PRIVATE KEY-----",
+		// Any non-empty value passes Validate; it's decoded when the server starts.
+		TokenEncryptionKey: "a2V5",
 	}
 }
 
@@ -56,6 +58,23 @@ func TestAuthConfigValidate(t *testing.T) {
 			name:           "rejects a missing signing key",
 			cfg:            withAuth(func(c *AuthConfig) { c.JWTSigningKey = "" }),
 			expectedErrMsg: "AUTH_JWT_SIGNING_KEY must not be empty",
+		},
+		{
+			name:           "rejects a missing token encryption key (BR-ACC-05)",
+			cfg:            withAuth(func(c *AuthConfig) { c.TokenEncryptionKey = "" }),
+			expectedErrMsg: "AUTH_TOKEN_ENCRYPTION_KEY must not be empty",
+		},
+		{
+			name: "accepts a complete Apple key for revoking Apple sign-ins",
+			cfg: withAuth(func(c *AuthConfig) {
+				c.AppleTeamID, c.AppleKeyID, c.ApplePrivateKey = "TEAM", "KEY", "-----BEGIN PRIVATE KEY-----"
+			}),
+		},
+		{
+			name: "rejects an Apple key without its team and key IDs",
+			cfg:  withAuth(func(c *AuthConfig) { c.ApplePrivateKey = "-----BEGIN PRIVATE KEY-----" }),
+			expectedErrMsg: "AUTH_APPLE_TEAM_ID, AUTH_APPLE_KEY_ID, and AUTH_APPLE_PRIVATE_KEY " +
+				"must be set together",
 		},
 	}
 

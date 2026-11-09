@@ -16,6 +16,10 @@ export default function SettingsLayout() {
         name="start-day"
         options={{ title: t('settings.startDay.title'), headerLargeTitle: false }}
       />
+      <Stack.Screen
+        name="delete-account"
+        options={{ title: t('deleteAccount.title'), headerLargeTitle: false }}
+      />
     </Stack>
   );
 }

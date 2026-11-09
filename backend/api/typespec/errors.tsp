@@ -34,3 +34,9 @@ model Forbidden {
   @statusCode statusCode: 403;
   @body body: ErrorResponse;
 }
+
+/** A service the request depends on is unavailable. Try again later. */
+model ServiceUnavailable {
+  @statusCode statusCode: 503;
+  @body body: ErrorResponse;
+}

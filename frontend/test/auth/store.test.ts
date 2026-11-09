@@ -3,7 +3,10 @@ import * as SecureStore from 'expo-secure-store';
 
 import { getHealth } from '@/api/generated';
 import { SignInError, useAuth } from '@/auth/store';
+import { useLocalData } from '@/db/store';
 import { queryClient } from '@/lib/query-client';
+
+import { finishedSetup, syncedRecords } from '../helpers/account';
 
 import {
   json,
@@ -18,6 +21,7 @@ import {
   testUser as user,
   tokensBody,
 } from '../helpers/api';
+import { hasDatabase } from '../helpers/database';
 
 const SESSION_KEY = 'lumei.session';
 const unauthenticated = json(401, { code: 'unauthenticated', message: '' });
@@ -180,6 +184,32 @@ describe('access tokens', () => {
 
     await waitFor(() => expect(useAuth.getState().status).toBe(expected.status));
     expect(await storedSession()).toEqual(expected.keepsSession ? session : null);
+  });
+});
+
+describe('expire (BR-ACC-05, BR-OFF-04)', () => {
+  beforeEach(() => useLocalData.setState({ status: 'closed', userId: null, setupCompleted: false }));
+
+  it.each([
+    {
+      name: 'deletes the account’s data when every change has synced, e.g. after the account was deleted elsewhere',
+      synced: true,
+      kept: false,
+    },
+    { name: 'keeps unsynced changes for the next sign-in', synced: false, kept: true },
+  ])('$name', async ({ synced, kept }) => {
+    await finishedSetup();
+    if (synced) {
+      await syncedRecords();
+    }
+    await signedInWith(storedSessionFor(30_000));
+    await useLocalData.getState().open(user.id);
+    mockApi({ 'POST /auth/refresh': unauthenticated, 'GET /health': json(200, { status: 'ok' }) });
+
+    await getHealth();
+
+    await waitFor(() => expect(useAuth.getState().status).toBe('signedOut'));
+    expect(hasDatabase(user.id)).toBe(kept);
   });
 });
 

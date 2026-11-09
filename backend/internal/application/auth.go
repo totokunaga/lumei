@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -44,6 +45,10 @@ var (
 	// ErrConflict is returned by repositories when a write breaks a unique
 	// constraint, e.g. a concurrent sign-in created the same user first.
 	ErrConflict = errors.New("conflicting write")
+	// ErrAccountGone is returned by repositories when a write refers to a
+	// user that no longer exists: the account was deleted (BR-ACC-05) while
+	// an access token issued before still works.
+	ErrAccountGone = errors.New("the account no longer exists")
 )
 
 // User is a Lumei account.
@@ -59,6 +64,9 @@ type Identity struct {
 	Subject       string
 	Email         string
 	EmailVerified bool
+	// ClientID is the app's client ID the ID token was issued to (its
+	// audience). Revoking the sign-in later needs it (BR-ACC-05).
+	ClientID string
 }
 
 // Session is a signed-in device. Only the hash of its refresh token is stored.
@@ -127,6 +135,16 @@ type UserRepository interface {
 	// AddIdentity links an identity to an existing user. It returns
 	// ErrConflict if the identity is already linked.
 	AddIdentity(ctx context.Context, userID uuid.UUID, identity Identity) error
+	// SaveProviderToken stores the token that revokes a linked identity,
+	// replacing any before it (BR-ACC-05).
+	SaveProviderToken(ctx context.Context, provider Provider, subject string, token ProviderToken) error
+	// LinkedIdentities returns the user's identities, each with its stored
+	// token, if any.
+	LinkedIdentities(ctx context.Context, userID uuid.UUID) ([]LinkedIdentity, error)
+	// Delete removes the user and, through the database's cascades, every
+	// row of theirs: identities, sessions, and synced records (BR-ACC-05).
+	// Deleting a missing user is not an error.
+	Delete(ctx context.Context, userID uuid.UUID) error
 }
 
 // SessionRepository stores sessions.
@@ -159,6 +177,11 @@ type AuthPolicy struct {
 type SignInInput struct {
 	Provider Provider
 	IDToken  string
+	// AuthorizationCode is the one-time code the provider gave the app with
+	// the ID token: Apple's authorization code or Google's server auth code.
+	// The server trades it for a token that revokes the sign-in when the
+	// account is deleted (BR-ACC-05). Optional.
+	AuthorizationCode string
 }
 
 // Tokens are what a sign-in or refresh hands the app.
@@ -195,8 +218,10 @@ type AuthUsecase struct {
 	users    UserRepository
 	sessions SessionRepository
 	issuer   AccessTokenIssuer
+	revoker  SignInRevoker
 	policy   AuthPolicy
 	now      func() time.Time
+	logger   *slog.Logger
 }
 
 var _ Authenticator = (*AuthUsecase)(nil)
@@ -207,8 +232,10 @@ func NewAuthenticator(
 	users UserRepository,
 	sessions SessionRepository,
 	issuer AccessTokenIssuer,
+	revoker SignInRevoker,
 	policy AuthPolicy,
 	now func() time.Time,
+	logger *slog.Logger,
 ) *AuthUsecase {
 
 	return &AuthUsecase{
@@ -216,8 +243,10 @@ func NewAuthenticator(
 		users:    users,
 		sessions: sessions,
 		issuer:   issuer,
+		revoker:  revoker,
 		policy:   policy,
 		now:      now,
+		logger:   logger,
 	}
 }
 
@@ -244,6 +273,9 @@ func (a *AuthUsecase) SignIn(ctx context.Context, input SignInInput) (Tokens, er
 	if err != nil {
 		return Tokens{}, err
 	}
+	if input.AuthorizationCode != "" {
+		a.storeProviderToken(ctx, identity, input.AuthorizationCode)
+	}
 
 	refreshToken, refreshHash := newRefreshToken()
 	now := a.now()
@@ -258,6 +290,27 @@ func (a *AuthUsecase) SignIn(ctx context.Context, input SignInInput) (Tokens, er
 		return Tokens{}, fmt.Errorf("failed to create the session: %w", err)
 	}
 	return a.tokens(session.ID, user, refreshToken, now)
+}
+
+// storeProviderToken trades the sign-in's authorization code for the token
+// that revokes it when the account is deleted, and stores it (BR-ACC-05). A
+// failure doesn't fail the sign-in: the provider may be down or not set up
+// here. The sign-in then can't be revoked until its next sign-in stores a
+// token.
+func (a *AuthUsecase) storeProviderToken(ctx context.Context, identity Identity, code string) {
+	token, err := a.revoker.Exchange(ctx, identity.Provider, identity.ClientID, code)
+	if err == nil {
+		err = a.users.SaveProviderToken(ctx, identity.Provider, identity.Subject, token)
+	}
+	if errors.Is(err, ErrRevocationUnsupported) {
+		a.logger.InfoContext(ctx, "not storing a revocation token: the provider isn't set up for it",
+			"provider", identity.Provider)
+		return
+	}
+	if err != nil {
+		a.logger.WarnContext(ctx, "failed to store the sign-in's revocation token",
+			"provider", identity.Provider, "error", err)
+	}
 }
 
 // findOrCreateUser returns the user linked to identity, else links identity to

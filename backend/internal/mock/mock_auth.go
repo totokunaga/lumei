@@ -164,6 +164,20 @@ func (mr *MockUserRepositoryMockRecorder) CreateWithIdentity(ctx, user, identity
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithIdentity", reflect.TypeOf((*MockUserRepository)(nil).CreateWithIdentity), ctx, user, identity)
 }
 
+// Delete mocks base method.
+func (m *MockUserRepository) Delete(ctx context.Context, userID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockUserRepositoryMockRecorder) Delete(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockUserRepository)(nil).Delete), ctx, userID)
+}
+
 // FindByEmail mocks base method.
 func (m *MockUserRepository) FindByEmail(ctx context.Context, email string) (application.User, error) {
 	m.ctrl.T.Helper()
@@ -192,6 +206,35 @@ func (m *MockUserRepository) FindByIdentity(ctx context.Context, provider applic
 func (mr *MockUserRepositoryMockRecorder) FindByIdentity(ctx, provider, subject any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByIdentity", reflect.TypeOf((*MockUserRepository)(nil).FindByIdentity), ctx, provider, subject)
+}
+
+// LinkedIdentities mocks base method.
+func (m *MockUserRepository) LinkedIdentities(ctx context.Context, userID uuid.UUID) ([]application.LinkedIdentity, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkedIdentities", ctx, userID)
+	ret0, _ := ret[0].([]application.LinkedIdentity)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LinkedIdentities indicates an expected call of LinkedIdentities.
+func (mr *MockUserRepositoryMockRecorder) LinkedIdentities(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkedIdentities", reflect.TypeOf((*MockUserRepository)(nil).LinkedIdentities), ctx, userID)
+}
+
+// SaveProviderToken mocks base method.
+func (m *MockUserRepository) SaveProviderToken(ctx context.Context, provider application.Provider, subject string, token application.ProviderToken) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveProviderToken", ctx, provider, subject, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveProviderToken indicates an expected call of SaveProviderToken.
+func (mr *MockUserRepositoryMockRecorder) SaveProviderToken(ctx, provider, subject, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderToken", reflect.TypeOf((*MockUserRepository)(nil).SaveProviderToken), ctx, provider, subject, token)
 }
 
 // MockSessionRepository is a mock of SessionRepository interface.

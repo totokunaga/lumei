@@ -109,15 +109,25 @@ describe('isGoogleSignInAvailable (BR-ACC-01)', () => {
   });
 });
 
-describe('signInWithApple (BR-ACC-01)', () => {
+describe('signInWithApple (BR-ACC-01, BR-ACC-05)', () => {
   it.each([
     {
-      name: 'returns the identity token, asking for the email',
+      name: 'returns the identity token and authorization code, asking for the email',
       setup: (apple: jest.Mocked<typeof AppleAuthentication>) =>
         apple.signInAsync.mockResolvedValue({
           identityToken: 'apple-id-token',
+          authorizationCode: 'apple-code',
         } as AppleAuthentication.AppleAuthenticationCredential),
-      expected: { value: 'apple-id-token' },
+      expected: { value: { idToken: 'apple-id-token', authorizationCode: 'apple-code' } },
+    },
+    {
+      name: 'returns the identity token alone when Apple gives no code',
+      setup: (apple: jest.Mocked<typeof AppleAuthentication>) =>
+        apple.signInAsync.mockResolvedValue({
+          identityToken: 'apple-id-token',
+          authorizationCode: null,
+        } as AppleAuthentication.AppleAuthenticationCredential),
+      expected: { value: { idToken: 'apple-id-token', authorizationCode: undefined } },
     },
     {
       name: 'returns null when the user cancels',
@@ -148,7 +158,7 @@ describe('signInWithApple (BR-ACC-01)', () => {
     if ('error' in expected) {
       await expect(result).rejects.toThrow(expected.error);
     } else {
-      await expect(result).resolves.toBe(expected.value);
+      await expect(result).resolves.toEqual(expected.value);
     }
     expect(apple.signInAsync).toHaveBeenCalledWith({
       requestedScopes: [apple.AppleAuthenticationScope.EMAIL],
@@ -156,12 +166,20 @@ describe('signInWithApple (BR-ACC-01)', () => {
   });
 });
 
-describe('signInWithGoogle (BR-ACC-01)', () => {
+describe('signInWithGoogle (BR-ACC-01, BR-ACC-05)', () => {
   it.each([
     {
-      name: 'returns the ID token for the web client ID',
-      response: { type: 'success', data: { idToken: 'google-id-token' } },
-      expected: { value: 'google-id-token' },
+      name: 'returns the ID token for the web client ID, and the server auth code',
+      response: {
+        type: 'success',
+        data: { idToken: 'google-id-token', serverAuthCode: 'google-code' },
+      },
+      expected: { value: { idToken: 'google-id-token', authorizationCode: 'google-code' } },
+    },
+    {
+      name: 'returns the ID token alone when Google gives no server auth code',
+      response: { type: 'success', data: { idToken: 'google-id-token', serverAuthCode: null } },
+      expected: { value: { idToken: 'google-id-token', authorizationCode: undefined } },
     },
     {
       name: 'returns null when the user cancels',
@@ -182,11 +200,12 @@ describe('signInWithGoogle (BR-ACC-01)', () => {
     if ('error' in expected) {
       await expect(result).rejects.toThrow(expected.error);
     } else {
-      await expect(result).resolves.toBe(expected.value);
+      await expect(result).resolves.toEqual(expected.value);
     }
     expect(google.GoogleSignin.configure).toHaveBeenCalledWith({
       webClientId: 'web-client-id',
       iosClientId: 'ios-client-id',
+      offlineAccess: true,
     });
   });
 });

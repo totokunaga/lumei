@@ -2,8 +2,9 @@ import * as client from '@/db/client';
 import { readPeriodRecords } from '@/db/records';
 import { useLocalData } from '@/db/store';
 
-import { finishedSetup } from '../helpers/account';
+import { finishedSetup, syncedRecords } from '../helpers/account';
 import { json, mockApi, offline, syncApi } from '../helpers/api';
+import { hasDatabase } from '../helpers/database';
 
 /** The settings another device saved at setup. */
 const settingsRow = {
@@ -144,5 +145,75 @@ describe('useLocalData.open (BR-ACC-06)', () => {
     await first;
 
     expect(useLocalData.getState()).toMatchObject({ status: 'ready', userId: 'user-2' });
+  });
+});
+
+describe('useLocalData.forgetIfSynced (BR-ACC-05, BR-OFF-04)', () => {
+  beforeEach(() => {
+    useLocalData.setState({ status: 'closed', userId: null, setupCompleted: false });
+    mockApi(syncApi);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    {
+      name: 'deletes the account’s data once every change has synced, as after its deletion',
+      synced: true,
+      kept: false,
+    },
+    { name: 'keeps unsynced changes, so signing in again uploads them', synced: false, kept: true },
+  ])('$name', async ({ synced, kept }) => {
+    await finishedSetup({}, 'user-1');
+    if (synced) {
+      await syncedRecords({}, 'user-1');
+    }
+    await useLocalData.getState().open('user-1');
+
+    useLocalData.getState().forgetIfSynced('user-1');
+
+    expect(hasDatabase('user-1')).toBe(kept);
+    expect(useLocalData.getState()).toMatchObject({ status: 'closed', userId: null });
+  });
+
+  it.each([
+    { name: 'deletes', synced: true, kept: false },
+    { name: 'keeps', synced: false, kept: true },
+  ])(
+    '$name the data of a session that ended while its database was opening, once it opens',
+    async ({ synced, kept }) => {
+      await finishedSetup({}, 'user-1');
+      if (synced) {
+        await syncedRecords({}, 'user-1');
+      }
+      let settle: () => void = () => {};
+      const realOpen = client.openUserDatabase;
+      jest.spyOn(client, 'openUserDatabase').mockImplementationOnce(
+        (userId) =>
+          new Promise((resolve) => {
+            settle = () => resolve(realOpen(userId));
+          }),
+      );
+
+      const opening = useLocalData.getState().open('user-1');
+      useLocalData.getState().forgetIfSynced('user-1');
+      // The root layout closes the account's database once signed out.
+      useLocalData.getState().close();
+      settle();
+      await opening;
+
+      expect(hasDatabase('user-1')).toBe(kept);
+      expect(useLocalData.getState()).toMatchObject({ status: 'closed', userId: null });
+    },
+  );
+
+  it('leaves another account’s database alone', async () => {
+    await finishedSetup({}, 'user-1');
+    await syncedRecords({}, 'user-1');
+    await useLocalData.getState().open('user-1');
+
+    useLocalData.getState().forgetIfSynced('user-2');
+
+    expect(hasDatabase('user-1')).toBe(true);
+    expect(useLocalData.getState()).toMatchObject({ status: 'ready', userId: 'user-1' });
   });
 });

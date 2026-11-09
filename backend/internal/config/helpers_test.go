@@ -72,9 +72,10 @@ func runLoadTestCases[T any](t *testing.T, tests []testLoadInput[T], load func(e
 // variables added or replaced.
 func environWith(extra map[string]string) map[string]string {
 	environ := map[string]string{
-		"RDB_USER":             "lumei",
-		"RDB_PASSWORD":         "secret",
-		"AUTH_JWT_SIGNING_KEY": "-----BEGIN PRIVATE KEY-----",
+		"RDB_USER":                  "lumei",
+		"RDB_PASSWORD":              "secret",
+		"AUTH_JWT_SIGNING_KEY":      "-----BEGIN PRIVATE KEY-----",
+		"AUTH_TOKEN_ENCRYPTION_KEY": "a2V5",
 	}
 	for k, v := range extra {
 		environ[k] = v

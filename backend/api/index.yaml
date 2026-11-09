@@ -211,6 +211,39 @@ paths:
         - users
       security:
         - BearerAuth: []
+    delete:
+      operationId: deleteMe
+      summary: Delete the signed-in user's account
+      description: |-
+        Deletes the signed-in user's account (BR-ACC-05). It first revokes the
+        app's access to every Apple and Google sign-in linked to the account,
+        then permanently deletes the account and all of its data: every
+        session, sign-in, and synced record, including expense locations. Every
+        device is signed out: refreshing its tokens fails, and so does pushing
+        changes, even with an access token issued before.
+
+        Errors: 503 `revocation_unavailable` when Apple or Google can't revoke
+        a sign-in right now; nothing is deleted then, so try again later.
+      parameters: []
+      responses:
+        '204':
+          description: The account and all of its data are deleted.
+        '401':
+          description: The session token or ID token is missing, invalid, or expired. Sign in again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: A service the request depends on is unavailable. Try again later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - users
+      security:
+        - BearerAuth: []
   /sync/pull:
     get:
       operationId: pullChanges
@@ -263,7 +296,8 @@ paths:
         (BR-OFF-03).
 
         Errors: 400 `invalid_request` when the body isn't a list of up to 200
-        rows of the known tables.
+        rows of the known tables; 401 `unauthenticated` also when the account
+        was deleted after the access token was issued (BR-ACC-05).
       parameters: []
       responses:
         '200':
@@ -963,6 +997,14 @@ components:
           description: |-
             The ID token Sign in with Apple or Google returned to the app. For `dev`,
             the email address to sign in as.
+        authorization_code:
+          type: string
+          description: |-
+            The one-time code the provider returned with the ID token: Apple's
+            `authorizationCode`, or Google's `serverAuthCode`. The server trades it
+            for a token that revokes the app's access to this sign-in when the
+            account is deleted (BR-ACC-05). Optional: without it, or if the trade
+            fails, the sign-in still succeeds.
     SyncColumns:
       type: object
       required:

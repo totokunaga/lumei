@@ -9,6 +9,7 @@ import type { SignInProvider } from '@/api/generated/model';
 import {
   isAppleSignInAvailable,
   isGoogleSignInAvailable,
+  type ProviderCredential,
   signInWithApple,
   signInWithGoogle,
 } from '@/auth/providers';
@@ -44,17 +45,21 @@ export default function SignInScreen() {
   }, []);
 
   /**
-   * Gets an ID token from a provider and signs in with it, showing the
+   * Gets an ID token, and the code that lets the API revoke the sign-in
+   * later (BR-ACC-05), from a provider, and signs in with them, showing the
    * error if either step fails.
-   * @param getIdToken Returns the token, or null if the user cancelled.
+   * @param getCredential Returns them, or null if the user cancelled.
    */
-  const run = async (provider: SignInProvider, getIdToken: () => Promise<string | null>) => {
+  const run = async (
+    provider: SignInProvider,
+    getCredential: () => Promise<ProviderCredential | null>,
+  ) => {
     setBusy(true);
     setError(null);
     try {
-      const idToken = await getIdToken();
-      if (idToken) {
-        await signIn(provider, idToken);
+      const credential = await getCredential();
+      if (credential) {
+        await signIn(provider, credential.idToken, credential.authorizationCode);
       }
     } catch (e) {
       setError(e instanceof SignInError ? e.code : 'unknown');
@@ -140,7 +145,7 @@ export default function SignInScreen() {
             <PressableScale
               accessibilityRole="button"
               disabled={busy || !devEmail.trim()}
-              onPress={() => run('dev', async () => devEmail.trim())}
+              onPress={() => run('dev', async () => ({ idToken: devEmail.trim() }))}
               className="h-12 items-center justify-center rounded-xl bg-black dark:bg-white"
             >
               <Text className="text-base font-semibold text-white dark:text-black">

@@ -69,7 +69,7 @@ interface/controller → application ← infrastructure/
 |---------|------|-----------|
 | `internal/application/` | Use cases and the interfaces (ports) they need | stdlib and pure libraries only |
 | `internal/interface/controller/` | HTTP handlers implementing `generated.ServerInterface` | `application`, `interface/generated` |
-| `internal/infrastructure/...` | Port implementations: `database/rdb` (connector, repositories), `database/migration`, `identity` (Apple and Google ID token verification), `token` (access JWTs), `logger`, `router` (including the `Authenticate` middleware) | `application`, `config`, other infrastructure packages |
+| `internal/infrastructure/...` | Port implementations: `database/rdb` (connector, repositories), `database/migration`, `identity` (Apple and Google ID token verification, and trading and revoking their tokens), `secretbox` (encrypting stored secrets), `token` (access JWTs), `logger`, `router` (including the `Authenticate` middleware) | `application`, `config`, other infrastructure packages |
 | `internal/di/` | Wire providers; the only place layers meet | everything |
 | `cmd/` | Entry points (`cmd/main.go` server, `cmd/migrate` CLI) | `di`, `config`, infrastructure |
 
@@ -138,7 +138,7 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 |-----|------|----------------|
 | `health` | `health_test.go` | `TestGetHealth` (`GET /health`), `TestGetHealthFull` (`GET /health/full`) |
 | `auth` | `auth_test.go` | `TestSignIn` (`POST /auth/sign-in`), `TestRefreshSession` (`POST /auth/refresh`), `TestSignOut` (`POST /auth/sign-out`) |
-| `users` | `users_test.go` | `TestGetMe` (`GET /me`) |
+| `users` | `users_test.go` | `TestGetMe` (`GET /me`), `TestDeleteMe` (`DELETE /me`) |
 | `categories` | `categories_test.go` | `TestListCategorySets` (`GET /category-sets`) |
 | `sync` | `sync_test.go` | `TestPushChanges` (`POST /sync/push`), `TestPullChanges` (`GET /sync/pull`) |
 
@@ -149,7 +149,7 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 | Field | Purpose |
 |-------|---------|
 | `name` | Subtest name, starting with the expected status, e.g. `"503 when the database goes away after startup"`. |
-| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `refreshReq`, `meReq`, `signOutReq`, `pushReq`, and `pullReq`. Build sync rows with `expenseSyncRow` and the other `*SyncRow` helpers, change fields with `row.with(syncRow{...})`, and give every stored row a `newRowID()`: row IDs are unique across all users, so cases that share one collide. |
+| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `signInWithCodeReq`, `refreshReq`, `meReq`, `deleteMeReq`, `signOutReq`, `pushReq`, and `pullReq`. Build sync rows with `expenseSyncRow` and the other `*SyncRow` helpers, change fields with `row.with(syncRow{...})`, and give every stored row a `newRowID()`: row IDs are unique across all users, so cases that share one collide. |
 | `configure func(cfg)` | Changes the case's own `*config.Config` before the server is built, e.g. `func(cfg *config.Config) { cfg.Server.HealthCheckTimeout = time.Nanosecond }`. |
 | `setupFunc func(t, cfg) (afterStart func())` | Runs before the server is built and may also change `cfg`. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` points `cfg` at a new database and drops it there. |
 | `prepare func(t, ts) (req, assertFunc)` | Replaces `req` and `assertFunc` when the request depends on earlier requests, e.g. one that needs a session. It runs after the server starts, may send those requests (`signIn`, `newGoogleSession`, `refresh`), and returns the request and an assertion that can close over their results, e.g. the first sign-in's user ID. Start it with `t.Helper()`. |
@@ -160,6 +160,7 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 - `TestMain` sets `gin.TestMode` and fills in suite-wide default env vars with `setEnvDefaults`, before any test starts. Per-case overrides go in the case's `configure`, never in env vars.
 - Decode bodies into the `generated.*` types with `decode[T]`, so the tests check the API contract.
 - **Sign-in runs against a fake identity provider** (`fakeIdentityProvider` in `helpers_test.go`). `TestMain` starts it and points the Apple and Google JWKS URLs and client IDs at it, so every case verifies real signed tokens. Build a token with `appleToken(subject, email)` or `googleToken(subject, email)`, change fields for a negative case (`expiresAt`, `audience`, `issuer`, `forged`, `emailVerified`, `extra`), and sign it with `idp.sign(token)`. Use `newSubject()` and `uniqueEmail()` so cases never share a user.
+- **Revoking sign-ins** (BR-ACC-05): the fake provider also serves Apple's and Google's token and revoke endpoints, and `TestMain` points the server at them with a test Apple key and Google secret. Sign in with `signInWithCode(t, ts, provider, idToken, newCode(kind))`; the code's kind (`codeValid`, `codeUnknown`, `codeAlreadyRevoked`, `codeUnavailable`, `codeRejected`) picks how the endpoints answer, and `idp.wasRevoked(code)` tells whether its token was revoked.
 - **Access tokens:** `TestMain` generates the server's signing key (`signingKey`, passed as `AUTH_JWT_SIGNING_KEY`). To test the token check itself, build a token with `validAccessToken(email)`, change fields (`key`, `keyID`, `issuer`, `audience`, `subject`, `expiresAt`), and sign it with `signAccessToken(t, at)`. A signed token needs no database, so it also reaches handlers in cases that drop the database with `useDisposableDatabase`.
 
 ### Unit tests: table-driven harness
