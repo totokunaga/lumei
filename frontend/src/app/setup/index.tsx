@@ -13,6 +13,7 @@ import { detectRegion } from '@/domain/setup';
 import { currentLanguage } from '@/i18n';
 import { useSetupDraft } from '@/setup/draft';
 import { useSetupFlow } from '@/setup/navigation';
+import { ErrorText } from '@/components/error-text';
 
 /**
  * Renders the first setup step: the app language, then the region, which
@@ -65,9 +66,9 @@ export default function RegionStep() {
 
       {!query.isPending && !sets && (
         <View className="items-center gap-4 py-10">
-          <Text accessibilityRole="alert" className="text-center text-base text-gray-500">
+          <ErrorText className="text-center text-base text-gray-500">
             {t('setup.region.loadFailed')}
-          </Text>
+          </ErrorText>
           <PressableScale
             accessibilityRole="button"
             onPress={() => void query.refetch()}
@@ -90,7 +91,10 @@ export default function RegionStep() {
           />
           {selected && (
             <View className="gap-1 px-1">
-              <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              <Text
+                accessibilityRole="header"
+                className="text-sm font-medium text-gray-500 dark:text-gray-400"
+              >
                 {t('setup.region.startsWith')}
               </Text>
               <View className="flex-row flex-wrap gap-2 pt-1">

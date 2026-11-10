@@ -76,7 +76,8 @@ interface CountingTextProps extends Omit<TextProps, 'children'>, CountOptions {
 
 /**
  * Renders a text that counts up or down to its new number when `value`
- * changes (see `useCountUp`), e.g. a total or a budget.
+ * changes (see `useCountUp`), e.g. a total or a budget. Screen readers read
+ * the new number, never one counted halfway (BR-NFR-07).
  */
 export function CountingText({
   value,
@@ -86,5 +87,9 @@ export function CountingText({
   duration,
   ...props
 }: CountingTextProps) {
-  return <Text {...props}>{format(useCountUp(value, { from, restart, duration }))}</Text>;
+  return (
+    <Text accessibilityLabel={format(value)} {...props}>
+      {format(useCountUp(value, { from, restart, duration }))}
+    </Text>
+  );
 }

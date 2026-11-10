@@ -25,13 +25,13 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
       name: 'under the limit, in green',
       spent: 21_600,
       status: "¥8,400 under today's spending limit",
-      label: "Spent ¥21,600 so far. ¥8,400 under today's spending limit.",
+      label: "Spent ¥21,600 so far, against a limit of ¥30,000 by today. ¥8,400 under today's spending limit.",
     },
     {
       name: 'over the limit',
       spent: 33_000,
       status: "¥3,000 over today's spending limit",
-      label: "Spent ¥33,000 so far. ¥3,000 over today's spending limit.",
+      label: "Spent ¥33,000 so far, against a limit of ¥30,000 by today. ¥3,000 over today's spending limit.",
     },
   ])(
     'says how far today is from the limit: $name (BR-CHT-02)',
@@ -44,10 +44,39 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
       );
 
       expect(screen.getByText(status)).toBeOnTheScreen();
-      // One sentence for screen readers (BR-NFR-07).
-      expect(screen.getByLabelText(label)).toBeOnTheScreen();
+      // One sentence for screen readers, with the dates shown (BR-NFR-07).
+      const sentence = screen.getByRole('adjustable');
+      expect(sentence.props.accessibilityLabel).toMatch(/^Spending chart, Nov 1 – Nov \d+\. /);
+      expect(sentence.props.accessibilityLabel).toContain(label);
     },
   );
+
+  it('reads each day’s numbers to screen readers, one day per swipe, from today (BR-NFR-07)', async () => {
+    await render(
+      <ProgressChart
+        chart={progressChart(records(21_600), '2026-11-03', 'daysLeft')}
+        money={money}
+      />,
+    );
+    const chart = screen.getByRole('adjustable');
+    /** Swipes the chart up (`increment`) or down (`decrement`) with a screen reader. */
+    const swipe = (actionName: 'increment' | 'decrement') =>
+      fireEvent(chart, 'accessibilityAction', { nativeEvent: { actionName } });
+
+    expect(chart).toHaveAccessibilityValue({
+      text: 'Nov 3: spent ¥21,600, ¥21,600 so far, limit ¥30,000',
+    });
+    await swipe('increment');
+    // After today, only the limit (BR-CHT-03).
+    expect(chart).toHaveAccessibilityValue({ text: 'Nov 4: limit ¥40,000' });
+    await swipe('decrement');
+    await swipe('decrement');
+    expect(chart).toHaveAccessibilityValue({ text: 'Nov 2: spent ¥0, ¥0 so far, limit ¥20,000' });
+    await swipe('decrement');
+    await swipe('decrement');
+    // It stops at the first day.
+    expect(chart).toHaveAccessibilityValue({ text: 'Nov 1: spent ¥0, ¥0 so far, limit ¥10,000' });
+  });
 
   /** Renders the chart on a day, laid out 300 points wide. */
   const renderOn = async (today: string, spent = 1_000) => {

@@ -329,7 +329,8 @@ func uniqueCategoryName(ctx context.Context, w SyncWriter, row SyncRow) (SyncRow
 	for candidate := name; next <= maxNameNumber; next++ {
 		taken, err := w.CategoryNameTaken(ctx, candidate, row.ID)
 		if err != nil {
-			return SyncRow{}, fmt.Errorf("failed to check category name %q: %w", candidate, err)
+			// The name stays out of the error, which is logged (BR-NFR-02).
+			return SyncRow{}, fmt.Errorf("failed to check a category name: %w", err)
 		}
 		if !taken {
 			category.Name = candidate
@@ -338,7 +339,7 @@ func uniqueCategoryName(ctx context.Context, w SyncWriter, row SyncRow) (SyncRow
 		}
 		candidate = fmt.Sprintf("%s (%d)", base, next)
 	}
-	return SyncRow{}, fmt.Errorf("no free number for category name %q", name)
+	return SyncRow{}, fmt.Errorf("no free number for the name of category %s", row.ID)
 }
 
 // Pull returns up to PullLimit of the user's changes after since.

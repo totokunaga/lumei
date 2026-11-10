@@ -310,7 +310,7 @@
     "title": "Graphique des dépenses",
     "under": "{{amount}} sous la limite de dépenses du jour",
     "over": "{{amount}} au-dessus de la limite de dépenses du jour",
-    "label": "{{spent}} dépensés jusqu'ici. {{status}}.",
+    "label": "{{title}}, {{range}}. {{spent}} dépensés jusqu'ici, pour une limite de {{limit}} à ce jour. {{status}}.",
     "spentSoFar": "Dépensé jusqu'ici",
     "limit": "Limite",
     "daily": "Dépenses du jour",
@@ -321,7 +321,11 @@
     "period": "Période",
     "showRecent_one": "Afficher le dernier jour",
     "showRecent_other": "Afficher les {{count}} derniers jours",
-    "showPeriod": "Afficher toute la période"
+    "showPeriod": "Afficher toute la période",
+    "labelPlain": "{{title}}, {{range}}.",
+    "day": "{{date}} : {{spent}} dépensés, {{soFar}} au total, limite {{limit}}",
+    "dayAhead": "{{date}} : limite {{limit}}",
+    "stepHint": "Balayez vers le haut ou le bas pour entendre chaque jour."
   },
   "categories": {
     "title": "Catégories",

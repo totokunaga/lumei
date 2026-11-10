@@ -17,6 +17,7 @@ import { SignInError, useAuth, type SignInErrorCode } from '@/auth/store';
 import { riseIn } from '@/components/motion';
 import { PressableScale } from '@/components/pressable-scale';
 import { TextField } from '@/components/text-field';
+import { ErrorText } from '@/components/error-text';
 
 /**
  * Builds the entrance of the screen's `index`th block: it rises into place,
@@ -90,13 +91,9 @@ export default function SignInScreen() {
 
       <Animated.View entering={entering(2)} className="gap-3">
         {error && (
-          <Text
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-            className="text-center text-base text-red-600 dark:text-red-400"
-          >
+          <ErrorText className="text-center text-base text-red-600 dark:text-red-400">
             {t(`signIn.errors.${error}`)}
-          </Text>
+          </ErrorText>
         )}
 
         {appleAvailable && (
@@ -116,9 +113,10 @@ export default function SignInScreen() {
         {isGoogleSignInAvailable() && (
           <PressableScale
             accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
             disabled={busy}
             onPress={() => run('google', signInWithGoogle)}
-            className="h-[52px] items-center justify-center rounded-2xl border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900"
+            className="min-h-[52px] items-center justify-center rounded-2xl border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900"
           >
             <Text className="text-lg font-semibold text-black dark:text-white">
               {t('signIn.google')}
@@ -140,13 +138,14 @@ export default function SignInScreen() {
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
-              className="h-12 rounded-xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
+              className="min-h-12 rounded-xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
             />
             <PressableScale
               accessibilityRole="button"
+              accessibilityState={{ disabled: busy || !devEmail.trim() }}
               disabled={busy || !devEmail.trim()}
               onPress={() => run('dev', async () => ({ idToken: devEmail.trim() }))}
-              className="h-12 items-center justify-center rounded-xl bg-black dark:bg-white"
+              className="min-h-12 items-center justify-center rounded-xl bg-black dark:bg-white"
             >
               <Text className="text-base font-semibold text-white dark:text-black">
                 {t('signIn.devSubmit')}

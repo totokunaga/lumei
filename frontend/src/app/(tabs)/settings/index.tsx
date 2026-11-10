@@ -158,7 +158,7 @@ export default function SettingsScreen() {
           accessibilityState={{ busy: signingOut, disabled: signingOut }}
           disabled={signingOut}
           onPress={() => void signOut()}
-          className="h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-gray-100 dark:bg-gray-900"
+          className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-gray-100 dark:bg-gray-900"
         >
           {signingOut && <ActivityIndicator />}
           <Text className="text-lg font-semibold text-red-600 dark:text-red-400">

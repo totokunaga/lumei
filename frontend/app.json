@@ -7,6 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "lumei",
     "userInterfaceStyle": "automatic",
+    "locales": {
+      "en": "./assets/locales/en.json",
+      "ja": "./assets/locales/ja.json",
+      "fr": "./assets/locales/fr.json"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
       "usesAppleSignIn": true,
@@ -20,7 +25,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.lumei"
+      "package": "com.anonymous.lumei",
+      "allowBackup": false
     },
     "plugins": [
       "expo-router",
@@ -33,14 +39,23 @@
         }
       ],
       "expo-localization",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-apple-authentication",
       [
         "expo-location",
         {
           "locationWhenInUsePermission": "Lumei saves where you are when you record an expense, so you can see where you spent. It never tracks you in the background.",
           "isIosBackgroundLocationEnabled": false,
-          "isAndroidBackgroundLocationEnabled": false
+          "isAndroidBackgroundLocationEnabled": false,
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false,
+          "locationFullAccuracyPermission": false
         }
       ],
       "./modules/expense-shortcut/app.plugin.js"

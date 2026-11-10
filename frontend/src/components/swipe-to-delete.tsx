@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
-import { type ReactNode, useEffect, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
@@ -77,11 +77,17 @@ export function SwipeToDelete({
   const resting = useSharedValue(0);
   /** 1 while the row shows; eases to 0 as a deleted row leaves. */
   const shown = useSharedValue(1);
+  // Screen readers reach the delete button only while it shows; closed rows
+  // offer deleting as an action instead (BR-NFR-07).
+  // Held with the row's key: a recycled row shows another item, which starts closed.
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const revealed = revealedKey === rowKey;
 
   // Made once, so the one open row can be recognized and closed from another.
   const { record: setOpen, slideClosed: close } = useMemo(() => {
     /** Records whether the row is open, and closes another row when this one opens. */
     const record = (open: boolean) => {
+      setRevealedKey(open ? rowKey : null);
       if (open) {
         if (closeOpenRow && closeOpenRow !== slideClosed) {
           closeOpenRow();
@@ -98,7 +104,7 @@ export function SwipeToDelete({
       record(false);
     };
     return { record, slideClosed };
-  }, [offset, resting]);
+  }, [offset, resting, rowKey]);
 
   useEffect(() => {
     controlsRef.current = { isOpen: () => resting.get() < 0, close };
@@ -189,6 +195,8 @@ export function SwipeToDelete({
       {/* The round delete button, behind the row's right end; only transforms and opacity animate. */}
       <View
         pointerEvents="box-none"
+        accessibilityElementsHidden={!revealed}
+        importantForAccessibility={revealed ? 'auto' : 'no-hide-descendants'}
         style={{ width: ACTION_WIDTH }}
         className="absolute bottom-0 right-0 top-0 items-center justify-center"
       >

@@ -94,6 +94,8 @@ The requirements didn't specify these, so this document assumes them. Update the
 | ECS launch type     | Fargate                                                          |
 | Container port      | 8080 (the Go HTTP server listens here)                           |
 | TLS certificate     | Issued by ACM and attached to the ALB HTTPS listener             |
+| Encryption at rest  | RDS storage, its automated backups, and snapshots are encrypted with KMS (BR-NFR-03); so are CloudWatch Logs and Secrets Manager |
+| ALB to ECS traffic  | Plain HTTP :8080 inside the VPC: TLS ends at the ALB, and only `alb-sg` can reach `ecs-sg` |
 
 ## Not shown in the diagram
 

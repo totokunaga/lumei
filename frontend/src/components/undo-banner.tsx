@@ -14,6 +14,12 @@ import { PressableScale } from './pressable-scale';
 /** How long the banner offers to undo, in milliseconds. */
 export const UNDO_MS = 5_000;
 
+/**
+ * How long it stays while a screen reader is on: long enough to move to the
+ * Undo button and press it (BR-NFR-07).
+ */
+export const SCREEN_READER_UNDO_MS = 15_000;
+
 /** What the banner offers to undo. */
 interface UndoOffer {
   /** Says what happened, e.g. "Expense deleted". */
@@ -44,7 +50,8 @@ export const dismissUndo = (): void => useUndo.setState({ offer: null });
 /**
  * Renders the undo banner above the tab bar and the quick-add button: what
  * happened and an "Undo" button, on Liquid Glass where the device has it. It
- * leaves after `UNDO_MS`, and screen readers announce it when it appears.
+ * leaves after `UNDO_MS`, or `SCREEN_READER_UNDO_MS` while a screen reader is
+ * on, and screen readers announce it when it appears.
  */
 export function UndoBanner() {
   const { t } = useTranslation();
@@ -56,8 +63,19 @@ export function UndoBanner() {
       return;
     }
     AccessibilityInfo.announceForAccessibility(offer.message);
-    const timer = setTimeout(dismissUndo, UNDO_MS);
-    return () => clearTimeout(timer);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    void AccessibilityInfo.isScreenReaderEnabled()
+      .catch(() => false)
+      .then((screenReader) => {
+        if (!cancelled) {
+          timer = setTimeout(dismissUndo, screenReader ? SCREEN_READER_UNDO_MS : UNDO_MS);
+        }
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [offer]);
 
   if (!offer) {
@@ -89,7 +107,7 @@ export function UndoBanner() {
             offer.undo();
             dismissUndo();
           }}
-          className="h-11 items-center justify-center rounded-full px-4"
+          className="min-h-11 items-center justify-center rounded-full px-4"
         >
           <Text className="text-base font-semibold text-emerald-400">{t('undo.undo')}</Text>
         </PressableScale>

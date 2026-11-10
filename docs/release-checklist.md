@@ -24,27 +24,31 @@ What's left before Lumei's first release on the App Store and Google Play. Tick 
 
 ## 3. Release-blocking audits
 
-Each one ends either with a fix or with a note in the requirements saying how the app meets it.
+Audited and fixed on Nov 9, 2026; the requirements now say how each is met. What's left:
 
-- [ ] **BR-NFR-01 Location.** Location is read only with permission, and only while an expense is being recorded or when the user taps "Add current location". Check:
-  - Nothing requests background location.
-  - The permission text in `app.json` (iOS `NSLocationWhenInUseUsageDescription`, Android permissions) is accurate, in all three languages.
-  - The Add Expense shortcut uses only Shortcuts' own location permission.
-- [ ] **BR-NFR-02 No third-party sharing.**
-  - **Data leaving the device:** list every library that sends anything off the device (Google Sign-In, Google Maps on Android, Apple Maps, Expo modules), and confirm none sends financial or location data, or gets used for advertising or analytics.
-  - **Store answers:** this list feeds the App Store privacy labels and Google Play's Data safety form (section 5).
-- [ ] **BR-NFR-03 Encryption.**
-  - **In transit:** only HTTPS, through the ALB with an ACM certificate. Check that the production app never calls plain HTTP: `EXPO_PUBLIC_API_URL`, iOS App Transport Security, and Android cleartext traffic.
-  - **At rest on AWS:** RDS storage encryption on, plus Secrets Manager. The stored Apple and Google tokens are also encrypted by the API.
-  - **At rest on the device:** 🧑 decide whether the OS's file encryption is enough for the SQLite files. iOS Data Protection and Android file-based encryption both encrypt while the device is locked. If not, add SQLCipher. Then record the decision in the requirements.
-- [ ] **BR-NFR-07 Accessibility.**
-  - **Screen readers:** a full VoiceOver and TalkBack pass on every screen.
-  - **Font size:** the largest OS sizes, checking that nothing gets cut off.
-  - **Text equivalents:** every number on the home screen and chart has one (the chart needs a text summary).
-  - **Reduce Motion and Reduce Transparency:** check both are respected.
-- [ ] **BR-NFR-08 Localization.**
-  - **Hard-coded text:** find user-facing strings that aren't translated, including errors, alerts, permission prompts, and the shortcut.
-  - 🧑 **Native-speaker review** of the Japanese and French text, including the default category names (BR-CAT-07) and the new account-deletion screen.
+- [x] **BR-NFR-01 Location:** foreground only. The unused "Always" location, motion, full-accuracy, and Face ID permission strings are off, and the location prompt is translated.
+- [x] **BR-NFR-02 No third-party sharing:** no analytics, advertising, or crash-reporting SDKs. Category names are out of the server's logs, and Android cloud backup is off. Map display is allowed, and must be disclosed (section 5).
+- [x] **BR-NFR-03 Encryption:** a release build refuses a non-HTTPS API. The phone's own encryption is accepted for the on-device database. RDS and logs are encrypted with KMS (infra assumptions).
+- [x] **BR-NFR-07 Accessibility:**
+  - spoken amounts are final values
+  - errors are announced
+  - the chart has a full summary and day-by-day reading
+  - hidden swipe buttons are out of the screen-reader order
+  - controls grow with the font
+  - radios, headings, and states are fixed
+  - the undo offer stays 15 seconds with a screen reader on
+- [x] **BR-NFR-08 Localization:** every string in the app's JavaScript goes through translation. The iOS location prompt and the shortcut's errors are now translated too.
+- [ ] **Run a clean prebuild** (`bunx expo prebuild --clean`) and a development build on both platforms. The permission and backup changes only reach the native projects then. The shortcut's error mapping compiles only in the app target.
+- [ ] **Try it with VoiceOver and TalkBack** on a real device, and at the largest font size. The tests check labels and states, not how it actually sounds or looks.
+- [ ] 🧑 **Native-speaker review** of the Japanese and French text, including the default category names (BR-CAT-07), account deletion, the chart's spoken text, and the location prompt.
+- [ ] **Smaller accessibility items:**
+  - Spell out the status colour (near limit, over) in the cards' spoken text.
+  - Make the card-pager dots a tab list with bigger targets.
+  - Name the Android language and date pickers with their row label.
+  - Number the item-list fields ("Income 2, amount").
+  - Announce a category's new position after a move.
+  - The chart's axis dates and view switch may still crowd at the largest font sizes.
+- [ ] **French punctuation:** use a non-breaking space before `: ? ; !` throughout `fr.json`, and use apostrophes consistently.
 
 ## 4. Infrastructure and delivery
 
@@ -61,7 +65,7 @@ Each one ends either with a fix or with a note in the requirements saying how th
 
 ## 5. Store submission
 
-- [ ] 🧑 **Privacy policy** at a public URL. Both stores require one. It should cover location, financial data, sign-in, and deletion (BR-ACC-05, BR-NFR-01 to BR-NFR-03).
+- [ ] 🧑 **Privacy policy** at a public URL. Both stores require one. It should cover location, financial data, sign-in, and deletion (BR-ACC-05, BR-NFR-01 to BR-NFR-03). It must also say that Apple Maps and Google Maps draw expense maps from their locations (BR-NFR-02).
 - [ ] 🧑 **App Store privacy labels** and **Google Play Data safety form**, from the BR-NFR-02 audit.
 - [ ] **Account deletion outside the app, for Google Play.** Google Play also needs a web link where users can ask to delete their account and data without the app. This needs a small web page or form. 🧑 Decide which, then add it as a requirement.
 - [ ] 🧑 **App Review access.** Reviewers must be able to sign in. Provide a demo Apple or Google account in the review notes. The dev sign-in must stay off in production.

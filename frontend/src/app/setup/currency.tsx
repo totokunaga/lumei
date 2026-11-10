@@ -48,7 +48,11 @@ export default function CurrencyStep() {
         </Text>
       }
     >
-      <View accessibilityRole="radiogroup" className="gap-3">
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={t('setup.currency.title')}
+        className="gap-3"
+      >
         {CODES.map((code) => (
           <View key={code} ref={code === currency ? selectedRef : undefined}>
             <OptionRow

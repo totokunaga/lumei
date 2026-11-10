@@ -21,6 +21,7 @@ import {
 import { localToday } from '@/domain/date';
 import { clampSpentAt } from '@/domain/expense';
 import { amountToText, type CurrencyCode, parseAmount } from '@/domain/money';
+import { ErrorText } from './error-text';
 
 import { AmountInput } from './amount-input';
 import { DateTimeField } from './date-time-field';
@@ -166,9 +167,7 @@ export function IncomeForm({ income }: IncomeFormProps) {
             )}
           />
           {invalidAmount && (
-            <Text accessibilityRole="alert" className="text-sm text-red-500">
-              {t('expense.invalidAmount')}
-            </Text>
+            <ErrorText className="text-sm text-red-500">{t('expense.invalidAmount')}</ErrorText>
           )}
         </View>
 
@@ -212,16 +211,14 @@ export function IncomeForm({ income }: IncomeFormProps) {
 
       <View style={{ paddingBottom: insets.bottom + 12 }} className="gap-2 px-6 pt-3">
         {failed && (
-          <Text accessibilityRole="alert" className="text-center text-sm text-red-500">
-            {t('income.failed')}
-          </Text>
+          <ErrorText className="text-center text-sm text-red-500">{t('income.failed')}</ErrorText>
         )}
         <PressableScale
           accessibilityRole="button"
           accessibilityState={{ disabled: !valid }}
           disabled={!valid}
           onPress={() => void handleSubmit(save)()}
-          className={`h-14 items-center justify-center rounded-2xl ${
+          className={`min-h-14 items-center justify-center rounded-2xl ${
             valid ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-800'
           }`}
         >
@@ -237,7 +234,7 @@ export function IncomeForm({ income }: IncomeFormProps) {
           <PressableScale
             accessibilityRole="button"
             onPress={remove}
-            className="h-12 items-center justify-center"
+            className="min-h-12 items-center justify-center"
           >
             <Text className="text-base font-semibold text-red-600 dark:text-red-400">
               {t('income.delete')}

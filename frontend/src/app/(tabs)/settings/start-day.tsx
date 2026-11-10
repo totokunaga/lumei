@@ -105,7 +105,10 @@ export default function StartDayScreen() {
 
         {current && (
           <View className="gap-1 rounded-3xl bg-gray-50 p-5 dark:bg-gray-950">
-            <Text className="text-sm font-medium uppercase text-gray-500">
+            <Text
+              accessibilityRole="header"
+              className="text-sm font-medium uppercase text-gray-500"
+            >
               {t('settings.startDay.current')}
             </Text>
             <Text className="text-lg font-semibold text-black dark:text-white">
@@ -131,7 +134,13 @@ export default function StartDayScreen() {
                 range: formatPeriodRange(gap, t, i18n.language),
               })}
             </Text>
-            <View accessibilityRole="radiogroup" className="gap-2">
+            <View
+              accessibilityRole="radiogroup"
+              accessibilityLabel={t('settings.startDay.gapQuestion', {
+                range: formatPeriodRange(gap, t, i18n.language),
+              })}
+              className="gap-2"
+            >
               {CHOICES.map((option) => (
                 <OptionRow
                   key={option}
@@ -152,7 +161,7 @@ export default function StartDayScreen() {
           accessibilityState={{ disabled: !canSave }}
           disabled={!canSave}
           onPress={save}
-          className={`h-14 items-center justify-center rounded-2xl ${
+          className={`min-h-14 items-center justify-center rounded-2xl ${
             canSave ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-800'
           }`}
         >

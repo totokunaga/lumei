@@ -26,6 +26,7 @@ import { localToday } from '@/domain/date';
 import { clampSpentAt, isOverToday } from '@/domain/expense';
 import { amountToText, type CurrencyCode, parseAmount } from '@/domain/money';
 import { type Coordinates, readLocation, useCaptureLocation } from '@/lib/location';
+import { ErrorText } from './error-text';
 
 import { AmountInput } from './amount-input';
 import { DateTimeField } from './date-time-field';
@@ -224,24 +225,30 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
             )}
           />
           {invalidAmount && (
-            <Text accessibilityRole="alert" className="text-sm text-red-500">
-              {t('expense.invalidAmount')}
-            </Text>
+            <ErrorText className="text-sm text-red-500">{t('expense.invalidAmount')}</ErrorText>
           )}
         </View>
 
         <View className="gap-3">
-          <Text className="text-sm font-medium uppercase text-gray-500 dark:text-gray-400">
+          <Text
+            accessibilityRole="header"
+            className="text-sm font-medium uppercase text-gray-500 dark:text-gray-400"
+          >
             {t('expense.category')}
           </Text>
-          <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t('expense.category')}
+            className="flex-row flex-wrap gap-2"
+          >
             {categories.map((category) => {
               const selected = category.id === categoryId;
               return (
                 <PressableScale
                   key={category.id}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected }}
+                  // TalkBack reads a radio by `checked`, VoiceOver by `selected` (BR-NFR-07).
+                  accessibilityState={{ selected, checked: selected }}
                   onPress={() => setValue('categoryId', category.id)}
                   className={`flex-row items-center gap-2 rounded-2xl px-4 py-3 ${
                     selected ? 'bg-emerald-500' : 'bg-gray-100 dark:bg-gray-900'
@@ -323,7 +330,10 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
         </View>
 
         <View className="gap-3">
-          <Text className="text-sm font-medium uppercase text-gray-500 dark:text-gray-400">
+          <Text
+            accessibilityRole="header"
+            className="text-sm font-medium uppercase text-gray-500 dark:text-gray-400"
+          >
             {t('expense.location')}
           </Text>
           {shownLocation ? (
@@ -332,7 +342,7 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
               <PressableScale
                 accessibilityRole="button"
                 onPress={() => choose(null)}
-                className="h-11 items-center justify-center self-start"
+                className="min-h-11 items-center justify-center self-start"
               >
                 <Text className="text-base font-semibold text-red-600 dark:text-red-400">
                   {t('expense.removeLocation')}
@@ -353,7 +363,7 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
               accessibilityState={{ busy: locating }}
               disabled={locating}
               onPress={addCurrentLocation}
-              className="h-12 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
+              className="min-h-12 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
             >
               <SymbolView
                 name={{ ios: 'location.fill', android: 'my_location' }}
@@ -370,16 +380,14 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
 
       <View style={{ paddingBottom: insets.bottom + 12 }} className="gap-2 px-6 pt-3">
         {failed && (
-          <Text accessibilityRole="alert" className="text-center text-sm text-red-500">
-            {t('expense.failed')}
-          </Text>
+          <ErrorText className="text-center text-sm text-red-500">{t('expense.failed')}</ErrorText>
         )}
         <PressableScale
           accessibilityRole="button"
           accessibilityState={{ disabled: !valid }}
           disabled={!valid}
           onPress={() => void handleSubmit(save)()}
-          className={`h-14 items-center justify-center rounded-2xl ${
+          className={`min-h-14 items-center justify-center rounded-2xl ${
             valid ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-800'
           }`}
         >
@@ -395,7 +403,7 @@ export function ExpenseForm({ expense }: ExpenseFormProps) {
           <PressableScale
             accessibilityRole="button"
             onPress={remove}
-            className="h-12 items-center justify-center"
+            className="min-h-12 items-center justify-center"
           >
             <Text className="text-base font-semibold text-red-600 dark:text-red-400">
               {t('expense.delete')}

@@ -300,12 +300,12 @@ For comparison, the spreadsheet shows ¥575 for remaining today, because it subt
 | ID | Area | Requirement |
 |----|------|-------------|
 | BR-NFR-01 | Privacy | Location is collected only with the user's permission and only when an expense is recorded, never in the background. |
-| BR-NFR-02 | Privacy | Financial and location data is never shared with third parties or used for advertising. |
-| BR-NFR-03 | Security | All traffic is encrypted in transit and all data is encrypted at rest. The app never handles passwords: Apple and Google handle sign-in. |
+| BR-NFR-02 | Privacy | Financial and location data is never shared with third parties or used for advertising. The app has no analytics, advertising, or crash-reporting services, and the server's logs leave out amounts, descriptions, names, locations, and tokens. The one exception is drawing an expense's map (BR-EXP-04): the platform's map service (Apple Maps on iOS, Google Maps on Android) loads the map around its location, and gets nothing else. The privacy policy and the stores' privacy labels say so. Sign-in talks to Apple and Google only to sign in, and to revoke access when the account is deleted (BR-ACC-05). |
+| BR-NFR-03 | Security | All traffic is encrypted in transit and all data is encrypted at rest. The app never handles passwords: Apple and Google handle sign-in. A release build talks to the API only over HTTPS. On the device, the data is encrypted by the operating system (iOS Data Protection, Android file-based encryption), and it is kept out of Android's cloud backups; the session tokens are in the Keychain or Keystore. On the server, the database and its backups are encrypted, and so are the Apple and Google tokens it stores. |
 | BR-NFR-04 | Performance | Saving an expense updates the home screen within 1 second, online or offline. |
 | BR-NFR-05 | Availability | If the API is unreachable, the app falls back to offline mode (BR-OFF-01 to BR-OFF-04). It doesn't block the user. |
 | BR-NFR-06 | Correctness | Amounts are stored and calculated as integers in the currency's minor unit (e.g. cents for USD), never as floating-point values. |
-| BR-NFR-07 | Accessibility | Supports the OS font-size setting and screen readers. Every number on the home screen and chart has a text equivalent. |
+| BR-NFR-07 | Accessibility | Supports the OS font-size setting and screen readers. Every number on the home screen and chart has a text equivalent. The chart reads as a summary of its dates and today's numbers, and a screen reader steps through its days, one swipe per day, hearing each day's spending, spending so far, and limit. Amounts that count to a new value are read at their new value. Error messages are announced when they appear. The undo offer after a deletion (BR-EXP-06) stays 15 seconds instead of 5 while a screen reader is on. |
 | BR-NFR-08 | Localization | Every user-facing text, including errors and notifications, is available in English, Japanese, and French. |
 
 ## Assumptions

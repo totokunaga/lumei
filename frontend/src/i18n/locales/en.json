@@ -310,7 +310,7 @@
     "title": "Spending chart",
     "under": "{{amount}} under today's spending limit",
     "over": "{{amount}} over today's spending limit",
-    "label": "Spent {{spent}} so far. {{status}}.",
+    "label": "{{title}}, {{range}}. Spent {{spent}} so far, against a limit of {{limit}} by today. {{status}}.",
     "spentSoFar": "Spent so far",
     "limit": "Limit",
     "daily": "Daily spending",
@@ -321,7 +321,11 @@
     "period": "Period",
     "showRecent_one": "Show the last {{count}} day",
     "showRecent_other": "Show the last {{count}} days",
-    "showPeriod": "Show the whole period"
+    "showPeriod": "Show the whole period",
+    "labelPlain": "{{title}}, {{range}}.",
+    "day": "{{date}}: spent {{spent}}, {{soFar}} so far, limit {{limit}}",
+    "dayAhead": "{{date}}: limit {{limit}}",
+    "stepHint": "Swipe up or down to hear each day."
   },
   "categories": {
     "title": "Categories",

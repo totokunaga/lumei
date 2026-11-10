@@ -9,6 +9,7 @@ import { TextField } from '@/components/text-field';
 import { database } from '@/db/client';
 import { countPendingChanges } from '@/db/records';
 import { TAB_BAR_CLEARANCE } from '@/lib/layout';
+import { ErrorText } from '@/components/error-text';
 
 /** The reasons a deletion didn't happen, which the screen explains. */
 type DeleteError = Exclude<DeleteAccountResult, 'deleted'>;
@@ -90,14 +91,14 @@ export default function DeleteAccountScreen() {
           onSubmitEditing={() => void remove()}
           returnKeyType="done"
           fontSize={18}
-          className="h-14 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
+          className="min-h-14 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
         />
       </View>
 
       {error && (
-        <Text accessibilityRole="alert" className="text-base text-red-600 dark:text-red-400">
+        <ErrorText className="text-base text-red-600 dark:text-red-400">
           {t(`deleteAccount.errors.${error}`)}
-        </Text>
+        </ErrorText>
       )}
 
       <PressableScale
@@ -105,7 +106,7 @@ export default function DeleteAccountScreen() {
         accessibilityState={{ busy: deleting, disabled: !confirmed || deleting }}
         disabled={!confirmed || deleting}
         onPress={() => void remove()}
-        className={`h-14 flex-row items-center justify-center gap-2 rounded-2xl ${
+        className={`min-h-14 flex-row items-center justify-center gap-2 rounded-2xl ${
           confirmed ? 'bg-red-600 dark:bg-red-500' : 'bg-gray-100 dark:bg-gray-900'
         }`}
       >

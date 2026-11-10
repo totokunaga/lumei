@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Lumei",
+    "NSLocationWhenInUseUsageDescription": "Lumei enregistre l'endroit où vous êtes quand vous notez une dépense, pour que vous sachiez où vous avez dépensé. L'app ne suit jamais votre position en arrière-plan."
+  }
+}

@@ -310,7 +310,7 @@
     "title": "支出のグラフ",
     "under": "今日の支出上限まであと{{amount}}",
     "over": "今日の支出上限を{{amount}}超えています",
-    "label": "これまでに{{spent}}を使いました。{{status}}。",
+    "label": "{{title}}、{{range}}。これまでに{{spent}}を使いました。今日までの上限は{{limit}}です。{{status}}。",
     "spentSoFar": "累計支出",
     "limit": "上限",
     "daily": "1日の支出",
@@ -321,7 +321,11 @@
     "period": "期間全体",
     "showRecent_one": "直近{{count}}日間を表示",
     "showRecent_other": "直近{{count}}日間を表示",
-    "showPeriod": "期間全体を表示"
+    "showPeriod": "期間全体を表示",
+    "labelPlain": "{{title}}、{{range}}。",
+    "day": "{{date}}：{{spent}}を使い、累計{{soFar}}、上限{{limit}}",
+    "dayAhead": "{{date}}：上限{{limit}}",
+    "stepHint": "上下にスワイプすると、1日ずつ金額を読み上げます。"
   },
   "categories": {
     "title": "カテゴリ",

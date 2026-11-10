@@ -22,6 +22,7 @@ import { listLayout, riseIn } from './motion';
 import { PressableScale } from './pressable-scale';
 import { SetupStep } from './setup-step';
 import { TextField } from './text-field';
+import { ErrorText } from './error-text';
 
 /**
  * An item as the form returns it: amounts in minor units, an empty note as
@@ -204,7 +205,7 @@ export function ItemListForm({
                   onBlur={onBlur}
                   placeholder={index === 0 ? placeholder : t('setup.items.name')}
                   placeholderTextColor="#9CA3AF"
-                  className={`h-14 flex-1 rounded-2xl border-2 bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white ${
+                  className={`min-h-14 flex-1 rounded-2xl border-2 bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white ${
                     fieldState.error ? 'border-red-500' : 'border-transparent'
                   }`}
                 />
@@ -255,15 +256,15 @@ export function ItemListForm({
                   onBlur={onBlur}
                   placeholder={t('setup.items.note')}
                   placeholderTextColor="#9CA3AF"
-                  className="h-12 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
+                  className="min-h-12 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
                 />
               )}
             />
           )}
           {rowError(errors.items?.[index]) && (
-            <Text accessibilityRole="alert" className="px-1 text-sm text-red-500">
+            <ErrorText className="px-1 text-sm text-red-500">
               {t(`setup.errors.${rowError(errors.items?.[index])!}`, { example: exampleText })}
-            </Text>
+            </ErrorText>
           )}
         </Animated.View>
       ))}
@@ -271,7 +272,7 @@ export function ItemListForm({
       <PressableScale
         accessibilityRole="button"
         onPress={() => append(emptyRow)}
-        className="h-14 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
+        className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
       >
         <SymbolView name={{ ios: 'plus', android: 'add' }} size={18} tintColor="#10B981" />
         <Text className="text-base font-semibold text-emerald-600 dark:text-emerald-400">

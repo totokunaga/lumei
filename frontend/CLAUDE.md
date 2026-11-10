@@ -38,9 +38,10 @@ bunx expo install <package>  # Add a dependency
 
 ## Configuration
 
-- The API base URL comes from `EXPO_PUBLIC_API_URL` (default `http://localhost:18080`, the API from `make up-d` in `backend/`). Override it in `.env.local`, which is gitignored. The Android emulator reaches the host at `http://10.0.2.2:18080`.
+- The API base URL comes from `EXPO_PUBLIC_API_URL` (default `http://localhost:18080`, the API from `make up-d` in `backend/`). A release build refuses to start without an `https://` URL (`apiBaseUrl`, BR-NFR-03). Override it in `.env.local`, which is gitignored. The Android emulator reaches the host at `http://10.0.2.2:18080`.
 - Every `EXPO_PUBLIC_*` variable is compiled into the app bundle, so anyone can read it. Never put a secret there.
 - **iOS and Android only.** There is no web build (`platforms` in `app.json`), because the app relies on native secure storage and native sign-in. Don't add `react-native-web` back or write `Platform.OS === 'web'` branches.
+- **Native permission text and backups:** the iOS location prompt is in `assets/locales/{en,ja,fr}.json` (`expo.locales`), so it follows the device language; keep it in step with the `locationWhenInUsePermission` text in `app.json`. Unused permission strings are turned off in the plugins' options (`false`), and Android's cloud backup is off (`android.allowBackup`), so the expense database never leaves the device that way (BR-NFR-02).
 - Configure native behavior in `app.json` and config plugins. `ios/` and `android/` are generated (Continuous Native Generation) and gitignored; never create or edit them by hand.
 - **Sign-in config** (BR-ACC-01). Each provider's button appears only when it is configured:
   - **Google:** set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (the audience the API checks), `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, and, at build time, `GOOGLE_IOS_URL_SCHEME`. `app.config.ts` adds Google Sign-In's config plugin only when the scheme is set, because the plugin fails the build without one.
@@ -94,6 +95,11 @@ Import from `src/` with the `@/` alias (`@/api/generated`), not relative paths.
 ## Code style
 
 - **Styling:** NativeWind `className` with Tailwind classes. Use `StyleSheet` only for what classes can't express (e.g. computed values). Give every color a `dark:` variant; the app follows the system theme.
+- **Accessibility** (BR-NFR-07):
+  - Show an error with `ErrorText` (`src/components/error-text.tsx`), never a bare `Text`: screen readers then say it as it appears.
+  - Give controls with text a minimum height (`min-h-14`), never a fixed one (`h-14`), so they grow with the OS font size. Only round icon buttons, with both a height and a width, stay fixed.
+  - Radios set both `selected` and `checked`; a `radiogroup` and a section title get a name and `accessibilityRole="header"`.
+  - A number on the home screen or chart has a text equivalent (see `ProgressChart`'s adjustable summary). `CountingText` already reads its new value, not the one counting.
 - **Text fields:** use `TextField` (`src/components/text-field.tsx`), or `AmountInput` for amounts, never a bare `TextInput`. Set the size with its `fontSize` prop, not a Tailwind `text-*` class: those also set a line height, and on iOS a text field with one draws its text below the middle.
 - **Server data:** Use the generated hooks (`useGetHealth`) and functions; never call `fetch` directly. **Local state:** Zustand. **Forms:** React Hook Form with a Zod schema.
 - **Sessions:** `apiFetch` sends the access token (a JWT valid for 15 minutes) and keeps it fresh. It refreshes the token through the auth store a minute before expiry, or after a 401, then retries once. Concurrent requests share one refresh, since each refresh replaces the refresh token. Never send `Authorization` yourself, and never call `refreshSession` outside `src/auth/store.ts`.

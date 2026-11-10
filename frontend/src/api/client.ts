@@ -1,6 +1,26 @@
 // The fetch function every generated API call goes through (orval mutator).
 
-const baseUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:18080';
+/**
+ * Works out the API's base URL: `EXPO_PUBLIC_API_URL`, or in development the
+ * API that `make up-d` runs. A release build only talks to the API over
+ * HTTPS (BR-NFR-03), so a missing or plain-HTTP URL there fails at launch,
+ * where a TestFlight or internal test shows it, instead of sending data in
+ * the clear.
+ * @param dev Whether this is a development build.
+ * @returns The URL, e.g. `https://api.example.com`.
+ * @throws In a release build, if the URL isn't HTTPS.
+ */
+export const apiBaseUrl = (url: string | undefined, dev: boolean): string => {
+  const base = url ?? (dev ? 'http://localhost:18080' : '');
+  if (!dev && !base.startsWith('https://')) {
+    throw new Error(
+      `EXPO_PUBLIC_API_URL must be an https:// URL in a release build, not "${base}"`,
+    );
+  }
+  return base;
+};
+
+const baseUrl = apiBaseUrl(process.env.EXPO_PUBLIC_API_URL, __DEV__);
 
 /** How `apiFetch` gets access tokens. Set by `configureAuth`. */
 interface AuthHooks {

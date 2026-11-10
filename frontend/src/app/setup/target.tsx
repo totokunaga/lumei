@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
@@ -19,6 +19,7 @@ import {
 import { useDraftBudget } from '@/setup/budget';
 import { useSetupDraft } from '@/setup/draft';
 import { useSetupFlow } from '@/setup/navigation';
+import { ErrorText } from '@/components/error-text';
 
 /**
  * Builds the target's validation: an amount the currency allows, where 0 is
@@ -94,9 +95,9 @@ export default function TargetStep() {
               autoFocus
             />
             {fieldState.error && (
-              <Text accessibilityRole="alert" className="px-1 text-sm text-red-500">
+              <ErrorText className="px-1 text-sm text-red-500">
                 {t('setup.errors.invalidAmount', { example: exampleText })}
-              </Text>
+              </ErrorText>
             )}
           </View>
         )}
@@ -113,14 +114,12 @@ export default function TargetStep() {
           }`}
         />
         {budget < 0 && (
-          <Animated.Text
+          <Animated.View
             entering={FadeIn.reduceMotion(ReduceMotion.System)}
             exiting={FadeOut.reduceMotion(ReduceMotion.System)}
-            accessibilityRole="alert"
-            className="text-base text-red-500"
           >
-            {t('setup.target.overBudget')}
-          </Animated.Text>
+            <ErrorText className="text-base text-red-500">{t('setup.target.overBudget')}</ErrorText>
+          </Animated.View>
         )}
       </View>
     </SetupStep>

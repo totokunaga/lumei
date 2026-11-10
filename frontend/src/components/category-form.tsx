@@ -24,6 +24,7 @@ import {
   updateCategory,
 } from '@/db/records';
 import { CATEGORY_NAME_MAX, canArchive, isCategoryNameTaken, pickEmoji } from '@/domain/category';
+import { ErrorText } from './error-text';
 
 import { EASE_OUT } from './motion';
 import { PressableScale } from './pressable-scale';
@@ -188,30 +189,30 @@ export function CategoryForm({ category }: CategoryFormProps) {
                 maxLength={CATEGORY_NAME_MAX}
                 returnKeyType="done"
                 fontSize={18}
-                className="h-14 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
+                className="min-h-14 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
               />
             )}
           />
           {taken && (
-            <Text accessibilityRole="alert" className="px-1 text-sm text-red-500">
+            <ErrorText className="px-1 text-sm text-red-500">
               {t('categories.nameTaken', { name: name.trim() })}
-            </Text>
+            </ErrorText>
           )}
         </View>
       </ScrollView>
 
       <View style={{ paddingBottom: insets.bottom + 12 }} className="gap-2 px-6 pt-3">
         {failed && (
-          <Text accessibilityRole="alert" className="text-center text-sm text-red-500">
+          <ErrorText className="text-center text-sm text-red-500">
             {t('categories.failed')}
-          </Text>
+          </ErrorText>
         )}
         <PressableScale
           accessibilityRole="button"
           accessibilityState={{ disabled: !valid }}
           disabled={!valid}
           onPress={() => void handleSubmit(save)()}
-          className={`h-14 items-center justify-center rounded-2xl ${
+          className={`min-h-14 items-center justify-center rounded-2xl ${
             valid ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-800'
           }`}
         >
@@ -230,7 +231,7 @@ export function CategoryForm({ category }: CategoryFormProps) {
               accessibilityState={{ disabled: lastActive }}
               disabled={lastActive}
               onPress={toggleArchived}
-              className="h-12 items-center justify-center"
+              className="min-h-12 items-center justify-center"
             >
               <Text
                 className={`text-base font-semibold ${

@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Lumei",
+    "NSLocationWhenInUseUsageDescription": "支出を記録するときに現在地を保存し、どこで使ったかを確認できるようにします。バックグラウンドで位置情報を追跡することはありません。"
+  }
+}

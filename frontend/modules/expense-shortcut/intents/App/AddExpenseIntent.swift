@@ -39,21 +39,23 @@ struct CategoryQuery: EntityStringQuery {
   /// so the shortcut still shows the name.
   /// - Returns: The categories that still exist.
   func entities(for identifiers: [CategoryEntity.ID]) async throws -> [CategoryEntity] {
-    try store().categories(ids: identifiers).map(CategoryEntity.init)
+    try shownToUser { try store().categories(ids: identifiers).map(CategoryEntity.init) }
   }
 
   /// Lists the categories a new expense can use, in the user's order (BR-CAT-02, BR-CAT-03).
   /// - Returns: The active categories.
   func suggestedEntities() async throws -> [CategoryEntity] {
-    try store().activeCategories().map(CategoryEntity.init)
+    try shownToUser { try store().activeCategories().map(CategoryEntity.init) }
   }
 
   /// Finds the active categories whose name contains the text, e.g. for Siri.
   /// - Returns: The matches, in the user's order.
   func entities(matching string: String) async throws -> [CategoryEntity] {
-    try store().activeCategories()
-      .filter { $0.name.localizedStandardContains(string) }
-      .map(CategoryEntity.init)
+    try shownToUser {
+      try store().activeCategories()
+        .filter { $0.name.localizedStandardContains(string) }
+        .map(CategoryEntity.init)
+    }
   }
 }
 
@@ -92,7 +94,7 @@ struct AddExpenseIntent: AppIntent {
     }
     let now = Date()
     let coordinate = location?.location?.coordinate
-    do {
+    try shownToUser {
       try ExpenseStore(url: account.databaseURL()).addExpense(
         id: newRecordID(at: now),
         amount: minor,
@@ -101,15 +103,28 @@ struct AddExpenseIntent: AppIntent {
         longitude: coordinate?.longitude,
         now: now
       )
-    } catch ExpenseStoreError.notReady {
-      throw AddExpenseError.notReady
-    } catch ExpenseStoreError.categoryUnavailable {
-      throw AddExpenseError.categoryUnavailable
-    } catch {
-      throw AddExpenseError.saveFailed
     }
     NotificationCenter.default.post(name: expenseShortcutDidAddExpense, object: nil)
     return .result()
+  }
+}
+
+/// Runs `body`, turning any store error into an `AddExpenseError`, whose
+/// message is in the user's language (BR-NFR-08). Shortcuts would otherwise
+/// show the raw error, e.g. SQLite's English message.
+/// - Returns: What `body` returns.
+/// - Throws: `AddExpenseError` for any error `body` throws.
+private func shownToUser<T>(_ body: () throws -> T) throws -> T {
+  do {
+    return try body()
+  } catch let error as AddExpenseError {
+    throw error
+  } catch ExpenseStoreError.notReady {
+    throw AddExpenseError.notReady
+  } catch ExpenseStoreError.categoryUnavailable {
+    throw AddExpenseError.categoryUnavailable
+  } catch {
+    throw AddExpenseError.saveFailed
   }
 }
 

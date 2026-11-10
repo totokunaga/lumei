@@ -88,3 +88,19 @@ describe('CountingText', () => {
     expect(screen.getByText('Total 1234')).toBeOnTheScreen();
   });
 });
+
+describe('CountingText (BR-NFR-07)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(motion, 'useReduceMotion').mockReturnValue(false);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('has screen readers read the new number while the shown one is still counting', async () => {
+    await render(<CountingText value={1_000} from={0} format={(n) => `¥${n}`} />);
+    await act(async () => void jest.advanceTimersByTime(100));
+
+    expect(screen.getByLabelText('¥1000')).toBeOnTheScreen();
+    expect(screen.queryByText('¥1000')).toBeNull();
+  });
+});

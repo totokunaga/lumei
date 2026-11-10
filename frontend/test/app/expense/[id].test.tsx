@@ -150,10 +150,17 @@ describe('Swiping an expense on home (BR-EXP-06)', () => {
 
     await swipe(id, 90);
     expect(screen.queryByText('Expense deleted')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Delete expense' }));
+    // Screen readers reach the button once the row is open (BR-NFR-07).
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete expense' }));
 
     expect(await screen.findByText('Expense deleted')).toBeOnTheScreen();
     expect(screen.queryByLabelText(ROW)).toBeNull();
+  });
+
+  it('keeps a closed row’s delete button from screen readers, which delete with the row’s action', async () => {
+    await openHome();
+
+    expect(screen.queryByRole('button', { name: 'Delete expense' })).toBeNull();
   });
 
   it('closes an open row on a tap, rather than opening it', async () => {

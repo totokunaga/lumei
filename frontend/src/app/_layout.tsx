@@ -18,6 +18,7 @@ import { useExpenseShortcut } from '@/lib/expense-shortcut';
 import { queryClient } from '@/lib/query-client';
 import { useSetupDraft } from '@/setup/draft';
 import { useSync } from '@/sync/scheduler';
+import { ErrorText } from '@/components/error-text';
 
 // Keep the splash screen up until the stored session and the account's data
 // have been read, so neither the sign-in screen nor setup flashes for a user
@@ -78,9 +79,9 @@ export default function RootLayout() {
   if (status === 'signedIn' && (data === 'failed' || data === 'unreachable')) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-white px-8 dark:bg-black">
-        <Text accessibilityRole="alert" className="text-center text-lg text-black dark:text-white">
+        <ErrorText className="text-center text-lg text-black dark:text-white">
           {data === 'failed' ? t('data.openFailed') : t('data.unreachable')}
-        </Text>
+        </ErrorText>
         <PressableScale
           accessibilityRole="button"
           onPress={() => userId && void useLocalData.getState().open(userId)}

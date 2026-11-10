@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Lumei",
+    "NSLocationWhenInUseUsageDescription": "Lumei saves where you are when you record an expense, so you can see where you spent. It never tracks you in the background."
+  }
+}

@@ -137,10 +137,12 @@ export function SetupStep({
         {footer}
         <PressableScale
           accessibilityRole="button"
-          accessibilityState={{ disabled: continueDisabled || busy }}
+          // Named while busy too, when it shows only a spinner (BR-NFR-07).
+          accessibilityLabel={continueLabel ?? (editing ? t('setup.done') : t('setup.continue'))}
+          accessibilityState={{ disabled: continueDisabled || busy, busy }}
           disabled={continueDisabled || busy}
           onPress={onContinue}
-          className={`h-14 items-center justify-center rounded-2xl ${
+          className={`min-h-14 items-center justify-center rounded-2xl ${
             continueDisabled ? 'bg-gray-200 dark:bg-gray-800' : 'bg-emerald-500'
           }`}
         >
@@ -160,7 +162,7 @@ export function SetupStep({
           <PressableScale
             accessibilityRole="button"
             onPress={onSkip}
-            className="h-12 items-center justify-center"
+            className="min-h-12 items-center justify-center"
           >
             <Text className="text-base font-medium text-gray-500 dark:text-gray-400">
               {t('setup.skip')}

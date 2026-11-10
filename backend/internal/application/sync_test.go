@@ -108,7 +108,8 @@ func TestSyncUsecase_Push(t *testing.T) {
 				m.writer.EXPECT().CategoryNameTaken(gomock.Any(), "Coffee", category.ID).
 					Return(false, errSyncDB)
 			},
-			expectedErrMsg: `failed to check category name "Coffee"`,
+			// Without the name, since the error is logged (BR-NFR-02).
+			expectedErrMsg: "failed to check a category name",
 			assertFunc:     assertError[[]application.PushResult],
 		},
 		{
@@ -120,7 +121,7 @@ func TestSyncUsecase_Push(t *testing.T) {
 				m.writer.EXPECT().CategoryNameTaken(gomock.Any(), gomock.Any(), category.ID).
 					Return(true, nil).Times(999)
 			},
-			expectedErrMsg: `no free number for category name "Coffee"`,
+			expectedErrMsg: "no free number for the name of category " + category.ID,
 			assertFunc:     assertError[[]application.PushResult],
 		},
 	}

@@ -70,7 +70,7 @@ export function ExpenseFilters({
             accessibilityRole="button"
             accessibilityState={{ selected }}
             onPress={() => onChange(toggleChip(value, chip))}
-            className={`h-9 justify-center rounded-full border px-4 ${
+            className={`min-h-9 justify-center rounded-full border px-4 ${
               selected
                 ? 'border-slate-400 bg-slate-200 dark:border-slate-500 dark:bg-slate-700'
                 : 'border-transparent bg-gray-100 dark:bg-gray-900'

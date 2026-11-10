@@ -109,7 +109,9 @@ interface ProgressChartProps {
  * the bars rise; when the numbers change, the marks move to their new
  * heights. While the line draws in, today's dot travels along its tip, as
  * if drawing it. A radar ring pulses around today's dot while the screen is in
- * front, except with Reduce Motion on. It reads as one sentence to screen readers (BR-NFR-07).
+ * front, except with Reduce Motion on. Screen readers read its dates and
+ * today's numbers as one sentence, and step through the days, reading each
+ * day's spending, spending so far, and limit (BR-NFR-07).
  *
  * For the current period, a control switches between the whole period and
  * its last 5 days, each day under its date, with both axes fitted to them
@@ -127,6 +129,8 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
   const zoomable = !ended && chart.today !== null && chart.days.length > RECENT_DAYS;
   const recent = zoomable && view === 'recent';
   const plotted = useMemo(() => (recent ? recentDays(chart) : chart), [chart, recent]);
+  // The day a screen reader last stepped to, in the days shown; today until then.
+  const [heard, setHeard] = useState<{ days: ChartData; index: number } | null>(null);
   const geometry = useMemo(() => chartGeometry(plotted, width, HEIGHT), [plotted, width]);
 
   const under = chart.today ? chart.today.underLimit.round() : 0;
@@ -266,16 +270,67 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
       ? t(ended ? 'chart.overEnded' : 'chart.over', { amount: money(-under) })
       : t(ended ? 'chart.underEnded' : 'chart.under', { amount: money(under) })
     : null;
-  const label = chart.today
-    ? t('chart.label', { spent: money(chart.today.cumulative.round()), status })
-    : t('chart.title');
   const first = plotted.days[0]?.date;
   const final = plotted.days.at(-1)?.date;
+  const range =
+    first && final
+      ? t('period.range', {
+          start: formatShortDate(first, i18n.language),
+          end: formatShortDate(final, i18n.language),
+        })
+      : '';
+  const label = chart.today
+    ? t('chart.label', {
+        title: t('chart.title'),
+        range,
+        spent: money(chart.today.cumulative.round()),
+        limit: money(chart.today.limit.round()),
+        status,
+      })
+    : t('chart.labelPlain', { title: t('chart.title'), range });
+  // Screen readers step through the days, starting at today (BR-NFR-07).
+  const heardDay = Math.min(
+    heard?.days === plotted ? heard.index : Math.max(shown - 1, 0),
+    plotted.days.length - 1,
+  );
+  const dayText = (index: number): string => {
+    const day = plotted.days[index];
+    if (!day) {
+      return '';
+    }
+    const date = formatShortDate(day.date, i18n.language);
+    const limit = money(day.limit.round());
+    return day.spending && day.cumulative
+      ? t('chart.day', {
+          date,
+          spent: money(day.spending.round()),
+          soFar: money(day.cumulative.round()),
+          limit,
+        })
+      : t('chart.dayAhead', { date, limit });
+  };
+  /** Moves the day screen readers hear by `by` days, within the chart. */
+  const stepDay = (by: number) =>
+    setHeard({
+      days: plotted,
+      index: Math.min(Math.max(heardDay + by, 0), plotted.days.length - 1),
+    });
   const step = plotted.days.length > 0 ? width / plotted.days.length : 0;
 
   return (
     <View className="gap-3 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900">
-      <View accessible accessibilityRole="image" accessibilityLabel={label} className="gap-3">
+      <View
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={label}
+        accessibilityValue={{ text: dayText(heardDay) }}
+        accessibilityHint={t('chart.stepHint')}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(event) =>
+          stepDay(event.nativeEvent.actionName === 'increment' ? 1 : -1)
+        }
+        className="gap-3"
+      >
         {/* The status leaves room for the view switch, which sits over the card's top right. */}
         {status && (
           <Text

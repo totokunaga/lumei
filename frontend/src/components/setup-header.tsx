@@ -80,6 +80,7 @@ export function SetupHeader() {
       <View
         accessibilityRole="progressbar"
         accessibilityLabel={t('setup.progress', { step: index + 1, total: SETUP_STEPS.length })}
+        accessibilityValue={{ min: 1, max: SETUP_STEPS.length, now: index + 1 }}
         className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-900"
       >
         <Animated.View

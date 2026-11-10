@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
@@ -22,6 +22,7 @@ import {
   parseAmount,
 } from '@/domain/money';
 import { formatPeriodRange } from '@/domain/period';
+import { ErrorText } from '@/components/error-text';
 
 /**
  * Builds the target's validation: an amount the currency allows, where 0 is
@@ -108,11 +109,11 @@ export default function PeriodTargetScreen() {
               autoFocus
             />
             {fieldState.error && (
-              <Text accessibilityRole="alert" className="px-1 text-sm text-red-500">
+              <ErrorText className="px-1 text-sm text-red-500">
                 {t('setup.errors.invalidAmount', {
                   example: formatAmountText(example, i18n.language),
                 })}
-              </Text>
+              </ErrorText>
             )}
           </View>
         )}
@@ -127,14 +128,12 @@ export default function PeriodTargetScreen() {
           className={`text-xl font-bold ${budget < 0 ? 'text-red-500' : 'text-black dark:text-white'}`}
         />
         {budget < 0 && (
-          <Animated.Text
+          <Animated.View
             entering={FadeIn.reduceMotion(ReduceMotion.System)}
             exiting={FadeOut.reduceMotion(ReduceMotion.System)}
-            accessibilityRole="alert"
-            className="text-base text-red-500"
           >
-            {t('setup.target.overBudget')}
-          </Animated.Text>
+            <ErrorText className="text-base text-red-500">{t('setup.target.overBudget')}</ErrorText>
+          </Animated.View>
         )}
       </View>
     </SetupStep>

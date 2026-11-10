@@ -44,7 +44,7 @@ export function AmountInput({
 }: AmountInputProps) {
   return (
     <View
-      className={`h-14 flex-row items-center gap-2 rounded-2xl border-2 bg-gray-100 px-4 dark:bg-gray-900 ${
+      className={`min-h-14 flex-row items-center gap-2 rounded-2xl border-2 bg-gray-100 px-4 dark:bg-gray-900 ${
         invalid ? 'border-red-500' : 'border-transparent'
       } ${className ?? ''}`}
     >

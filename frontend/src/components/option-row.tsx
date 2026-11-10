@@ -23,7 +23,8 @@ export function OptionRow({ label, detail, leading, selected, onPress }: OptionR
   return (
     <PressableScale
       accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      // TalkBack reads a radio by `checked`, VoiceOver by `selected` (BR-NFR-07).
+      accessibilityState={{ selected, checked: selected }}
       onPress={onPress}
       className={`min-h-16 flex-row items-center gap-3 rounded-2xl border-2 px-4 py-3 ${
         selected

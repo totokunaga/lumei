@@ -68,7 +68,7 @@ export default function CategoriesScreen() {
         <PressableScale
           accessibilityRole="button"
           onPress={() => router.push('/category/new')}
-          className="h-14 flex-row items-center gap-3 rounded-2xl px-4"
+          className="min-h-14 flex-row items-center gap-3 rounded-2xl px-4"
         >
           <SymbolView
             name={{ ios: 'plus.circle.fill', android: 'add_circle' }}
@@ -103,7 +103,7 @@ export default function CategoriesScreen() {
                 name: `${category.emoji} ${category.name}`,
               })}
               onPress={() => open(category)}
-              className="h-14 flex-row items-center gap-3 rounded-2xl bg-gray-100 px-4 dark:bg-gray-900"
+              className="min-h-14 flex-row items-center gap-3 rounded-2xl bg-gray-100 px-4 dark:bg-gray-900"
             >
               <CategoryLabel category={category} dim />
               <SymbolView

@@ -88,7 +88,7 @@ export function FloatingToggle<T extends string>({
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               onPress={() => onChange(option.value)}
-              className="h-11 flex-1 items-center justify-center rounded-full"
+              className="min-h-11 flex-1 items-center justify-center rounded-full"
             >
               <Text
                 style={selected ? { color: dark ? SELECTED.dark : SELECTED.light } : undefined}

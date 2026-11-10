@@ -15,6 +15,7 @@ import { useDraftBudget } from '@/setup/budget';
 import { useSetupDraft } from '@/setup/draft';
 import { finishSetup } from '@/setup/finish';
 import { editHref, type SetupPath } from '@/setup/navigation';
+import { ErrorText } from '@/components/error-text';
 
 /**
  * Renders the last setup step: the spending budget the choices give, then a
@@ -97,9 +98,9 @@ export default function ConfirmStep() {
       footer={
         <View className="gap-1 pb-1">
           {failed && (
-            <Text accessibilityRole="alert" className="text-center text-sm text-red-500">
+            <ErrorText className="text-center text-sm text-red-500">
               {t('setup.confirm.failed')}
-            </Text>
+            </ErrorText>
           )}
           <Text className="text-center text-sm font-medium text-amber-600 dark:text-amber-400">
             {t('setup.currency.notice')}

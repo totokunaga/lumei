@@ -43,7 +43,11 @@ export function DayGrid({ value, onChange, today }: DayGridProps) {
           </Text>
         ))}
       </View>
-      <View accessibilityRole="radiogroup" className="gap-1">
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={t('setup.startDay.title')}
+        className="gap-1"
+      >
         {calendar.weeks.map((week, row) => (
           <View key={row} className="flex-row">
             {week.map((d, column) =>
@@ -100,7 +104,8 @@ function Day({
     <PressableScale
       accessibilityRole="radio"
       accessibilityLabel={label}
-      accessibilityState={{ selected }}
+      // TalkBack reads a radio by `checked`, VoiceOver by `selected` (BR-NFR-07).
+      accessibilityState={{ selected, checked: selected }}
       onPress={onPress}
       className={`h-11 w-11 items-center justify-center rounded-full ${
         selected ? 'bg-emerald-500' : today ? 'bg-emerald-50 dark:bg-emerald-950' : ''
