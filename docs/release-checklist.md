@@ -65,6 +65,8 @@ Audited and fixed on Nov 9, 2026; the requirements now say how each is met. What
 
 ## 5. Store submission
 
+The step-by-step for each store, including the declarations and forms each one asks for, is in [`store-release.md`](store-release.md).
+
 - [ ] 🧑 **Privacy policy** at a public URL. Both stores require one. It should cover location, financial data, sign-in, and deletion (BR-ACC-05, BR-NFR-01 to BR-NFR-03). It must also say that Apple Maps and Google Maps draw expense maps from their locations (BR-NFR-02).
 - [ ] 🧑 **App Store privacy labels** and **Google Play Data safety form**, from the BR-NFR-02 audit.
 - [ ] **Account deletion outside the app, for Google Play.** Google Play also needs a web link where users can ask to delete their account and data without the app. This needs a small web page or form. 🧑 Decide which, then add it as a requirement.
