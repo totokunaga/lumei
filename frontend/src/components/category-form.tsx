@@ -4,7 +4,7 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
 import Animated, {
   ReduceMotion,
   useAnimatedStyle,
@@ -18,8 +18,11 @@ import { database } from '@/db/client';
 import { newId } from '@/db/ids';
 import {
   addCategory,
+  countCategoryExpenses,
+  deleteCategory,
   type ManagedCategory,
   readManagedCategories,
+  restoreCategory,
   setCategoryArchived,
   updateCategory,
 } from '@/db/records';
@@ -52,8 +55,11 @@ interface CategoryFormProps {
  * name another category already has, archived ones included, ignoring case,
  * can't be saved (BR-CAT-04). Editing also archives the category, closing
  * the sheet with a few seconds to undo, unless it is the last active one,
- * or unarchives it (BR-CAT-03). Saving writes to the device first, with a
- * success haptic.
+ * or unarchives it (BR-CAT-03). It also deletes a category no expense uses,
+ * with a few seconds to undo; for one with expenses, it offers to archive it
+ * instead, and an archived one with expenses offers no deletion (BR-CAT-05).
+ * The last active category can't be deleted either. Saving writes to the
+ * device first, with a success haptic.
  */
 export function CategoryForm({ category }: CategoryFormProps) {
   const { t } = useTranslation();
@@ -62,6 +68,11 @@ export function CategoryForm({ category }: CategoryFormProps) {
   const [failed, setFailed] = useState(false);
   // Read once: the sheet checks names against the categories as they were when it opened.
   const existing = useMemo(() => readManagedCategories(database()), []);
+  // How many expenses keep the category, which decides whether it can be deleted (BR-CAT-05).
+  const used = useMemo(
+    () => (category ? countCategoryExpenses(database(), category.id) : 0),
+    [category],
+  );
   const all = [...existing.active, ...existing.archived];
   const archived = category?.archivedAt != null;
 
@@ -114,7 +125,46 @@ export function CategoryForm({ category }: CategoryFormProps) {
     router.back();
   };
 
+  /**
+   * Deletes the category and closes the sheet, offering to undo; for one with
+   * expenses, asks to archive it instead (BR-CAT-05).
+   */
+  const remove = () => {
+    if (!category) {
+      return;
+    }
+    if (used > 0) {
+      Alert.alert(
+        t('categories.inUse', { name: category.name, count: used }),
+        t('categories.inUseMessage'),
+        [
+          { text: t('categories.cancel'), style: 'cancel' },
+          { text: t('categories.archive'), onPress: toggleArchived },
+        ],
+      );
+      return;
+    }
+    let deleted: ManagedCategory | null;
+    try {
+      deleted = deleteCategory(database(), category.id, Date.now());
+    } catch {
+      setFailed(true);
+      return;
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (deleted) {
+      const gone = deleted;
+      offerUndo({
+        message: t('categories.deletedMessage', { name: gone.name }),
+        undo: () => restoreCategory(database(), gone, newId(), Date.now()),
+      });
+    }
+    router.back();
+  };
+
   const lastActive = !archived && !canArchive(existing.active.length);
+  // An archived category with expenses has nothing left to offer instead of deleting.
+  const deletable = !lastActive && !(archived && used > 0);
 
   return (
     <KeyboardAvoidingView behavior="padding" className="flex-1 bg-white dark:bg-black">
@@ -250,6 +300,17 @@ export function CategoryForm({ category }: CategoryFormProps) {
                   ? t('categories.unarchiveHint')
                   : t('categories.archiveHint')}
             </Text>
+            {deletable && (
+              <PressableScale
+                accessibilityRole="button"
+                onPress={remove}
+                className="min-h-12 items-center justify-center"
+              >
+                <Text className="text-base font-semibold text-red-600 dark:text-red-400">
+                  {t('categories.delete')}
+                </Text>
+              </PressableScale>
+            )}
           </>
         )}
       </View>

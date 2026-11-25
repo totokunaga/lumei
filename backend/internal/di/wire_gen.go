@@ -23,6 +23,7 @@ func InitializeApp() (*App, func(), error) {
 	serverConfig := ProvideServerConfig(config)
 	logConfig := ProvideLogConfig(config)
 	logger := ProvideLogger(logConfig)
+	authConfig := ProvideAuthConfig(config)
 	rdbConfig := ProvideRDBConfig(config)
 	dbDriver := ProvideDBDriver(rdbConfig)
 	connector, cleanup, err := ProvideConnector(rdbConfig, dbDriver, logger)
@@ -31,7 +32,6 @@ func InitializeApp() (*App, func(), error) {
 	}
 	v := ProvideHealthChecks(connector)
 	healthChecker := ProvideHealthChecker(serverConfig, v)
-	authConfig := ProvideAuthConfig(config)
 	identityVerifier := ProvideIdentityVerifier(authConfig)
 	userRepository, err := ProvideUserRepository(authConfig, connector)
 	if err != nil {
@@ -55,7 +55,7 @@ func InitializeApp() (*App, func(), error) {
 	categorySetLister := ProvideCategorySetLister(categorySetRepository)
 	syncRepository := ProvideSyncRepository(connector)
 	syncer := ProvideSyncer(syncRepository)
-	apiController := ProvideAPIController(healthChecker, authenticator, accountDeleter, categorySetLister, syncer, logger)
+	apiController := ProvideAPIController(authConfig, healthChecker, authenticator, accountDeleter, categorySetLister, syncer, logger)
 	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {
@@ -70,6 +70,7 @@ func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
 	serverConfig := ProvideServerConfig(cfg)
 	logConfig := ProvideLogConfig(cfg)
 	logger := ProvideLogger(logConfig)
+	authConfig := ProvideAuthConfig(cfg)
 	rdbConfig := ProvideRDBConfig(cfg)
 	dbDriver := ProvideDBDriver(rdbConfig)
 	connector, cleanup, err := ProvideConnector(rdbConfig, dbDriver, logger)
@@ -78,7 +79,6 @@ func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
 	}
 	v := ProvideHealthChecks(connector)
 	healthChecker := ProvideHealthChecker(serverConfig, v)
-	authConfig := ProvideAuthConfig(cfg)
 	identityVerifier := ProvideIdentityVerifier(authConfig)
 	userRepository, err := ProvideUserRepository(authConfig, connector)
 	if err != nil {
@@ -102,7 +102,7 @@ func InitializeAppWithConfig(cfg *config.Config) (*App, func(), error) {
 	categorySetLister := ProvideCategorySetLister(categorySetRepository)
 	syncRepository := ProvideSyncRepository(connector)
 	syncer := ProvideSyncer(syncRepository)
-	apiController := ProvideAPIController(healthChecker, authenticator, accountDeleter, categorySetLister, syncer, logger)
+	apiController := ProvideAPIController(authConfig, healthChecker, authenticator, accountDeleter, categorySetLister, syncer, logger)
 	router := ProvideRouter(serverConfig, logger, apiController, authenticator)
 	app := ProvideApp(router, logger)
 	return app, func() {

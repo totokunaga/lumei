@@ -113,6 +113,7 @@ export default function RootLayout() {
             <Stack.Screen name="period/[id]/target" options={{ presentation: 'modal' }} />
             <Stack.Screen name="category/new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="category/[id]" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="day/[date]" options={{ presentation: 'modal' }} />
           </Stack.Protected>
           <Stack.Protected guard={signedIn && !setupCompleted}>
             <Stack.Screen name="setup" options={{ animation: 'fade' }} />

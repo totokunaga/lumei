@@ -14,6 +14,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AppleCallbackForm,
   ErrorResponse,
   RefreshSessionRequest,
   SessionResponse,
@@ -24,6 +25,143 @@ import { apiFetch } from '../../client';
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
+export type appleCallbackResponse303 = {
+  data: void;
+  status: 303;
+};
+
+export type appleCallbackResponseError = appleCallbackResponse303 & {
+  headers: Headers;
+};
+
+export type appleCallbackResponse = appleCallbackResponseError;
+
+export const getAppleCallbackUrl = () => {
+  return `/auth/apple/callback`;
+};
+
+/**
+ * Receives the result of Sign in with Apple's web flow, which Android uses
+ * (BR-ACC-01), and sends it on to the app: a `303` to the app's link with
+ * `code`, `id_token`, `state`, and `error` in the query, whichever Apple
+ * sent. It checks nothing itself: the app checks `state`, and signs in with
+ * `POST /auth/sign-in` and its nonce. It is the `redirect_uri` registered
+ * for the Services ID.
+ * @summary Return Sign in with Apple's web result to the app
+ */
+export const appleCallback = async (
+  appleCallbackForm: AppleCallbackForm,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<appleCallbackResponse> => {
+  const formUrlEncoded = new URLSearchParams();
+  if (appleCallbackForm.code !== undefined) {
+    formUrlEncoded.append(`code`, appleCallbackForm.code);
+  }
+  if (appleCallbackForm.id_token !== undefined) {
+    formUrlEncoded.append(`id_token`, appleCallbackForm.id_token);
+  }
+  if (appleCallbackForm.state !== undefined) {
+    formUrlEncoded.append(`state`, appleCallbackForm.state);
+  }
+  if (appleCallbackForm.error !== undefined) {
+    formUrlEncoded.append(`error`, appleCallbackForm.error);
+  }
+  if (appleCallbackForm.user !== undefined) {
+    formUrlEncoded.append(`user`, appleCallbackForm.user);
+  }
+
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<appleCallbackResponse>(getAppleCallbackUrl(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...getHeaders(options?.headers),
+    },
+    body: formUrlEncoded,
+  });
+};
+
+export const getAppleCallbackMutationKey = () => ['appleCallback'] as const;
+
+export const getAppleCallbackMutationOptions = <TError = void, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof appleCallback>>,
+    TError,
+    AppleCallbackMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof appleCallback>>,
+  TError,
+  AppleCallbackMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAppleCallbackMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof appleCallback>>,
+    AppleCallbackMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return appleCallback(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AppleCallbackMutationResult = NonNullable<Awaited<ReturnType<typeof appleCallback>>>;
+export type AppleCallbackMutationBody = AppleCallbackForm;
+export type AppleCallbackMutationError = void;
+export type AppleCallbackMutationVariables = { data: AppleCallbackForm };
+
+/**
+ * @summary Return Sign in with Apple's web result to the app
+ */
+export const useAppleCallback = <TError = void, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof appleCallback>>,
+      TError,
+      AppleCallbackMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof appleCallback>>,
+  TError,
+  AppleCallbackMutationVariables,
+  TContext
+> => {
+  return useMutation(getAppleCallbackMutationOptions(options), queryClient);
+};
 export type refreshSessionResponse200 = {
   data: SessionResponse;
   status: 200;

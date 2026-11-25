@@ -138,6 +138,20 @@ func TestSyncRepository_Apply(t *testing.T) {
 			assertFunc:     assertErrorOnly[struct{}],
 		},
 		{
+			name: "wraps a failure to look up a category's expenses (BR-CAT-05)",
+			input: func(ctx context.Context, w application.SyncWriter) error {
+				_, err := w.CategoryInUse(ctx, syncRowID)
+				return err
+			},
+			setupMocks: func(m syncRepoMocks) {
+				expectLocked(m)
+				m.db.ExpectQuery(`SELECT EXISTS`).WillReturnError(errConnReset)
+				m.db.ExpectRollback()
+			},
+			expectedErrMsg: "failed to look up the expenses of category " + syncRowID,
+			assertFunc:     assertErrorOnly[struct{}],
+		},
+		{
 			name: "wraps a failure to find a row",
 			input: func(ctx context.Context, w application.SyncWriter) error {
 				_, err := w.Find(ctx, application.TableExpenses, syncRowID)

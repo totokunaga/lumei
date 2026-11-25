@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -16,10 +17,44 @@ import (
 // Config holds all configuration for the application.
 // It is loaded once at startup and passed via dependency injection.
 type Config struct {
+	// Environment is "production" unless set otherwise. Production refuses
+	// the settings meant only for local development; see Validate.
+	Environment string `env:"APP_ENV" envDefault:"production"`
+
 	Server ServerConfig
 	RDB    RDBConfig
 	Log    LogConfig
 	Auth   AuthConfig
+}
+
+// expoGoBundleID is Expo Go's bundle ID. Apple issues tokens for it to
+// anyone's Expo Go, so only local development may accept them.
+const expoGoBundleID = "host.exp.Exponent"
+
+// Validate rejects, in production, the settings meant only for local
+// development: the dev sign-in, Expo Go's Apple client ID, and a database
+// connection without TLS (BR-NFR-03).
+func (c *Config) Validate() error {
+	switch c.Environment {
+	case "development":
+		return nil
+	case "production":
+	default:
+		return fmt.Errorf("APP_ENV must be production or development, not %q", c.Environment)
+	}
+	if c.Auth.DevSignIn {
+		return errors.New("AUTH_DEV_SIGN_IN must be false in production")
+	}
+	if slices.Contains(c.Auth.AppleClientIDs, expoGoBundleID) {
+		return errors.New("AUTH_APPLE_CLIENT_IDS must not list Expo Go (host.exp.Exponent) in production")
+	}
+	switch c.RDB.SSLMode {
+	case "require", "verify-ca", "verify-full":
+		return nil
+	default:
+		return fmt.Errorf("RDB_SSL_MODE must be require, verify-ca, or verify-full in production, not %q",
+			c.RDB.SSLMode)
+	}
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -139,8 +174,16 @@ type AuthConfig struct {
 	// issued for: the iOS bundle ID, and later the Services ID used on
 	// Android. Empty disables Apple sign-in.
 	AppleClientIDs []string `env:"AUTH_APPLE_CLIENT_IDS" envSeparator:","`
-	AppleIssuer    string   `env:"AUTH_APPLE_ISSUER" envDefault:"https://appleid.apple.com"`
-	AppleJWKSURL   string   `env:"AUTH_APPLE_JWKS_URL" envDefault:"https://appleid.apple.com/auth/keys"`
+	// AppleWebClientIDs are the Services IDs of Sign in with Apple's web flow,
+	// which Android uses (BR-ACC-01). Their tokens are accepted too, but only
+	// with the nonce the app made, as the app gets them through a link
+	// another app could also receive. Empty disables Apple sign-in on Android.
+	AppleWebClientIDs []string `env:"AUTH_APPLE_WEB_CLIENT_IDS" envSeparator:","`
+	// AppleAppRedirectURL is the app link POST /auth/apple/callback sends
+	// the web flow's result to, which returns it to the app.
+	AppleAppRedirectURL string `env:"AUTH_APPLE_APP_REDIRECT_URL" envDefault:"lumei://apple-callback"`
+	AppleIssuer         string `env:"AUTH_APPLE_ISSUER" envDefault:"https://appleid.apple.com"`
+	AppleJWKSURL        string `env:"AUTH_APPLE_JWKS_URL" envDefault:"https://appleid.apple.com/auth/keys"`
 
 	// GoogleClientIDs are the audiences a Google ID token may be issued for:
 	// the web client ID the app passes to Google Sign-In. Empty disables
@@ -233,6 +276,9 @@ func load(opts env.Options) (Config, error) {
 		return Config{}, err
 	}
 	if err := cfg.Auth.Validate(); err != nil {
+		return Config{}, err
+	}
+	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil

@@ -63,7 +63,12 @@
     "weekAllowance": "Budget de la semaine",
     "spentOfWeekAllowance": "Dépensé cette semaine / Budget de la semaine",
     "spendingBudget": "Budget de dépenses",
-    "spentOfBudget": "Dépensé jusqu'ici / Budget de dépenses"
+    "spentOfBudget": "Dépensé jusqu'ici / Budget de dépenses",
+    "use": {
+      "low": "dans les clous",
+      "high": "proche de la limite",
+      "critical": "limite presque atteinte ou dépassée"
+    }
   },
   "account": {
     "title": "Compte",
@@ -129,6 +134,7 @@
   },
   "signIn": {
     "tagline": "Voyez ce que vous pouvez dépenser aujourd’hui, tout en atteignant votre objectif d’épargne.",
+    "apple": "Se connecter avec Apple",
     "google": "Se connecter avec Google",
     "devTitle": "Développement uniquement : connexion avec n’importe quelle adresse",
     "devEmail": "Adresse e-mail",
@@ -183,7 +189,12 @@
       "note": "Note (facultatif)",
       "remove": "Supprimer {{name}}",
       "removeUnnamed": "Supprimer cet élément",
-      "total": "Total {{amount}}"
+      "total": "Total {{amount}}",
+      "position": "Élément {{n}} sur {{count}}",
+      "reorder": "Réorganiser",
+      "reorderDone": "Terminé",
+      "reorderHint": "Faites glisser ≡ pour changer l'ordre.",
+      "unnamed": "Élément sans nom"
     },
     "income": {
       "title": "Vos revenus",
@@ -325,7 +336,8 @@
     "labelPlain": "{{title}}, {{range}}.",
     "day": "{{date}} : {{spent}} dépensés, {{soFar}} au total, limite {{limit}}",
     "dayAhead": "{{date}} : limite {{limit}}",
-    "stepHint": "Balayez vers le haut ou le bas pour entendre chaque jour."
+    "stepHint": "Balayez vers le haut ou le bas pour entendre chaque jour.",
+    "openHint": "Balayez vers le haut ou le bas pour entendre chaque jour, et touchez deux fois pour ouvrir ses dépenses."
   },
   "categories": {
     "title": "Catégories",
@@ -351,8 +363,15 @@
     "archiveHint": "Elle ne sera plus proposée pour les nouvelles dépenses. Les dépenses passées la gardent.",
     "unarchive": "Désarchiver la catégorie",
     "unarchiveHint": "Elle sera de nouveau proposée pour les nouvelles dépenses, en fin de liste.",
-    "lastActive": "Votre dernière catégorie active ne peut pas être archivée.",
-    "archivedMessage": "{{name}} archivée"
+    "lastActive": "Votre dernière catégorie active ne peut être ni archivée ni supprimée.",
+    "archivedMessage": "{{name}} archivée",
+    "moved": "{{name}}, {{n}} sur {{count}}",
+    "delete": "Supprimer la catégorie",
+    "inUse_one": "{{name}} a {{count}} dépense",
+    "inUse_other": "{{name}} a {{count}} dépenses",
+    "inUseMessage": "Une catégorie qui a des dépenses ne peut pas être supprimée. L'archiver plutôt ? Elle ne sera plus proposée pour les nouvelles dépenses, et les dépenses passées la gardent.",
+    "cancel": "Annuler",
+    "deletedMessage": "{{name}} supprimée"
   },
   "spending": {
     "title": "Dépenses par catégorie",
@@ -363,5 +382,13 @@
     "all": "Toutes",
     "bigPurchases": "Gros achats",
     "noMatch": "Aucune dépense ne correspond à ce filtre sur cette période."
+  },
+  "day": {
+    "spent": "Dépensé ce jour",
+    "soFar": "Dépensé jusqu'ici",
+    "limit": "Limite à ce jour",
+    "stat": "{{label}} : {{amount}}",
+    "noExpenses": "Aucune dépense ce jour-là.",
+    "bigPurchaseShare": "Les dépenses de ce jour incluent sa part des gros achats, répartis sur plusieurs jours. Ils sont listés à leur montant total."
   }
 }

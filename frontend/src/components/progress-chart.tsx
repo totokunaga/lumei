@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Canvas, Circle, DashPathEffect, Line, Path, Skia, vec } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,13 +14,14 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { ProgressChart as ChartData } from '@/domain/calculations';
+import type { IsoDate } from '@/domain/date';
 import type { Minor } from '@/domain/money';
 import { limitUse } from '@/domain/expense';
 import { formatShortDate } from '@/domain/period';
 import { type ChartView, useChartView } from '@/lib/chart-view';
 import { useScreenFocused } from '@/lib/use-screen-focused';
 
-import { chartGeometry, RECENT_DAYS, recentDays } from './chart-geometry';
+import { chartGeometry, dayAt, RECENT_DAYS, recentDays } from './chart-geometry';
 import { EASE_IN_OUT, EASE_OUT, useReduceMotion } from './motion';
 
 /** The canvas's height, in points. */
@@ -34,6 +36,14 @@ const AMOUNT_WIDTH = 72;
 
 /** The width of the date under today's dot, which keeps the period's first and last dates clear. */
 const DATE_WIDTH = 56;
+
+/**
+ * How far the axis labels grow with the OS font size. They sit in rows of a
+ * fixed height, placed by position, so they can't grow without limit; the
+ * chart's spoken summary and its day-by-day reading carry the same dates and
+ * amounts at any size (BR-NFR-07).
+ */
+const AXIS_TEXT_SCALE = 1.3;
 
 /**
  * The series' colors in light and dark mode; shapes tell them apart too
@@ -95,6 +105,8 @@ interface ProgressChartProps {
   money: (amount: Minor) => string;
   /** True for a past period, whose chart stops at its last day rather than today. */
   ended?: boolean;
+  /** Opens a day's numbers and expenses, when the user taps it in the last 5 days' view (BR-CHT-04). */
+  onOpenDay?: (date: IsoDate) => void;
 }
 
 /**
@@ -117,8 +129,13 @@ interface ProgressChartProps {
  * its last 5 days, each day under its date, with both axes fitted to them
  * (BR-CHT-06); the chart draws in again on the switch, and the choice is
  * remembered on the device.
+ *
+ * In the last 5 days' view, tapping a day up to today, with a selection
+ * tick, opens its numbers and expenses (BR-CHT-04); screen readers open the
+ * day they stepped to with a double-tap. Days after today have nothing to
+ * open, and the whole period's days are too narrow to tap one.
  */
-export function ProgressChart({ chart, money, ended = false }: ProgressChartProps) {
+export function ProgressChart({ chart, money, ended = false, onOpenDay }: ProgressChartProps) {
   const { t, i18n } = useTranslation();
   const colors = COLORS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const reduceMotion = useReduceMotion();
@@ -316,6 +333,16 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
       index: Math.min(Math.max(heardDay + by, 0), plotted.days.length - 1),
     });
   const step = plotted.days.length > 0 ? width / plotted.days.length : 0;
+  // Only the recent view's days are wide enough to tap one (BR-CHT-04).
+  const open = recent ? onOpenDay : undefined;
+  /** Opens a day of the chart, if it has spending to show: up to today (BR-CHT-04). */
+  const openDay = (index: number) => {
+    const day = plotted.days[index];
+    if (open && day && index < shown) {
+      void Haptics.selectionAsync();
+      open(day.date);
+    }
+  };
 
   return (
     <View className="gap-3 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900">
@@ -324,11 +351,20 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
         accessibilityRole="adjustable"
         accessibilityLabel={label}
         accessibilityValue={{ text: dayText(heardDay) }}
-        accessibilityHint={t('chart.stepHint')}
-        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-        onAccessibilityAction={(event) =>
-          stepDay(event.nativeEvent.actionName === 'increment' ? 1 : -1)
-        }
+        accessibilityHint={open ? t('chart.openHint') : t('chart.stepHint')}
+        accessibilityActions={[
+          { name: 'increment' },
+          { name: 'decrement' },
+          ...(open ? [{ name: 'activate' }] : []),
+        ]}
+        onAccessibilityAction={(event) => {
+          const action = event.nativeEvent.actionName;
+          if (action === 'activate') {
+            openDay(heardDay);
+          } else {
+            stepDay(action === 'increment' ? 1 : -1);
+          }
+        }}
         className="gap-3"
       >
         {/* The status leaves room for the view switch, which sits over the card's top right. */}
@@ -341,8 +377,15 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
         )}
         {!status && zoomable && <View style={{ height: 24 }} />}
         <View className="flex-row" style={{ height: HEIGHT }}>
-          <View
+          {/* The days are tapped here; screen readers use the chart's own actions. */}
+          <Pressable
             testID="chart-plot"
+            accessible={false}
+            importantForAccessibility="no"
+            onPress={
+              open &&
+              ((event) => openDay(dayAt(event.nativeEvent.locationX, width, plotted.days.length)))
+            }
             className="flex-1"
             onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
           >
@@ -422,12 +465,16 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
                 style={[amountLabel, { left: markerX < AMOUNT_WIDTH + 8 ? markerX + 10 : 4 }]}
                 className="absolute top-0 rounded-full bg-gray-100 px-1.5 dark:bg-gray-900"
               >
-                <Text style={{ color: line }} className="text-xs font-semibold">
+                <Text
+                  maxFontSizeMultiplier={AXIS_TEXT_SCALE}
+                  style={{ color: line }}
+                  className="text-xs font-semibold"
+                >
                   {money(chart.today.cumulative.round())}
                 </Text>
               </Animated.View>
             )}
-          </View>
+          </Pressable>
         </View>
         {/* The date axis: the period's first and last dates, and today's under the dot. */}
         {recent && width > 0 ? (
@@ -436,6 +483,7 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
             {plotted.days.map((day, index) => (
               <Text
                 key={day.date}
+                maxFontSizeMultiplier={AXIS_TEXT_SCALE}
                 style={[
                   { left: step * index, width: step },
                   index === shown - 1 ? { color: line } : null,
@@ -453,17 +501,24 @@ export function ProgressChart({ chart, money, ended = false }: ProgressChartProp
           final && (
             <View style={{ height: 16 }}>
               {showFirst && (
-                <Text className="absolute left-0 text-xs text-gray-500 dark:text-gray-400">
+                <Text
+                  maxFontSizeMultiplier={AXIS_TEXT_SCALE}
+                  className="absolute left-0 text-xs text-gray-500 dark:text-gray-400"
+                >
                   {formatShortDate(first, i18n.language)}
                 </Text>
               )}
               {showFinal && (
-                <Text className="absolute right-0 text-xs text-gray-500 dark:text-gray-400">
+                <Text
+                  maxFontSizeMultiplier={AXIS_TEXT_SCALE}
+                  className="absolute right-0 text-xs text-gray-500 dark:text-gray-400"
+                >
                   {formatShortDate(final, i18n.language)}
                 </Text>
               )}
               {chart.today && shown > 0 && (
                 <Animated.Text
+                  maxFontSizeMultiplier={AXIS_TEXT_SCALE}
                   style={[guides, { left: todayLeft, width: DATE_WIDTH, color: line }]}
                   className="absolute text-center text-xs font-semibold"
                 >

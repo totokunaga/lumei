@@ -119,8 +119,10 @@ type AccessTokenIssuer interface {
 // IdentityVerifier verifies ID tokens from the sign-in providers.
 type IdentityVerifier interface {
 	// Verify checks idToken for provider and returns the identity it carries.
-	// It returns ErrUnsupportedProvider or an error wrapping ErrInvalidIDToken.
-	Verify(ctx context.Context, provider Provider, idToken string) (Identity, error)
+	// With a nonce, the token must carry its SHA-256 hash; a token from
+	// Apple's web flow must have one. It returns ErrUnsupportedProvider or an
+	// error wrapping ErrInvalidIDToken.
+	Verify(ctx context.Context, provider Provider, idToken, nonce string) (Identity, error)
 }
 
 // UserRepository stores users and their sign-in identities.
@@ -182,6 +184,9 @@ type SignInInput struct {
 	// The server trades it for a token that revokes the sign-in when the
 	// account is deleted (BR-ACC-05). Optional.
 	AuthorizationCode string
+	// Nonce is the secret the app made for the sign-in, whose hash the ID
+	// token carries. Required for Sign in with Apple's web flow, on Android.
+	Nonce string
 }
 
 // Tokens are what a sign-in or refresh hands the app.
@@ -255,7 +260,7 @@ func NewAuthenticator(
 // matches an existing account opens that account and links the new sign-in
 // to it (BR-ACC-07); any other email gets a separate account (BR-ACC-08).
 func (a *AuthUsecase) SignIn(ctx context.Context, input SignInInput) (Tokens, error) {
-	identity, err := a.verifier.Verify(ctx, input.Provider, input.IDToken)
+	identity, err := a.verifier.Verify(ctx, input.Provider, input.IDToken, input.Nonce)
 	if err != nil {
 		return Tokens{}, fmt.Errorf("failed to verify the ID token: %w", err)
 	}

@@ -6,6 +6,7 @@ import {
   TextButton,
   TimePickerDialog,
 } from '@expo/ui/jetpack-compose';
+import { semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,23 +17,28 @@ import type { DateTimeFieldProps } from './date-time-field.types';
  * a native picker dialog. The date dialog offers only days from `min` to
  * `max`.
  */
-export function DateTimeField({ value, onChange, min, max }: DateTimeFieldProps) {
+export function DateTimeField({ label, value, onChange, min, max }: DateTimeFieldProps) {
   const { i18n } = useTranslation();
   const [open, setOpen] = useState<'date' | 'time' | null>(null);
   const current = new Date(value);
+  const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(current);
+  const time = new Intl.DateTimeFormat(i18n.language, { timeStyle: 'short' }).format(current);
 
   return (
     <Host matchContents>
       <Row>
-        <TextButton onClick={() => setOpen('date')}>
-          <Text>
-            {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(current)}
-          </Text>
+        {/* TalkBack reads which field each button sets (BR-NFR-07). */}
+        <TextButton
+          onClick={() => setOpen('date')}
+          modifiers={[semantics({ contentDescription: `${label}, ${date}` })]}
+        >
+          <Text>{date}</Text>
         </TextButton>
-        <TextButton onClick={() => setOpen('time')}>
-          <Text>
-            {new Intl.DateTimeFormat(i18n.language, { timeStyle: 'short' }).format(current)}
-          </Text>
+        <TextButton
+          onClick={() => setOpen('time')}
+          modifiers={[semantics({ contentDescription: `${label}, ${time}` })]}
+        >
+          <Text>{time}</Text>
         </TextButton>
       </Row>
       {open === 'date' && (

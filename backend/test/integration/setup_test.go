@@ -45,6 +45,8 @@ func setEnvDefaults(vars map[string]string) {
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 	setEnvDefaults(testRDBEnv)
+	// The tests reach the database without TLS, and some enable the dev sign-in.
+	setEnvDefaults(map[string]string{"APP_ENV": "development"})
 
 	idp = newFakeIdentityProvider()
 	setEnvDefaults(idp.env())
@@ -86,5 +88,9 @@ func newTestServer(t *testing.T, cfg *config.Config) *TestServer {
 		cleanup()
 	})
 
-	return &TestServer{BaseURL: server.URL, client: server.Client()}
+	client := server.Client()
+	// Redirects go to the app, e.g. from POST /auth/apple/callback, so the
+	// tests check them rather than follow them.
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &TestServer{BaseURL: server.URL, client: client}
 }

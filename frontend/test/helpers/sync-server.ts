@@ -38,6 +38,26 @@ const withFreeName = (row: SyncRow, rows: Map<string, Stored>): SyncRow => {
   return { ...row, name: candidate };
 };
 
+/**
+ * Checks whether a stored expense that isn't deleted has the category
+ * (BR-CAT-05).
+ */
+const categoryInUse = (id: string, rows: Map<string, Stored>): boolean =>
+  [...rows.values()].some(
+    (s) => s.row.table === 'expenses' && !s.row.deleted_at && s.row.category_id === id,
+  );
+
+/**
+ * Turns a category's deletion into archiving it while an expense has it,
+ * dated when it was deleted unless it was archived already, as the API does
+ * (BR-CAT-05).
+ * @returns The row as the server stores it.
+ */
+const keepUsedCategory = (row: SyncRow, rows: Map<string, Stored>): SyncRow =>
+  row.table === 'categories' && row.deleted_at && categoryInUse(row.id, rows)
+    ? { ...row, deleted_at: null, archived_at: row.archived_at ?? row.deleted_at }
+    : row;
+
 /** Builds a JSON response. */
 const respond = (status: number, body: unknown) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -54,7 +74,14 @@ export const fakeSyncServer = ({ pageSize = 500 } = {}) => {
   const routes = {
     'POST /sync/push': (init: RequestInit | undefined, _url?: URL) => {
       const { rows: pushed } = JSON.parse(String(init?.body)) as { rows: SyncRow[] };
-      const results: PushResponse['results'] = pushed.map((row) => {
+      // Category deletions are applied after the push's other rows, as the API does (BR-CAT-05).
+      const isCategoryDeletion = (row: SyncRow) => row.table === 'categories' && !!row.deleted_at;
+      const order = [
+        ...pushed.filter((row) => !isCategoryDeletion(row)),
+        ...pushed.filter(isCategoryDeletion),
+      ];
+      const outcomes = new Map<SyncRow, PushResponse['results'][number]>();
+      for (const row of order) {
         const key = `${row.table}/${row.id}`;
         const stored = rows.get(key);
         const incoming = { updatedAt: row.updated_at, deletedAt: row.deleted_at };
@@ -62,12 +89,28 @@ export const fakeSyncServer = ({ pageSize = 500 } = {}) => {
           stored &&
           !wins(incoming, { updatedAt: stored.row.updated_at, deletedAt: stored.row.deleted_at })
         ) {
-          return { table: row.table, id: row.id, outcome: 'superseded' };
+          outcomes.set(row, { table: row.table, id: row.id, outcome: 'superseded' });
+          continue;
         }
         seq += 1;
-        rows.set(key, { row: withFreeName(row, rows), seq });
-        return { table: row.table, id: row.id, outcome: 'applied' };
-      });
+        rows.set(key, { row: withFreeName(keepUsedCategory(row, rows), rows), seq });
+        // An expense brings back its deleted category, archived (BR-CAT-05).
+        const category =
+          row.table === 'expenses' && !row.deleted_at
+            ? rows.get(`categories/${row.category_id}`)
+            : undefined;
+        if (category?.row.table === 'categories' && category.row.deleted_at) {
+          const revived = {
+            ...category.row,
+            deleted_at: null,
+            archived_at: category.row.archived_at ?? category.row.deleted_at,
+          };
+          seq += 1;
+          rows.set(`categories/${revived.id}`, { row: withFreeName(revived, rows), seq });
+        }
+        outcomes.set(row, { table: row.table, id: row.id, outcome: 'applied' });
+      }
+      const results = pushed.map((row) => outcomes.get(row)!);
       return respond(200, { results });
     },
     'GET /sync/pull': (_init: RequestInit | undefined, url: URL) => {

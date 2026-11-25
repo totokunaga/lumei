@@ -12,18 +12,18 @@ describe('DailyRing and DailyAmounts (BR-DSH-01)', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it.each([
-    { name: 'a low share', spent: 2_000, allowance: 5_000, share: '40%', color: 'text-black' },
-    { name: 'a share from 65% in amber', spent: 3_500, allowance: 5_000, share: '70%', color: 'text-amber-700' },
-    { name: 'a share from 80% in red', spent: 4_860, allowance: 5_581, share: '87%', color: 'text-red-600' },
-    { name: 'a share over 100% in red (BR-DSH-02)', spent: 7_000, allowance: 5_600, share: '125%', color: 'text-red-600' },
-    { name: 'a dash without an allowance while the period is overspent', spent: 500, allowance: 0, share: '–', color: 'text-red-600' },
-  ])('shows $name in the ring', async ({ spent, allowance, share, color }) => {
+    { name: 'a low share', spent: 2_000, allowance: 5_000, share: '40%', color: 'text-black', status: 'on track' },
+    { name: 'a share from 65% in amber', spent: 3_500, allowance: 5_000, share: '70%', color: 'text-amber-700', status: 'getting close to the limit' },
+    { name: 'a share from 80% in red', spent: 4_860, allowance: 5_581, share: '87%', color: 'text-red-600', status: 'near or over the limit' },
+    { name: 'a share over 100% in red (BR-DSH-02)', spent: 7_000, allowance: 5_600, share: '125%', color: 'text-red-600', status: 'near or over the limit' },
+    { name: 'a dash without an allowance while the period is overspent', spent: 500, allowance: 0, share: '–', color: 'text-red-600', status: 'near or over the limit' },
+  ])('shows $name in the ring', async ({ spent, allowance, share, color, status }) => {
     await render(<DailyRing spent={spent} allowance={allowance} money={money} />);
 
-    // One element for screen readers, with both amounts and the share (BR-NFR-07).
+    // One element for screen readers, with both amounts, the share, and the color in words (BR-NFR-07).
     expect(
       screen.getByLabelText(
-        `Spent today: ${money(spent)}, Daily allowance: ${money(allowance)}, ${share}`,
+        `Spent today: ${money(spent)}, Daily allowance: ${money(allowance)}, ${share}, ${status}`,
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText(share)).toHaveProp('className', expect.stringContaining(color));

@@ -1,12 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import Animated, { FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { z } from 'zod';
 
+import { moveItem } from '@/domain/category';
 import {
   amountToText,
   type CurrencyCode,
@@ -20,6 +21,7 @@ import { AmountInput } from './amount-input';
 import { CountingText } from './counting-text';
 import { listLayout, riseIn } from './motion';
 import { PressableScale } from './pressable-scale';
+import { ReorderableList } from './reorderable-list';
 import { SetupStep } from './setup-step';
 import { TextField } from './text-field';
 import { ErrorText } from './error-text';
@@ -106,7 +108,10 @@ const formSchema = (currency: CurrencyCode) =>
  * fixed expenses (BR-INC-01, BR-INC-02): one card per item with a name, an
  * amount, and optionally a note, a button to add another, a remove button per
  * item, and the running total. Cards slide in when added and fade out when
- * removed. Continuing returns the filled-in items; blank rows are dropped.
+ * removed. With two items or more, "Reorder" turns the cards into rows the
+ * user drags into a new order, and "Done" turns them back (BR-INC-05).
+ * Continuing returns the filled-in items in the order shown; blank rows are
+ * dropped.
  */
 export function ItemListForm({
   title,
@@ -142,8 +147,25 @@ export function ItemListForm({
           : [emptyRow],
     },
   });
-  const { fields, append, remove } = useFieldArray({ control, name: 'items' });
+  const { fields, append, remove, move } = useFieldArray({ control, name: 'items' });
   const rows = useWatch({ control, name: 'items' });
+  // Whether the items show as rows to drag into a new order (BR-INC-05).
+  const [ordering, setOrdering] = useState(false);
+  const reordering = ordering && fields.length > 1;
+
+  /** Moves the rows into the order of `ids`, the form's own row IDs, one move at a time. */
+  const reorder = (ids: string[]) => {
+    let current = fields.map((field) => field.id);
+    ids.forEach((id, to) => {
+      const from = current.indexOf(id);
+      if (from !== -1 && from !== to) {
+        move(from, to);
+        current = moveItem(current, from, to);
+      }
+    });
+  };
+  /** Names a row while reordering: its name, or "Unnamed item" before it has one. */
+  const rowName = (index: number) => rows[index]?.name.trim() || t('setup.items.unnamed');
 
   const total = rows.reduce(
     (sum, row) => sum + (parseAmount(row.amount, currency, { allowZero: true }) ?? 0),
@@ -184,101 +206,155 @@ export function ItemListForm({
         />
       }
     >
-      {fields.map((field, index) => (
-        <Animated.View
-          key={field.id}
-          entering={riseIn()}
-          exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
-          layout={listLayout}
-          className="gap-2 rounded-3xl bg-gray-50 p-3 dark:bg-gray-950"
-        >
-          <View className="flex-row items-center gap-2">
+      {fields.length > 1 && (
+        <View className="flex-row items-center justify-between gap-4">
+          <Text className="flex-shrink text-sm text-gray-500 dark:text-gray-400">
+            {reordering ? t('setup.items.reorderHint') : ''}
+          </Text>
+          <PressableScale
+            accessibilityRole="button"
+            onPress={() => setOrdering(!reordering)}
+            className="min-h-11 items-center justify-center px-1"
+          >
+            <Text className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
+              {reordering ? t('setup.items.reorderDone') : t('setup.items.reorder')}
+            </Text>
+          </PressableScale>
+        </View>
+      )}
+
+      {reordering && (
+        <ReorderableList
+          items={fields.map((field, index) => ({ id: field.id, index }))}
+          itemLabel={(item) => rowName(item.index)}
+          onReorder={reorder}
+          renderItem={(item) => (
+            <>
+              <Text
+                numberOfLines={1}
+                className="flex-1 text-base font-semibold text-black dark:text-white"
+              >
+                {rowName(item.index)}
+              </Text>
+              <Text className="text-base text-gray-500 dark:text-gray-400">
+                {formatMoney(
+                  parseAmount(rows[item.index]?.amount ?? '', currency, { allowZero: true }) ?? 0,
+                  currency,
+                  i18n.language,
+                )}
+              </Text>
+            </>
+          )}
+        />
+      )}
+
+      {!reordering &&
+        fields.map((field, index) => (
+          <Animated.View
+            key={field.id}
+            entering={riseIn()}
+            exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
+            layout={listLayout}
+            className="gap-2 rounded-3xl bg-gray-50 p-3 dark:bg-gray-950"
+          >
+            <View className="flex-row items-center gap-2">
+              <Controller
+                control={control}
+                name={`items.${index}.name`}
+                render={({ field: { value, onChange, onBlur }, fieldState }) => (
+                  <TextField
+                    fontSize={18}
+                    accessibilityLabel={t('setup.items.name')}
+                    // Which row's field this is, as every row's fields share their names (BR-NFR-07).
+                    accessibilityHint={t('setup.items.position', {
+                      n: index + 1,
+                      count: fields.length,
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder={index === 0 ? placeholder : t('setup.items.name')}
+                    placeholderTextColor="#9CA3AF"
+                    className={`min-h-14 flex-1 rounded-2xl border-2 bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white ${
+                      fieldState.error ? 'border-red-500' : 'border-transparent'
+                    }`}
+                  />
+                )}
+              />
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={
+                  rows[index]?.name.trim()
+                    ? t('setup.items.remove', { name: rows[index].name.trim() })
+                    : t('setup.items.removeUnnamed')
+                }
+                onPress={() => remove(index)}
+                className="h-11 w-11 items-center justify-center"
+              >
+                <SymbolView
+                  name={{ ios: 'minus.circle.fill', android: 'remove_circle' }}
+                  size={24}
+                  tintColor="#9CA3AF"
+                />
+              </PressableScale>
+            </View>
             <Controller
               control={control}
-              name={`items.${index}.name`}
+              name={`items.${index}.amount`}
               render={({ field: { value, onChange, onBlur }, fieldState }) => (
-                <TextField
-                  fontSize={18}
-                  accessibilityLabel={t('setup.items.name')}
+                <AmountInput
+                  accessibilityLabel={t('setup.items.amount')}
+                  accessibilityHint={t('setup.items.position', {
+                    n: index + 1,
+                    count: fields.length,
+                  })}
+                  currency={currency}
+                  locale={i18n.language}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  placeholder={index === 0 ? placeholder : t('setup.items.name')}
-                  placeholderTextColor="#9CA3AF"
-                  className={`min-h-14 flex-1 rounded-2xl border-2 bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white ${
-                    fieldState.error ? 'border-red-500' : 'border-transparent'
-                  }`}
+                  placeholder={example}
+                  invalid={!!fieldState.error}
                 />
               )}
             />
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel={
-                rows[index]?.name.trim()
-                  ? t('setup.items.remove', { name: rows[index].name.trim() })
-                  : t('setup.items.removeUnnamed')
-              }
-              onPress={() => remove(index)}
-              className="h-11 w-11 items-center justify-center"
-            >
-              <SymbolView
-                name={{ ios: 'minus.circle.fill', android: 'remove_circle' }}
-                size={24}
-                tintColor="#9CA3AF"
-              />
-            </PressableScale>
-          </View>
-          <Controller
-            control={control}
-            name={`items.${index}.amount`}
-            render={({ field: { value, onChange, onBlur }, fieldState }) => (
-              <AmountInput
-                accessibilityLabel={t('setup.items.amount')}
-                currency={currency}
-                locale={i18n.language}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                placeholder={example}
-                invalid={!!fieldState.error}
+            {withNote && (
+              <Controller
+                control={control}
+                name={`items.${index}.note`}
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <TextField
+                    accessibilityLabel={t('setup.items.note')}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder={t('setup.items.note')}
+                    placeholderTextColor="#9CA3AF"
+                    className="min-h-12 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
+                  />
+                )}
               />
             )}
-          />
-          {withNote && (
-            <Controller
-              control={control}
-              name={`items.${index}.note`}
-              render={({ field: { value, onChange, onBlur } }) => (
-                <TextField
-                  accessibilityLabel={t('setup.items.note')}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder={t('setup.items.note')}
-                  placeholderTextColor="#9CA3AF"
-                  className="min-h-12 rounded-2xl bg-gray-100 px-4 text-black dark:bg-gray-900 dark:text-white"
-                />
-              )}
-            />
-          )}
-          {rowError(errors.items?.[index]) && (
-            <ErrorText className="px-1 text-sm text-red-500">
-              {t(`setup.errors.${rowError(errors.items?.[index])!}`, { example: exampleText })}
-            </ErrorText>
-          )}
-        </Animated.View>
-      ))}
+            {rowError(errors.items?.[index]) && (
+              <ErrorText className="px-1 text-sm text-red-500">
+                {t(`setup.errors.${rowError(errors.items?.[index])!}`, { example: exampleText })}
+              </ErrorText>
+            )}
+          </Animated.View>
+        ))}
 
-      <PressableScale
-        accessibilityRole="button"
-        onPress={() => append(emptyRow)}
-        className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
-      >
-        <SymbolView name={{ ios: 'plus', android: 'add' }} size={18} tintColor="#10B981" />
-        <Text className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
-          {addLabel}
-        </Text>
-      </PressableScale>
+      {!reordering && (
+        <PressableScale
+          accessibilityRole="button"
+          onPress={() => append(emptyRow)}
+          className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700"
+        >
+          <SymbolView name={{ ios: 'plus', android: 'add' }} size={18} tintColor="#10B981" />
+          <Text className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
+            {addLabel}
+          </Text>
+        </PressableScale>
+      )}
     </SetupStep>
   );
 }

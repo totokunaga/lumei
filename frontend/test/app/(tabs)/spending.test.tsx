@@ -83,12 +83,12 @@ describe('Spending by category and filters on home (BR-HIS-04, BR-EXP-10)', () =
     await finishedSetup();
     await savedExpenses(november);
     await renderHome();
-    expect(screen.getByRole('button', { name: 'Show Chart' })).toBeSelected();
+    expect(screen.getByRole('tab', { name: 'Show Chart' })).toBeSelected();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Show Spending by category' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Show Spending by category' }));
 
-    expect(screen.getByRole('button', { name: 'Show Spending by category' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Show Chart' })).not.toBeSelected();
+    expect(screen.getByRole('tab', { name: 'Show Spending by category' })).toBeSelected();
+    expect(screen.getByRole('tab', { name: 'Show Chart' })).not.toBeSelected();
   });
 
   it('hides it, and the dots, while the period has no expenses', async () => {
@@ -96,7 +96,7 @@ describe('Spending by category and filters on home (BR-HIS-04, BR-EXP-10)', () =
     await renderHome();
 
     expect(screen.queryByText('Spending by category')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Show Chart' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Show Chart' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'All' })).toBeNull();
   });
 

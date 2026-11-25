@@ -2,6 +2,7 @@ package integration
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -126,6 +127,43 @@ func TestSignIn(t *testing.T) {
 					assertSessionUser(first.User.Id, true)
 			},
 			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "201 for Apple's web flow on Android with the nonce the app made (BR-ACC-01)",
+			prepare: func(t *testing.T, _ *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				email, nonce := uniqueEmail(), randomHex(16)
+				token := idp.sign(appleWebToken(newSubject(), email, nonce))
+				return signInWithNonceReq(generated.Apple, token, nonce), assertNewSession(email)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "201 for a native Apple token whose nonce the app also checks",
+			prepare: func(t *testing.T, _ *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				email, nonce := uniqueEmail(), randomHex(16)
+				token := appleToken(newSubject(), email)
+				token.extra = map[string]any{"nonce": nonceHash(nonce)}
+				return signInWithNonceReq(generated.Apple, idp.sign(token), nonce), assertNewSession(email)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "401 for Apple's web flow without the app's nonce, e.g. a token taken on the way",
+			req: signInReq(generated.Apple,
+				idp.sign(appleWebToken(newSubject(), uniqueEmail(), randomHex(16)))),
+			expectedStatus: http.StatusUnauthorized,
+			assertFunc:     assertErrorCode("invalid_id_token"),
+		},
+		{
+			name: "401 when the nonce doesn't match the token's",
+			req: signInWithNonceReq(generated.Apple,
+				idp.sign(appleWebToken(newSubject(), uniqueEmail(), randomHex(16))), randomHex(16)),
+			expectedStatus: http.StatusUnauthorized,
+			assertFunc:     assertErrorCode("invalid_id_token"),
 		},
 		{
 			name: "201 opening the same account on the next sign-in with the same Google account",
@@ -437,6 +475,54 @@ func TestSignOut(t *testing.T) {
 			},
 			setupFunc:      useDisposableDatabase,
 			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	runIntegrationTestCases(t, tests)
+}
+
+func TestAppleCallback(t *testing.T) {
+	t.Parallel()
+
+	tests := []testIntegrationInput{
+		{
+			name: "303 to the app with Apple's code, ID token, and state (BR-ACC-01)",
+			req: appleCallbackReq(url.Values{
+				"code": {"c-1"}, "id_token": {"a.b.c"}, "state": {"s-1"},
+				"user": {`{"name":{"firstName":"Ann"}}`},
+			}),
+			expectedStatus: http.StatusSeeOther,
+			assertFunc: assertAll(
+				// The name Apple sends on a first sign-in isn't passed on.
+				assertHeader("Location", "lumei://apple-callback?code=c-1&id_token=a.b.c&state=s-1"),
+				assertHeader("Cache-Control", "no-store"),
+			),
+		},
+		{
+			name: "303 to the app with Apple's error when the user cancels",
+			req: appleCallbackReq(url.Values{
+				"error": {"user_cancelled_authorize"}, "state": {"s-1"},
+			}),
+			expectedStatus: http.StatusSeeOther,
+			assertFunc: assertHeader("Location",
+				"lumei://apple-callback?error=user_cancelled_authorize&state=s-1"),
+		},
+		{
+			name:           "303 to the app with invalid_request for a post without Apple's fields",
+			req:            appleCallbackReq(url.Values{"other": {"x"}}),
+			expectedStatus: http.StatusSeeOther,
+			assertFunc:     assertHeader("Location", "lumei://apple-callback?error=invalid_request"),
+		},
+		{
+			name: "303 to the configured app link only",
+			configure: func(cfg *config.Config) {
+				cfg.Auth.AppleAppRedirectURL = "lumei-test://back"
+			},
+			req: appleCallbackReq(url.Values{
+				"code": {"c-1"}, "redirect_uri": {"https://evil.example"},
+			}),
+			expectedStatus: http.StatusSeeOther,
+			assertFunc:     assertHeader("Location", "lumei-test://back?code=c-1"),
 		},
 	}
 

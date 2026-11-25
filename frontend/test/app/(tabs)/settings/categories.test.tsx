@@ -1,12 +1,19 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { renderRouter } from 'expo-router/testing-library';
+import { AccessibilityInfo, Alert } from 'react-native';
 import { createGestureController } from 'react-native-gesture-handler/jest-utils';
 
 import { useAuth } from '@/auth/store';
 import { closeUserDatabase, type Database, database, openUserDatabase } from '@/db/client';
 import { newId } from '@/db/ids';
-import { addCategory, readCategories, readManagedCategories, setCategoryArchived } from '@/db/records';
+import {
+  addCategory,
+  addExpense,
+  readCategories,
+  readManagedCategories,
+  setCategoryArchived,
+} from '@/db/records';
 import { useLocalData } from '@/db/store';
 import i18n from '@/i18n';
 
@@ -35,8 +42,8 @@ const openCategories = async (prepare?: (db: Database) => void) => {
   }
   mockApi({ ...syncApi, 'GET /me': json(200, testUser) });
   await renderRouter(routes, { initialUrl: '/settings' });
-  await fireEvent.press(await screen.findByLabelText('Categories, 2 categories'));
-  await screen.findByLabelText('🍔 Eat Out');
+  await fireEvent.press(await screen.findByLabelText(/^Categories, \d+ categor/));
+  await screen.findByLabelText('🏪 Konbini');
 };
 
 /** Reads the active categories' names in order, and the archived ones'. */
@@ -47,7 +54,18 @@ const stored = () => {
 
 const save = () => screen.getByRole('button', { name: 'Save' });
 
-describe('CategoriesScreen (BR-CAT-02 to BR-CAT-04)', () => {
+/** Records an expense in Eat Out, the first category. */
+const expenseInEatOut = (db: Database) => {
+  const [eatOut] = readCategories(db);
+  addExpense(
+    db,
+    { amount: 1200, categoryId: eatOut.id, spentAt: Date.now(), isBigPurchase: false },
+    newId(),
+    Date.now(),
+  );
+};
+
+describe('CategoriesScreen (BR-CAT-02 to BR-CAT-05)', () => {
   beforeAll(() => i18n.changeLanguage('en'));
   beforeEach(() => {
     useAuth.setState({ status: 'restoring', session: null });
@@ -130,21 +148,101 @@ describe('CategoriesScreen (BR-CAT-02 to BR-CAT-04)', () => {
     await fireEvent.press(await screen.findByLabelText('🏪 Konbini'));
 
     expect(await screen.findByRole('button', { name: 'Archive category' })).toBeDisabled();
-    expect(screen.getByText("Your last active category can't be archived.")).toBeOnTheScreen();
+    expect(
+      screen.getByText("Your last active category can't be archived or deleted."),
+    ).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Delete category' })).toBeNull();
+  });
+
+  it('deletes a category no expense uses, and undoes it back in its place (BR-CAT-05)', async () => {
+    await openCategories();
+
+    await fireEvent.press(screen.getByLabelText('🍔 Eat Out'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete category' }));
+
+    expect(await screen.findByText('Eat Out deleted')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('🍔 Eat Out')).toBeNull();
+    expect(stored()).toEqual({ active: ['Konbini'], archived: [] });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    expect(await screen.findByLabelText('🍔 Eat Out')).toBeOnTheScreen();
+    expect(stored()).toEqual({ active: ['Eat Out', 'Konbini'], archived: [] });
+  });
+
+  it('deletes an archived category no expense uses (BR-CAT-05)', async () => {
+    await openCategories((db) =>
+      setCategoryArchived(db, readCategories(db)[0].id, true, Date.now()),
+    );
+
+    await fireEvent.press(screen.getByLabelText('🍔 Eat Out, archived'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete category' }));
+
+    expect(await screen.findByText('Eat Out deleted')).toBeOnTheScreen();
+    expect(stored()).toEqual({ active: ['Konbini'], archived: [] });
   });
 
   it.each([
-    { name: 'down', label: '🍔 Eat Out', action: 'moveDown' },
-    { name: 'up', label: '🏪 Konbini', action: 'moveUp' },
-  ])('moves a category $name with a screen reader’s action (BR-CAT-02)', async ({ label, action }) => {
-    await openCategories();
+    {
+      name: 'archives it',
+      choice: 'Archive category',
+      expected: { active: ['Konbini'], archived: ['Eat Out'] },
+    },
+    {
+      name: 'keeps it',
+      choice: 'Cancel',
+      expected: { active: ['Eat Out', 'Konbini'], archived: [] },
+    },
+  ])(
+    'offers to archive a category with expenses instead of deleting it, and $name (BR-CAT-05)',
+    async ({ choice, expected }) => {
+      const alert = jest.spyOn(Alert, 'alert');
+      await openCategories(expenseInEatOut);
 
-    await fireEvent(screen.getByLabelText(label), 'accessibilityAction', {
-      nativeEvent: { actionName: action },
+      await fireEvent.press(screen.getByLabelText('🍔 Eat Out'));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Delete category' }));
+
+      expect(alert).toHaveBeenCalledWith(
+        'Eat Out has 1 expense',
+        expect.stringContaining("A category with expenses can't be deleted."),
+        expect.any(Array),
+      );
+      const buttons = alert.mock.calls[0][2]!;
+      await act(async () => buttons.find((b) => b.text === choice)?.onPress?.());
+      await waitFor(() => expect(stored()).toEqual(expected));
+      alert.mockRestore();
+    },
+  );
+
+  it('offers no deletion for an archived category with expenses (BR-CAT-05)', async () => {
+    await openCategories((db) => {
+      expenseInEatOut(db);
+      setCategoryArchived(db, readCategories(db)[0].id, true, Date.now());
     });
 
-    expect(stored().active).toEqual(['Konbini', 'Eat Out']);
+    await fireEvent.press(screen.getByLabelText('🍔 Eat Out, archived'));
+
+    expect(await screen.findByRole('button', { name: 'Unarchive category' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Delete category' })).toBeNull();
   });
+
+  it.each([
+    { name: 'down', label: '🍔 Eat Out', action: 'moveDown', said: '🍔 Eat Out, 2 of 2' },
+    { name: 'up', label: '🏪 Konbini', action: 'moveUp', said: '🏪 Konbini, 1 of 2' },
+  ])(
+    'moves a category $name with a screen reader’s action, saying where it went (BR-CAT-02, BR-NFR-07)',
+    async ({ label, action, said }) => {
+      const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+      await openCategories();
+
+      await fireEvent(screen.getByLabelText(label), 'accessibilityAction', {
+        nativeEvent: { actionName: action },
+      });
+
+      expect(stored().active).toEqual(['Konbini', 'Eat Out']);
+      expect(announce).toHaveBeenCalledWith(said);
+      announce.mockRestore();
+    },
+  );
 
   it('moves a category dragged by its handle past another (BR-CAT-02)', async () => {
     await openCategories();

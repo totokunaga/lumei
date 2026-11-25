@@ -94,6 +94,21 @@ func (m *MockSyncWriter) EXPECT() *MockSyncWriterMockRecorder {
 	return m.recorder
 }
 
+// CategoryInUse mocks base method.
+func (m *MockSyncWriter) CategoryInUse(ctx context.Context, categoryID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CategoryInUse", ctx, categoryID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CategoryInUse indicates an expected call of CategoryInUse.
+func (mr *MockSyncWriterMockRecorder) CategoryInUse(ctx, categoryID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CategoryInUse", reflect.TypeOf((*MockSyncWriter)(nil).CategoryInUse), ctx, categoryID)
+}
+
 // CategoryNameTaken mocks base method.
 func (m *MockSyncWriter) CategoryNameTaken(ctx context.Context, name, exceptID string) (bool, error) {
 	m.ctrl.T.Helper()

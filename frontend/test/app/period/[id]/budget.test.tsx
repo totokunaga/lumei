@@ -1,11 +1,13 @@
 // The editors of a period's income, fixed expenses, and saving target,
-// opened from the home screen's summary (BR-INC-01 to BR-INC-04, BR-TGT-01
+// opened from the home screen's summary (BR-INC-01 to BR-INC-05, BR-TGT-01
 // to BR-TGT-03).
 import { fireEvent, screen } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { renderRouter } from 'expo-router/testing-library';
 
 import { useAuth } from '@/auth/store';
+import { database } from '@/db/client';
+import { readPeriodItems, readPeriodOn } from '@/db/records';
 import { useLocalData } from '@/db/store';
 import i18n from '@/i18n';
 
@@ -74,6 +76,36 @@ describe('Period budget editors (BR-INC-01, BR-TGT-01)', () => {
     expect(await screen.findByLabelText(after)).toBeOnTheScreen();
     expect(screen).toHavePathname('/');
     await expectAllowance(allowance);
+  });
+
+  it('reorders the items, and saves them in the new order (BR-INC-05)', async () => {
+    await openSummary();
+    await fireEvent.press(screen.getByLabelText('Planned income: ¥300,000'));
+    expect(await screen.findByText('Planned income')).toBeOnTheScreen();
+    // One item has nothing to reorder.
+    expect(screen.queryByRole('button', { name: 'Reorder' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add income' }));
+    await fireEvent.changeText(screen.getAllByLabelText('Name')[1], 'Bonus');
+    await fireEvent.changeText(screen.getAllByLabelText('Amount')[1], '20000');
+    await fireEvent.press(screen.getByRole('button', { name: 'Reorder' }));
+    expect(screen.getByText('Drag ≡ to change the order.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Add income' })).toBeNull();
+    await fireEvent(screen.getByLabelText('Bonus'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'moveUp' },
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    // The cards are back, in the new order.
+    expect(screen.getAllByLabelText('Name').map((field) => field.props.value)).toEqual([
+      'Bonus',
+      'Salary',
+    ]);
+    await fireEvent.press(screen.getByText('Save'));
+
+    expect(await screen.findByLabelText('Planned income: ¥320,000')).toBeOnTheScreen();
+    const db = database();
+    const items = readPeriodItems(db, readPeriodOn(db, '2026-11-15')!.id);
+    expect(items?.incomes.map((item) => item.name)).toEqual(['Bonus', 'Salary']);
   });
 
   it('sets the saving target, and today’s allowance updates at once (BR-TGT-02)', async () => {

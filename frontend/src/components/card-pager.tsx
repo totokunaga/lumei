@@ -122,16 +122,16 @@ export function CardPager({ pages, height: sizing = 'first', onPageChange }: Car
           ),
         )}
       </Animated.ScrollView>
-      <View className="flex-row justify-center gap-1">
+      {/* Tabs, each a 44-point-tall target around its small dot (BR-NFR-07). */}
+      <View accessibilityRole="tablist" className="flex-row justify-center">
         {pages.map((page, index) => (
           <PressableScale
             key={page.key}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityLabel={t('home.showCard', { card: page.label })}
             accessibilityState={{ selected: index === current }}
             onPress={() => show(index)}
-            hitSlop={8}
-            className="h-4 w-4 items-center justify-center"
+            className="-my-3.5 h-11 w-7 items-center justify-center"
           >
             <Dot index={index} offset={offset} step={step} />
           </PressableScale>

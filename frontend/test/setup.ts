@@ -77,6 +77,9 @@ require('@shopify/flash-list/jestSetup');
 jest.mock('@shopify/react-native-skia', () => require('./helpers/skia'));
 jest.mock('@expo/ui/swift-ui', () => require('./helpers/expo-ui-swift-ui'));
 jest.mock('@expo/ui/swift-ui/modifiers', () => require('./helpers/expo-ui-swift-ui-modifiers'));
+jest.mock('@expo/ui/jetpack-compose/modifiers', () =>
+  require('./helpers/expo-ui-jetpack-compose-modifiers'),
+);
 jest.mock('@expo/ui/jetpack-compose', () => require('./helpers/expo-ui-jetpack-compose'));
 
 // Amounts change at once instead of counting, as with Reduce Motion on, so

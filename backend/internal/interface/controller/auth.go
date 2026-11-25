@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,6 +28,9 @@ func (a *APIController) SignIn(ctx *gin.Context) {
 	if body.AuthorizationCode != nil {
 		input.AuthorizationCode = *body.AuthorizationCode
 	}
+	if body.Nonce != nil {
+		input.Nonce = *body.Nonce
+	}
 	out, err := a.Auth.SignIn(ctx.Request.Context(), input)
 	switch {
 	case errors.Is(err, application.ErrUnsupportedProvider):
@@ -44,6 +48,23 @@ func (a *APIController) SignIn(ctx *gin.Context) {
 	default:
 		ctx.JSON(http.StatusCreated, toSessionResponse(out))
 	}
+}
+
+// AppleCallback sends Sign in with Apple's web result on to the app
+// (BR-ACC-01). The link it redirects to comes from the config, never from
+// the request, so it can't send anyone elsewhere.
+func (a *APIController) AppleCallback(ctx *gin.Context) {
+	query := url.Values{}
+	for _, field := range []string{"code", "id_token", "state", "error"} {
+		if value := ctx.PostForm(field); value != "" {
+			query.Set(field, value)
+		}
+	}
+	if len(query) == 0 {
+		query.Set("error", "invalid_request")
+	}
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Redirect(http.StatusSeeOther, a.AppleAppRedirectURL+"?"+query.Encode())
 }
 
 // RefreshSession exchanges a refresh token for new tokens (BR-ACC-03).

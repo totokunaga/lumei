@@ -94,3 +94,18 @@ export const recentDays = (chart: ProgressChart, days = RECENT_DAYS): ProgressCh
   const start = Math.max(0, end - days);
   return { ...chart, days: chart.days.slice(start, end) };
 };
+
+/**
+ * Finds the day under a point of the chart, whose days each take an equal
+ * column of its width (BR-CHT-04).
+ * @param x The point's distance from the chart's left edge, in points.
+ * @param width The chart's width, in points.
+ * @param count How many days the chart shows.
+ * @returns The day's index, from 0, clamped to the days shown; -1 without days.
+ */
+export const dayAt = (x: number, width: number, count: number): number => {
+  if (count <= 0 || width <= 0) {
+    return -1;
+  }
+  return Math.min(Math.max(Math.floor((x / width) * count), 0), count - 1);
+};

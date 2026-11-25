@@ -206,6 +206,7 @@ func ProvideSyncer(records application.SyncRepository) application.Syncer {
 
 // ProvideAPIController provides the API controller.
 func ProvideAPIController(
+	cfg config.AuthConfig,
 	healthChecker application.HealthChecker,
 	auth application.Authenticator,
 	accounts application.AccountDeleter,
@@ -221,6 +222,8 @@ func ProvideAPIController(
 		CategorySets:  categorySets,
 		Sync:          sync,
 		Logger:        log,
+
+		AppleAppRedirectURL: cfg.AppleAppRedirectURL,
 	})
 }
 

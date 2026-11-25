@@ -26,7 +26,8 @@ describe('MenuPicker', () => {
     );
     expect(screen.queryByRole('menuitem')).toBeNull();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Japan ▾' }));
+    // TalkBack reads what is chosen and the choice, without the ▾ (BR-NFR-07).
+    await fireEvent.press(screen.getByRole('button', { name: 'Region, Japan' }));
     await fireEvent.press(screen.getByRole('menuitem', { name: 'European Union' }));
 
     expect(onChange).toHaveBeenCalledWith('eu');

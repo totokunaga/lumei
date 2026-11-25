@@ -23,6 +23,9 @@ type APIControllerInput struct {
 	CategorySets  application.CategorySetLister
 	Sync          application.Syncer
 	Logger        *slog.Logger
+	// AppleAppRedirectURL is the app link the Apple web flow's result goes
+	// to, e.g. `lumei://apple-callback`.
+	AppleAppRedirectURL string
 }
 
 // NewAPIController creates a new APIController from an input struct.

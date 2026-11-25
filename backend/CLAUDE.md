@@ -32,6 +32,7 @@ make help            # Every target
 - Credentials and secrets get no `envDefault`. Reject empty values in a `Validate()` method called from `Load()`.
 - Local values live in `.env.dev`, injected by dotenvx (`make up-d`, `make run`). Encrypt secrets with `dotenvx set KEY value -f .env.dev`. Never commit `.env.keys`.
 - When adding a variable the API container needs, also pass it through in `docker-compose.dev.yml`.
+- `APP_ENV` is `production` unless set. Production refuses to start with the dev-only settings: `AUTH_DEV_SIGN_IN=true`, Expo Go's `host.exp.Exponent` in `AUTH_APPLE_CLIENT_IDS`, or an `RDB_SSL_MODE` without TLS (`Config.Validate`). `.env.dev` and the tests set `development`. A new dev-only setting gets a check there too.
 
 ## Workflow
 
@@ -137,7 +138,7 @@ Organize them by the OpenAPI spec in `api/index.yaml`:
 | Tag | File | Test functions |
 |-----|------|----------------|
 | `health` | `health_test.go` | `TestGetHealth` (`GET /health`), `TestGetHealthFull` (`GET /health/full`) |
-| `auth` | `auth_test.go` | `TestSignIn` (`POST /auth/sign-in`), `TestRefreshSession` (`POST /auth/refresh`), `TestSignOut` (`POST /auth/sign-out`) |
+| `auth` | `auth_test.go` | `TestSignIn` (`POST /auth/sign-in`), `TestAppleCallback` (`POST /auth/apple/callback`), `TestRefreshSession` (`POST /auth/refresh`), `TestSignOut` (`POST /auth/sign-out`) |
 | `users` | `users_test.go` | `TestGetMe` (`GET /me`), `TestDeleteMe` (`DELETE /me`) |
 | `categories` | `categories_test.go` | `TestListCategorySets` (`GET /category-sets`) |
 | `sync` | `sync_test.go` | `TestPushChanges` (`POST /sync/push`), `TestPullChanges` (`GET /sync/pull`) |
@@ -149,7 +150,7 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 | Field | Purpose |
 |-------|---------|
 | `name` | Subtest name, starting with the expected status, e.g. `"503 when the database goes away after startup"`. |
-| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `signInWithCodeReq`, `refreshReq`, `meReq`, `deleteMeReq`, `signOutReq`, `pushReq`, and `pullReq`. Build sync rows with `expenseSyncRow` and the other `*SyncRow` helpers, change fields with `row.with(syncRow{...})`, and give every stored row a `newRowID()`: row IDs are unique across all users, so cases that share one collide. |
+| `req` | `method`, `path`, `headers`, and a `body` sent as JSON (or a `rawBody` sent as is, e.g. malformed JSON). Build common ones with `signInReq`, `signInWithCodeReq`, `signInWithNonceReq`, `appleCallbackReq`, `refreshReq`, `meReq`, `deleteMeReq`, `signOutReq`, `pushReq`, and `pullReq`. Build sync rows with `expenseSyncRow` and the other `*SyncRow` helpers, change fields with `row.with(syncRow{...})`, and give every stored row a `newRowID()`: row IDs are unique across all users, so cases that share one collide. |
 | `configure func(cfg)` | Changes the case's own `*config.Config` before the server is built, e.g. `func(cfg *config.Config) { cfg.Server.HealthCheckTimeout = time.Nanosecond }`. |
 | `setupFunc func(t, cfg) (afterStart func())` | Runs before the server is built and may also change `cfg`. The returned function runs after it starts, before the request, e.g. `useDisposableDatabase` points `cfg` at a new database and drops it there. |
 | `prepare func(t, ts) (req, assertFunc)` | Replaces `req` and `assertFunc` when the request depends on earlier requests, e.g. one that needs a session. It runs after the server starts, may send those requests (`signIn`, `newGoogleSession`, `refresh`), and returns the request and an assertion that can close over their results, e.g. the first sign-in's user ID. Start it with `t.Helper()`. |
@@ -159,7 +160,7 @@ Each case is a `testIntegrationInput` (`test/integration/helpers_test.go`):
 - `runIntegrationTestCases` runs the cases in parallel. For each case it loads a fresh config from the environment, applies `configure` and `setupFunc`, and builds a server with `newTestServer(t, cfg)` (`test/integration/setup_test.go`): production wiring served over `httptest` and cleaned up through `t.Cleanup`.
 - `TestMain` sets `gin.TestMode` and fills in suite-wide default env vars with `setEnvDefaults`, before any test starts. Per-case overrides go in the case's `configure`, never in env vars.
 - Decode bodies into the `generated.*` types with `decode[T]`, so the tests check the API contract.
-- **Sign-in runs against a fake identity provider** (`fakeIdentityProvider` in `helpers_test.go`). `TestMain` starts it and points the Apple and Google JWKS URLs and client IDs at it, so every case verifies real signed tokens. Build a token with `appleToken(subject, email)` or `googleToken(subject, email)`, change fields for a negative case (`expiresAt`, `audience`, `issuer`, `forged`, `emailVerified`, `extra`), and sign it with `idp.sign(token)`. Use `newSubject()` and `uniqueEmail()` so cases never share a user.
+- **Sign-in runs against a fake identity provider** (`fakeIdentityProvider` in `helpers_test.go`). `TestMain` starts it and points the Apple and Google JWKS URLs and client IDs at it, so every case verifies real signed tokens. Build a token with `appleToken(subject, email)`, `appleWebToken(subject, email, nonce)` (Apple's web flow on Android, for the Services ID `testAppleWebClientID`), or `googleToken(subject, email)`, change fields for a negative case (`expiresAt`, `audience`, `issuer`, `forged`, `emailVerified`, `extra`), and sign it with `idp.sign(token)`. Use `newSubject()` and `uniqueEmail()` so cases never share a user.
 - **Revoking sign-ins** (BR-ACC-05): the fake provider also serves Apple's and Google's token and revoke endpoints, and `TestMain` points the server at them with a test Apple key and Google secret. Sign in with `signInWithCode(t, ts, provider, idToken, newCode(kind))`; the code's kind (`codeValid`, `codeUnknown`, `codeAlreadyRevoked`, `codeUnavailable`, `codeRejected`) picks how the endpoints answer, and `idp.wasRevoked(code)` tells whether its token was revoked.
 - **Access tokens:** `TestMain` generates the server's signing key (`signingKey`, passed as `AUTH_JWT_SIGNING_KEY`). To test the token check itself, build a token with `validAccessToken(email)`, change fields (`key`, `keyID`, `issuer`, `audience`, `subject`, `expiresAt`), and sign it with `signAccessToken(t, at)`. A signed token needs no database, so it also reaches handlers in cases that drop the database with `useDisposableDatabase`.
 

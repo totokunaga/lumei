@@ -10,6 +10,34 @@ tags:
   - name: categories
   - name: sync
 paths:
+  /auth/apple/callback:
+    post:
+      operationId: appleCallback
+      summary: Return Sign in with Apple's web result to the app
+      description: |-
+        Receives the result of Sign in with Apple's web flow, which Android uses
+        (BR-ACC-01), and sends it on to the app: a `303` to the app's link with
+        `code`, `id_token`, `state`, and `error` in the query, whichever Apple
+        sent. It checks nothing itself: the app checks `state`, and signs in with
+        `POST /auth/sign-in` and its nonce. It is the `redirect_uri` registered
+        for the Services ID.
+      parameters: []
+      responses:
+        '303':
+          description: Sends the browser back to the app, with the web flow's result in the link's query.
+          headers:
+            location:
+              required: true
+              schema:
+                type: string
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppleCallbackForm'
   /auth/refresh:
     post:
       operationId: refreshSession
@@ -330,6 +358,25 @@ paths:
         - BearerAuth: []
 components:
   schemas:
+    AppleCallbackForm:
+      type: object
+      properties:
+        code:
+          type: string
+          description: The authorization code, on success.
+        id_token:
+          type: string
+          description: The ID token, on success.
+        state:
+          type: string
+          description: The value the app sent, which it checks to be sure the answer is its own.
+        error:
+          type: string
+          description: Why the sign-in didn't finish, e.g. `user_cancelled_authorize`.
+        user:
+          type: string
+          description: The user's name, on the first sign-in only. Not used.
+      description: What Sign in with Apple's web flow posts back (`response_mode=form_post`).
     BasicHealthResponse:
       type: object
       required:
@@ -1005,6 +1052,12 @@ components:
             for a token that revokes the app's access to this sign-in when the
             account is deleted (BR-ACC-05). Optional: without it, or if the trade
             fails, the sign-in still succeeds.
+        nonce:
+          type: string
+          description: |-
+            The random secret the app made for this sign-in, whose SHA-256 hash (in
+            hex) it gave the provider. The ID token must then carry that hash.
+            Required for Sign in with Apple's web flow, on Android (BR-ACC-01).
     SyncColumns:
       type: object
       required:

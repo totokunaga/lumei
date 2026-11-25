@@ -4,6 +4,9 @@ package identity
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/mail"
@@ -31,6 +34,9 @@ type provider struct {
 	// clientIDs are the audiences a token may be issued for. go-oidc checks
 	// only one, so Verify checks the list itself.
 	clientIDs []string
+	// nonceRequired are the audiences whose tokens must carry the app's
+	// nonce: those of Apple's web flow (BR-ACC-01).
+	nonceRequired []string
 }
 
 // New creates a Verifier for the providers cfg configures. A provider with no
@@ -42,29 +48,32 @@ func New(cfg config.AuthConfig, client *http.Client) *Verifier {
 	ctx := oidc.ClientContext(context.Background(), client)
 
 	providers := map[application.Provider]*provider{}
-	add := func(name application.Provider, issuer, jwksURL string, clientIDs []string) {
-		if len(clientIDs) == 0 {
+	add := func(name application.Provider, issuer, jwksURL string, clientIDs, webClientIDs []string) {
+		all := slices.Concat(clientIDs, webClientIDs)
+		if len(all) == 0 {
 			return
 		}
 		keys := oidc.NewRemoteKeySet(ctx, jwksURL)
 		providers[name] = &provider{
-			verifier:  oidc.NewVerifier(issuer, keys, &oidc.Config{SkipClientIDCheck: true}),
-			clientIDs: clientIDs,
+			verifier:      oidc.NewVerifier(issuer, keys, &oidc.Config{SkipClientIDCheck: true}),
+			clientIDs:     all,
+			nonceRequired: webClientIDs,
 		}
 	}
-	add(application.ProviderApple, cfg.AppleIssuer, cfg.AppleJWKSURL, cfg.AppleClientIDs)
-	add(application.ProviderGoogle, cfg.GoogleIssuer, cfg.GoogleJWKSURL, cfg.GoogleClientIDs)
+	add(application.ProviderApple, cfg.AppleIssuer, cfg.AppleJWKSURL,
+		cfg.AppleClientIDs, cfg.AppleWebClientIDs)
+	add(application.ProviderGoogle, cfg.GoogleIssuer, cfg.GoogleJWKSURL, cfg.GoogleClientIDs, nil)
 
 	return &Verifier{providers: providers, devSignIn: cfg.DevSignIn}
 }
 
-// Verify checks the token's signature, issuer, audience, and expiry, and
-// returns the identity it carries. For the dev provider, the token is the
+// Verify checks the token's signature, issuer, audience, expiry, and nonce,
+// and returns the identity it carries. For the dev provider, the token is the
 // email address to sign in as.
 func (v *Verifier) Verify(
 	ctx context.Context,
 	name application.Provider,
-	idToken string,
+	idToken, nonce string,
 ) (application.Identity, error) {
 
 	if name == application.ProviderDev && v.devSignIn {
@@ -86,6 +95,10 @@ func (v *Verifier) Verify(
 		return application.Identity{}, fmt.Errorf("%w: unexpected audience %q",
 			application.ErrInvalidIDToken, token.Audience)
 	}
+	required := slices.Contains(p.nonceRequired, token.Audience[audience])
+	if err := checkNonce(token.Nonce, nonce, required); err != nil {
+		return application.Identity{}, err
+	}
 	if token.Subject == "" {
 		return application.Identity{}, fmt.Errorf("%w: no subject", application.ErrInvalidIDToken)
 	}
@@ -104,6 +117,25 @@ func (v *Verifier) Verify(
 		EmailVerified: bool(claims.EmailVerified),
 		ClientID:      token.Audience[audience],
 	}, nil
+}
+
+// checkNonce checks the token's nonce claim against the nonce the app made
+// for the sign-in: the claim must be its SHA-256 hash, in hex. Without a
+// nonce from the app, the claim isn't checked, unless the token's audience
+// requires one. A token taken on its way to the app then can't be used
+// without the nonce, which never left it.
+func checkNonce(claim, nonce string, required bool) error {
+	if nonce == "" {
+		if required {
+			return fmt.Errorf("%w: this sign-in needs a nonce", application.ErrInvalidIDToken)
+		}
+		return nil
+	}
+	sum := sha256.Sum256([]byte(nonce))
+	if subtle.ConstantTimeCompare([]byte(claim), []byte(hex.EncodeToString(sum[:]))) != 1 {
+		return fmt.Errorf("%w: the nonce doesn't match", application.ErrInvalidIDToken)
+	}
+	return nil
 }
 
 // devIdentity returns a verified identity for the email address the dev

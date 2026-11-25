@@ -9,14 +9,34 @@ const Expanded = createContext(false);
 /** Renders its children in a view. */
 export const Host = ({ children }: { children?: ReactNode }) => <View>{children}</View>;
 
+/** Renders its children side by side. */
+export const Row = ({ children }: { children?: ReactNode }) => (
+  <View style={{ flexDirection: 'row' }}>{children}</View>
+);
+
 /** Renders text. */
 export const Text = ({ children }: { children?: ReactNode }) => (
   <NativeText>{children}</NativeText>
 );
 
-/** Renders a button that calls `onClick` when pressed. */
-export const TextButton = ({ onClick, children }: { onClick?: () => void; children?: ReactNode }) => (
-  <Pressable accessibilityRole="button" onPress={onClick}>
+/**
+ * Renders a button that calls `onClick` when pressed, named by its
+ * `semantics` modifier's description when it has one, as TalkBack reads it.
+ */
+export const TextButton = ({
+  onClick,
+  modifiers,
+  children,
+}: {
+  onClick?: () => void;
+  modifiers?: { semantics?: { contentDescription?: string } }[];
+  children?: ReactNode;
+}) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={modifiers?.find((m) => m.semantics)?.semantics?.contentDescription}
+    onPress={onClick}
+  >
     {children}
   </Pressable>
 );

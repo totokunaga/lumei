@@ -148,6 +148,40 @@ func TestLoad(t *testing.T) {
 			expectedErrMsg: "RDB_PASSWORD must not be empty",
 		},
 		{
+			name: "accepts production with TLS to the database and no dev settings",
+			environ: environWith(map[string]string{
+				"APP_ENV": "production", "AUTH_APPLE_CLIENT_IDS": "com.example.lumei",
+			}),
+			assertFunc: func(t *testing.T, cfg Config) {
+				t.Helper()
+				assert.Equal(t, "production", cfg.Environment)
+			},
+		},
+		{
+			name:           "is production when APP_ENV isn't set",
+			environ:        environWith(map[string]string{"APP_ENV": "", "AUTH_DEV_SIGN_IN": "true"}),
+			expectedErrMsg: "AUTH_DEV_SIGN_IN must be false in production",
+		},
+		{
+			name: "refuses Expo Go's Apple client ID in production",
+			environ: environWith(map[string]string{
+				"APP_ENV": "production", "AUTH_APPLE_CLIENT_IDS": "com.example.lumei,host.exp.Exponent",
+			}),
+			expectedErrMsg: "must not list Expo Go",
+		},
+		{
+			name: "refuses a database connection without TLS in production (BR-NFR-03)",
+			environ: environWith(map[string]string{
+				"APP_ENV": "production", "RDB_SSL_MODE": "disable",
+			}),
+			expectedErrMsg: `RDB_SSL_MODE must be require, verify-ca, or verify-full in production`,
+		},
+		{
+			name:           "refuses an unknown environment",
+			environ:        environWith(map[string]string{"APP_ENV": "staging"}),
+			expectedErrMsg: `APP_ENV must be production or development, not "staging"`,
+		},
+		{
 			name:           "fails without a JWT signing key",
 			environ:        environWith(map[string]string{"AUTH_JWT_SIGNING_KEY": ""}),
 			expectedErrMsg: "AUTH_JWT_SIGNING_KEY must not be empty",

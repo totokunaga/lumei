@@ -9,6 +9,7 @@ import {
   addCategory,
   addExtraIncome,
   countPendingChanges,
+  deleteCategory,
   readCategories,
   readExtraIncome,
   readManagedCategories,
@@ -47,12 +48,18 @@ const deviceWithSetup = async (): Promise<Database> => {
 const spend = (db: Database, amount: number): string => {
   const id = newId();
   const now = Date.now();
-  addExpense(db, { amount, categoryId: readCategories(db)[0].id, spentAt: now, isBigPurchase: false }, id, now);
+  addExpense(
+    db,
+    { amount, categoryId: readCategories(db)[0].id, spentAt: now, isBigPurchase: false },
+    id,
+    now,
+  );
   return id;
 };
 
 /** Reads an expense as stored on the device. */
-const expense = (db: Database, id: string) => db.select().from(expenses).where(eq(expenses.id, id)).get();
+const expense = (db: Database, id: string) =>
+  db.select().from(expenses).where(eq(expenses.id, id)).get();
 
 /** Changes an expense on the device as the user would: a new revision, pending. */
 const edit = (db: Database, id: string, changes: Partial<typeof expenses.$inferInsert>) => {
@@ -101,13 +108,21 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
     mockApi(server.routes);
     const phone = await deviceWithSetup();
     const id = newId();
-    addExtraIncome(phone, { amount: 3_000, receivedAt: Date.now(), description: 'Dinner' }, id, Date.now());
+    addExtraIncome(
+      phone,
+      { amount: 3_000, receivedAt: Date.now(), description: 'Dinner' },
+      id,
+      Date.now(),
+    );
     const tablet = await openDeviceDatabase();
 
     await syncOnce(phone);
     await syncOnce(tablet);
 
-    expect(server.stored('extra_incomes', id)).toMatchObject({ amount: 3_000, description: 'Dinner' });
+    expect(server.stored('extra_incomes', id)).toMatchObject({
+      amount: 3_000,
+      description: 'Dinner',
+    });
     expect(readExtraIncome(tablet, id)).toEqual({ ...readExtraIncome(phone, id), pending: false });
   });
 
@@ -135,7 +150,9 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
       ...server.routes,
       'POST /sync/push': [
         (init) => {
-          const { rows } = JSON.parse(String(init?.body)) as { rows: { table: string; id: string }[] };
+          const { rows } = JSON.parse(String(init?.body)) as {
+            rows: { table: string; id: string }[];
+          };
           const results = rows.map((row) => ({
             table: row.table,
             id: row.id,
@@ -209,7 +226,11 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
     await syncOnce(phone);
     const { updatedAt } = expense(phone, id)!;
     // Another device's change reaches the server; the phone's own, later, waits offline.
-    server.store({ ...server.stored('expenses', id)!, amount: 2_000, updated_at: updatedAt + 1_000 } as SyncRow);
+    server.store({
+      ...server.stored('expenses', id)!,
+      amount: 2_000,
+      updated_at: updatedAt + 1_000,
+    } as SyncRow);
     edit(phone, id, { amount: 3_000, updatedAt: updatedAt + 2_000 });
     mockApi({ ...server.routes, 'POST /sync/push': offline });
 
@@ -236,7 +257,11 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
     await syncOnce(phone);
     await syncOnce(tablet);
 
-    expect(expense(tablet, id)).toMatchObject({ amount: 1_200, deletedAt: updatedAt + 1_000, pending: false });
+    expect(expense(tablet, id)).toMatchObject({
+      amount: 1_200,
+      deletedAt: updatedAt + 1_000,
+      pending: false,
+    });
   });
 
   it('pushes again after a lost response, and the change is stored once (BR-OFF-03)', async () => {
@@ -287,6 +312,42 @@ describe('syncOnce (BR-OFF-03 to BR-OFF-05)', () => {
     expect(names(tablet)).toEqual(['Coffee', 'coffee (2)']);
     expect(countPendingChanges(tablet)).toBe(0);
   });
+
+  it.each([
+    { name: 'the expense syncs first', expenseFirst: true },
+    { name: 'the deletion syncs first', expenseFirst: false },
+  ])(
+    'archives instead a category deleted on one device while another recorded an expense in it, when $name (BR-CAT-05)',
+    async ({ expenseFirst }) => {
+      const server = fakeSyncServer();
+      mockApi(server.routes);
+      const phone = await deviceWithSetup();
+      await syncOnce(phone);
+      const tablet = await openDeviceDatabase();
+      await syncOnce(tablet);
+      const [eatOut] = readCategories(phone);
+
+      const spentAt = Date.now();
+      addExpense(
+        tablet,
+        { amount: 1_200, categoryId: eatOut.id, spentAt, isBigPurchase: false },
+        newId(),
+        spentAt,
+      );
+      deleteCategory(phone, eatOut.id, spentAt + 1_000);
+      for (const device of expenseFirst ? [tablet, phone, tablet] : [phone, tablet, phone]) {
+        await syncOnce(device);
+      }
+      await syncOnce(expenseFirst ? phone : tablet);
+
+      for (const device of [phone, tablet]) {
+        const { active, archived } = readManagedCategories(device);
+        expect(active.map((c) => c.name)).not.toContain('Eat Out');
+        expect(archived.map((c) => c.name)).toContain('Eat Out');
+        expect(countPendingChanges(device)).toBe(0);
+      }
+    },
+  );
 
   it('pulls page after page, and skips tables this app version doesn’t have', async () => {
     const server = fakeSyncServer({ pageSize: 2 });

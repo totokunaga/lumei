@@ -75,7 +75,8 @@ func newAuthUsecase(m authMocks) *application.AuthUsecase {
 
 // expectVerified makes the verifier accept the test's ID token.
 func expectVerified(m authMocks) {
-	m.verifier.EXPECT().Verify(gomock.Any(), application.ProviderGoogle, "id-token").Return(authIdentity, nil)
+	m.verifier.EXPECT().Verify(gomock.Any(), application.ProviderGoogle, "id-token", "").
+		Return(authIdentity, nil)
 }
 
 // expectNewUser sets up a verified identity whose user doesn't exist yet,

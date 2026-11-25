@@ -9,6 +9,7 @@ import CategoriesScreen from '@/app/(tabs)/settings/categories';
 import DeleteAccountScreen from '@/app/(tabs)/settings/delete-account';
 import StartDayScreen from '@/app/(tabs)/settings/start-day';
 import EditCategoryScreen from '@/app/category/[id]';
+import DayScreen from '@/app/day/[date]';
 import NewCategoryScreen from '@/app/category/new';
 import EditExpenseScreen from '@/app/expense/[id]';
 import NewExpenseScreen from '@/app/expense/new';
@@ -46,6 +47,7 @@ export const routes = {
   'period/[id]/target': PeriodTargetScreen,
   'category/new': NewCategoryScreen,
   'category/[id]': EditCategoryScreen,
+  'day/[date]': DayScreen,
   'setup/_layout': SetupLayout,
   'setup/index': RegionStep,
   'setup/currency': CurrencyStep,

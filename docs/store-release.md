@@ -13,10 +13,12 @@ These are needed for both.
   - A release build refuses any other URL (BR-NFR-03).
   - Set `EXPO_PUBLIC_API_URL` in the production build profile.
 - [ ] 🧑 **App identifier.** Choose the real one, e.g. `com.<yourdomain>.lumei`, to replace `com.anonymous.lumei` in `frontend/app.json`, both `ios.bundleIdentifier` and `android.package`. Neither can change after the first upload.
-- [ ] **EAS.** Run `bunx eas-cli init`, then add `frontend/eas.json` with `development`, `preview`, and `production` profiles. Store build-time secrets as EAS secrets:
-  - `GOOGLE_MAPS_API_KEY`
-  - `GOOGLE_IOS_URL_SCHEME`
+- [ ] **EAS.** `frontend/eas.json` has the profiles. Run `bunx eas-cli init` to link the project, then set each environment's variables (`bunx eas-cli env:create`):
+  - `EXPO_PUBLIC_API_URL`
+  - `EXPO_PUBLIC_APPLE_SERVICES_ID`
   - the `EXPO_PUBLIC_GOOGLE_*` client IDs
+  - `GOOGLE_IOS_URL_SCHEME`
+  - `GOOGLE_MAPS_API_KEY`, as a secret
 - [ ] **Version numbers.** `expo.version` (e.g. `1.0.0`) is what users see. Let EAS raise the build number on each build (`"autoIncrement": true` with `"appVersionSource": "remote"`).
 - [ ] 🧑 **Privacy policy** at a public URL, in English, Japanese, and French. It should cover:
   - what is stored: expenses, income, locations, and the email address
@@ -41,12 +43,22 @@ These are needed for both.
 - [ ] 🧑 **Agreements, tax, and banking** in App Store Connect. The free-apps agreement is enough for a free app.
 - [ ] **Bundle ID** registered with the **Sign in with Apple** capability. EAS registers it on the first build, or add it in Certificates, Identifiers & Profiles.
 - [ ] 🧑 **Sign in with Apple key** (.p8). Pass it, its Key ID, and your Team ID to the API as `AUTH_APPLE_PRIVATE_KEY`, `AUTH_APPLE_KEY_ID`, and `AUTH_APPLE_TEAM_ID`. Account deletion revokes Apple sign-ins with it, which App Review checks (BR-ACC-05).
+- [ ] 🧑 **Services ID, for Sign in with Apple on Android** (BR-ACC-01). Android has no native Apple sign-in, so the app uses Apple's web flow, which only works with a Services ID. You need to create it and provide it:
+  - In Certificates, Identifiers & Profiles → Identifiers → **Services IDs**, create one, e.g. `com.<yourdomain>.lumei.web`.
+  - Enable **Sign in with Apple** for it, choose the app's bundle ID as its **primary App ID** (so a person has one Apple account across iPhone and Android), and register:
+    - the API's domain, e.g. `api.<yourdomain>`
+    - the return URL `https://<api domain>/auth/apple/callback`
+  - Provide the Services ID in two places:
+    - the app's production EAS environment, as `EXPO_PUBLIC_APPLE_SERVICES_ID`
+    - the API's environment, as `AUTH_APPLE_WEB_CLIENT_IDS`
+  - The Sign in with Apple key above also revokes these sign-ins (BR-ACC-05), so no second key is needed.
+  - Without it, Android offers only Google sign-in (see Google Play, section 1).
 - [ ] **API config.** Set `AUTH_APPLE_CLIENT_IDS` to the real bundle ID only, never `host.exp.Exponent`.
 - [ ] **Google sign-in on iOS.** Create an iOS OAuth client for the bundle ID, then set `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `GOOGLE_IOS_URL_SCHEME`.
 
 ### 2. App configuration
 
-- [ ] **Export compliance.** The app uses only standard HTTPS, which is exempt. Add `"ITSAppUsesNonExemptEncryption": false` under `ios.infoPlist` in `app.json`, so each build skips the question. France has its own encryption declaration rules; App Store Connect asks about it if needed.
+- [x] **Export compliance.** The app uses only standard HTTPS, which is exempt, and `app.json` says so (`ITSAppUsesNonExemptEncryption: false`), so each build skips the question. France has its own encryption declaration rules; App Store Connect asks about it if needed.
 - [ ] **Privacy manifest.** Apple requires one (`PrivacyInfo.xcprivacy`).
   - Expo generates it from `ios.privacyManifests` in `app.json` and the libraries' own manifests.
   - Declare the reasons for any "required reason" APIs the app or its libraries use, e.g. UserDefaults and file timestamps. Check the warnings App Store Connect sends after the first upload.
@@ -113,10 +125,10 @@ These are needed for both.
   - Add the upload key's SHA-1 too, for builds installed outside Play.
 - [ ] **Google Maps API key.** Restrict it to Android apps, with the package name and both SHA-1 fingerprints, and pass it as `GOOGLE_MAPS_API_KEY` at build time.
 - [ ] **API config.** `AUTH_GOOGLE_CLIENT_IDS` holds the web client ID, which is the audience of Google ID tokens, and `AUTH_GOOGLE_CLIENT_SECRET` holds its secret, for revoking at account deletion (BR-ACC-05).
-- [ ] 🧑 **Sign in with Apple on Android** (BR-ACC-01): build it, or ship the first release with Google only.
-  - Without it, someone who signed up with Apple on iPhone can't sign in on Android.
-  - That's fine if their Apple ID's email is a real address, which Google sign-in then matches (BR-ACC-07).
-  - It's not fine with Apple's private relay address, which Google can't match.
+- [ ] 🧑 **Sign in with Apple on Android** (BR-ACC-01). Provide the **Services ID** from the App Store section 1, "Services ID, for Sign in with Apple on Android":
+  - Its value goes into the Android build as `EXPO_PUBLIC_APPLE_SERVICES_ID`, and into the API as `AUTH_APPLE_WEB_CLIENT_IDS`.
+  - Its return URL must be the production API's `https://<api domain>/auth/apple/callback`. Apple returns only there, so try it against the deployed API, never the local one.
+  - Without it, Android shows only Google sign-in. Someone who signed up with Apple's private relay address on iPhone then can't sign in on Android: Google sign-in can't match that address (BR-ACC-07).
 
 ### 2. App configuration
 

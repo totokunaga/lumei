@@ -72,6 +72,10 @@ func TestSyncUsecase_Push(t *testing.T) {
 		Record:    application.CategoryRecord{Name: "Coffee", Emoji: "☕"},
 	}
 
+	deletedAt := syncNow.UnixMilli()
+	deletedCategory := category
+	deletedCategory.DeletedAt = &deletedAt
+
 	tests := []testUseCaseInput[syncInput, []application.PushResult, syncMocks]{
 		{
 			name:       "ErrUnauthenticated without a principal",
@@ -122,6 +126,30 @@ func TestSyncUsecase_Push(t *testing.T) {
 					Return(true, nil).Times(999)
 			},
 			expectedErrMsg: "no free number for the name of category " + category.ID,
+			assertFunc:     assertError[[]application.PushResult],
+		},
+		{
+			name:  "wraps a failure to check whether a deleted category is used (BR-CAT-05)",
+			input: syncInput{signedIn: true, rows: []application.SyncRow{deletedCategory}},
+			setupMocks: func(m syncMocks) {
+				m.writer.EXPECT().Find(gomock.Any(), application.TableCategories, category.ID).
+					Return(application.StoredRow{}, application.ErrNotFound)
+				m.writer.EXPECT().CategoryInUse(gomock.Any(), category.ID).Return(false, errSyncDB)
+			},
+			expectedErrMsg: "failed to check whether category " + category.ID + " is used",
+			assertFunc:     assertError[[]application.PushResult],
+		},
+		{
+			name:  "wraps a failure to find an expense's category after saving it (BR-CAT-05)",
+			input: syncInput{signedIn: true, rows: []application.SyncRow{expense}},
+			setupMocks: func(m syncMocks) {
+				m.writer.EXPECT().Find(gomock.Any(), application.TableExpenses, expense.ID).
+					Return(application.StoredRow{}, application.ErrNotFound)
+				m.writer.EXPECT().Save(gomock.Any(), expense).Return(nil)
+				m.writer.EXPECT().Find(gomock.Any(), application.TableCategories, gomock.Any()).
+					Return(application.StoredRow{}, errSyncDB)
+			},
+			expectedErrMsg: "failed to find category",
 			assertFunc:     assertError[[]application.PushResult],
 		},
 	}

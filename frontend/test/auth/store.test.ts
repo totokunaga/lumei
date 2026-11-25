@@ -236,6 +236,19 @@ describe('signIn (BR-ACC-01)', () => {
     expect(await storedSession()).toMatchObject(expected);
   });
 
+  it('sends the code and nonce of Apple’s web flow with its token (BR-ACC-01, BR-ACC-05)', async () => {
+    const fetch = mockApi({ 'POST /auth/sign-in': signedIn() });
+
+    await useAuth.getState().signIn('apple', 'apple-web-token', 'c-1', 'n-1');
+
+    expect(requestBody(fetch)).toEqual({
+      provider: 'apple',
+      id_token: 'apple-web-token',
+      authorization_code: 'c-1',
+      nonce: 'n-1',
+    });
+  });
+
   it.each([
     {
       name: 'email_not_verified when the provider has not verified the email (BR-ACC-07)',

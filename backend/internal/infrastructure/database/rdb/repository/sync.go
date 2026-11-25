@@ -492,6 +492,21 @@ func (w *syncWriter) CategoryNameTaken(ctx context.Context, name string, exceptI
 	return taken, nil
 }
 
+// CategoryInUse reports whether any of the user's expenses that aren't
+// deleted has the category (BR-CAT-05).
+func (w *syncWriter) CategoryInUse(ctx context.Context, categoryID string) (bool, error) {
+	used, err := w.tx.NewSelect().
+		Model((*expenseModel)(nil)).
+		Where("user_id = ?", w.userID).
+		Where("category_id = ?", categoryID).
+		Where("deleted_at IS NULL").
+		Exists(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to look up the expenses of category %s: %w", categoryID, err)
+	}
+	return used, nil
+}
+
 // parseDate parses a `YYYY-MM-DD` date.
 func parseDate(s string) (time.Time, error) {
 	d, err := time.Parse(time.DateOnly, s)

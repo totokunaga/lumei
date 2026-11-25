@@ -15,7 +15,10 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.anonymous.lumei"
+      "bundleIdentifier": "com.anonymous.lumei",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -64,9 +67,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "platforms": [
-      "ios",
-      "android"
-    ]
+    "platforms": ["ios", "android"],
+    "extra": {
+      "eas": {
+        "projectId": "32e41ac4-4d8c-456c-840b-a9de7e22a519"
+      }
+    },
+    "owner": "totokunaga"
   }
 }

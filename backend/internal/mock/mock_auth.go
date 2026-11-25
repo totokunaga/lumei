@@ -98,18 +98,18 @@ func (m *MockIdentityVerifier) EXPECT() *MockIdentityVerifierMockRecorder {
 }
 
 // Verify mocks base method.
-func (m *MockIdentityVerifier) Verify(ctx context.Context, provider application.Provider, idToken string) (application.Identity, error) {
+func (m *MockIdentityVerifier) Verify(ctx context.Context, provider application.Provider, idToken, nonce string) (application.Identity, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Verify", ctx, provider, idToken)
+	ret := m.ctrl.Call(m, "Verify", ctx, provider, idToken, nonce)
 	ret0, _ := ret[0].(application.Identity)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Verify indicates an expected call of Verify.
-func (mr *MockIdentityVerifierMockRecorder) Verify(ctx, provider, idToken any) *gomock.Call {
+func (mr *MockIdentityVerifierMockRecorder) Verify(ctx, provider, idToken, nonce any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockIdentityVerifier)(nil).Verify), ctx, provider, idToken)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockIdentityVerifier)(nil).Verify), ctx, provider, idToken, nonce)
 }
 
 // MockUserRepository is a mock of UserRepository interface.

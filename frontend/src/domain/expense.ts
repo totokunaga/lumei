@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 
 import type { TodayStatus } from './calculations';
 import { addDays, type IsoDate, localToday } from './date';
+import { Fraction } from './fraction';
 import type { Minor } from './money';
 
 /**
@@ -189,3 +190,20 @@ export const limitUse = (spent: number, limit: number): LimitUse => {
  */
 export const todayUse = (status: TodayStatus): AllowanceUse =>
   isOverToday(status) ? 'critical' : allowanceUse(status.spentToday, status.allowance);
+
+/**
+ * Checks whether a chart day's spending carries a share of big purchases
+ * (BR-CALC-05), so it differs from the day's other expenses: a big purchase
+ * shows in the list at its full amount, but the day's bar holds only its
+ * share.
+ * @param spending The day's spending on the chart, exact.
+ * @param expenses The expenses dated that day.
+ * @returns True if the bar isn't just the day's expenses other than big purchases.
+ */
+export const carriesBigPurchaseShare = (
+  spending: Fraction,
+  expenses: readonly { amount: Minor; isBigPurchase: boolean }[],
+): boolean => {
+  const others = expenses.reduce((sum, e) => (e.isBigPurchase ? sum : sum + e.amount), 0);
+  return spending.compare(Fraction.of(others)) !== 0;
+};

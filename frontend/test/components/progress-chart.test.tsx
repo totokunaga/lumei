@@ -25,13 +25,15 @@ describe('ProgressChart (BR-CHT-01 to BR-CHT-05)', () => {
       name: 'under the limit, in green',
       spent: 21_600,
       status: "¥8,400 under today's spending limit",
-      label: "Spent ¥21,600 so far, against a limit of ¥30,000 by today. ¥8,400 under today's spending limit.",
+      label:
+        "Spent ¥21,600 so far, against a limit of ¥30,000 by today. ¥8,400 under today's spending limit.",
     },
     {
       name: 'over the limit',
       spent: 33_000,
       status: "¥3,000 over today's spending limit",
-      label: "Spent ¥33,000 so far, against a limit of ¥30,000 by today. ¥3,000 over today's spending limit.",
+      label:
+        "Spent ¥33,000 so far, against a limit of ¥30,000 by today. ¥3,000 over today's spending limit.",
     },
   ])(
     'says how far today is from the limit: $name (BR-CHT-02)',
@@ -252,5 +254,97 @@ describe('ProgressChart’s radar pulse around today', () => {
     });
 
     expect(rings()).toHaveLength(expected);
+  });
+});
+
+describe('ProgressChart’s days, tapped in the last 5 days’ view (BR-CHT-04)', () => {
+  beforeAll(() => i18n.changeLanguage('en'));
+
+  /**
+   * Shows the chart of the 10-day period on `today`, 300 points wide, in the
+   * last 5 days' view unless `whole`: 60 points a day then.
+   */
+  const renderTappable = async (
+    today: string,
+    onOpenDay?: (date: string) => void,
+    { whole = false } = {},
+  ) => {
+    await render(
+      <ProgressChart
+        chart={progressChart(records(21_600), today, 'daysLeft')}
+        money={money}
+        onOpenDay={onOpenDay}
+      />,
+    );
+    await fireEvent(screen.getByTestId('chart-plot'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 150 } },
+    });
+    if (!whole) {
+      await fireEvent.press(screen.getByRole('button', { name: 'Show the last 5 days' }));
+    }
+  };
+  const tap = (x: number) =>
+    fireEvent.press(screen.getByTestId('chart-plot'), { nativeEvent: { locationX: x } });
+
+  it.each([
+    { name: 'the first of the 5 days', x: 5, expected: '2026-11-04' },
+    { name: 'today', x: 270, expected: '2026-11-08' },
+  ])('opens $name where it is tapped', async ({ x, expected }) => {
+    const onOpenDay = jest.fn();
+    await renderTappable('2026-11-08', onOpenDay);
+
+    await tap(x);
+
+    expect(onOpenDay).toHaveBeenCalledWith(expected);
+  });
+
+  it('opens nothing for a day after today (BR-CHT-03)', async () => {
+    const onOpenDay = jest.fn();
+    // Early in the period, the view shows Nov 1 – Nov 5: Nov 3 is the third.
+    await renderTappable('2026-11-02', onOpenDay);
+
+    await tap(150);
+
+    expect(onOpenDay).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing in the whole period’s view', async () => {
+    const onOpenDay = jest.fn();
+    await renderTappable('2026-11-08', onOpenDay, { whole: true });
+
+    await tap(5);
+
+    expect(onOpenDay).not.toHaveBeenCalled();
+    const chart = screen.getByRole('adjustable');
+    expect(chart.props.accessibilityHint).toBe('Swipe up or down to hear each day.');
+    expect(chart.props.accessibilityActions).toEqual([
+      { name: 'increment' },
+      { name: 'decrement' },
+    ]);
+  });
+
+  it('opens the day a screen reader stepped to with a double-tap (BR-NFR-07)', async () => {
+    const onOpenDay = jest.fn();
+    await renderTappable('2026-11-08', onOpenDay);
+    const chart = screen.getByRole('adjustable');
+    expect(chart.props.accessibilityHint).toBe(
+      'Swipe up or down to hear each day, and double-tap to open its expenses.',
+    );
+
+    await fireEvent(chart, 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    await fireEvent(chart, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+
+    expect(onOpenDay).toHaveBeenCalledWith('2026-11-07');
+  });
+
+  it('offers no double-tap without a day to open', async () => {
+    await renderTappable('2026-11-08');
+    const chart = screen.getByRole('adjustable');
+
+    expect(chart.props.accessibilityHint).toBe('Swipe up or down to hear each day.');
+    expect(chart.props.accessibilityActions).toEqual([
+      { name: 'increment' },
+      { name: 'decrement' },
+    ]);
   });
 });

@@ -1,4 +1,4 @@
-import { chartGeometry, recentDays } from '@/components/chart-geometry';
+import { chartGeometry, dayAt, recentDays } from '@/components/chart-geometry';
 import { type PeriodRecords, progressChart } from '@/domain/calculations';
 
 // A USD period of 4 days with a budget of $100.00: Nov 1 – Nov 4, today Nov 2.
@@ -111,5 +111,24 @@ describe('recentDays (BR-CHT-06)', () => {
 
   it('keeps a period of 5 days or fewer whole', () => {
     expect(recentDays(progressChart(records, '2026-11-02', 'daysLeft')).days).toHaveLength(4);
+  });
+});
+
+describe('dayAt (BR-CHT-04)', () => {
+  it.each([
+    { name: 'the first day at the left edge', x: 0, expected: 0 },
+    { name: 'the day whose column holds the point', x: 75, expected: 2 },
+    { name: 'the last day at the right edge', x: 300, expected: 9 },
+    { name: 'the first day left of the chart', x: -4, expected: 0 },
+    { name: 'the last day right of the chart', x: 320, expected: 9 },
+  ])('finds $name', ({ x, expected }) => {
+    expect(dayAt(x, 300, 10)).toBe(expected);
+  });
+
+  it.each([
+    { name: 'without days', width: 300, count: 0 },
+    { name: 'before the chart has a width', width: 0, count: 10 },
+  ])('finds none $name', ({ width, count }) => {
+    expect(dayAt(10, width, count)).toBe(-1);
   });
 });

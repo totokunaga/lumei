@@ -22,4 +22,10 @@ export interface SignInRequest {
    * fails, the sign-in still succeeds.
    */
   authorization_code?: string;
+  /**
+   * The random secret the app made for this sign-in, whose SHA-256 hash (in
+   * hex) it gave the provider. The ID token must then carry that hash.
+   * Required for Sign in with Apple's web flow, on Android (BR-ACC-01).
+   */
+  nonce?: string;
 }

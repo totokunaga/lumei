@@ -32,6 +32,37 @@ model SignInRequest {
    * fails, the sign-in still succeeds.
    */
   authorization_code?: string;
+
+  /**
+   * The random secret the app made for this sign-in, whose SHA-256 hash (in
+   * hex) it gave the provider. The ID token must then carry that hash.
+   * Required for Sign in with Apple's web flow, on Android (BR-ACC-01).
+   */
+  nonce?: string;
+}
+
+/** What Sign in with Apple's web flow posts back (`response_mode=form_post`). */
+model AppleCallbackForm {
+  /** The authorization code, on success. */
+  code?: string;
+
+  /** The ID token, on success. */
+  id_token?: string;
+
+  /** The value the app sent, which it checks to be sure the answer is its own. */
+  state?: string;
+
+  /** Why the sign-in didn't finish, e.g. `user_cancelled_authorize`. */
+  error?: string;
+
+  /** The user's name, on the first sign-in only. Not used. */
+  user?: string;
+}
+
+/** Sends the browser back to the app, with the web flow's result in the link's query. */
+model RedirectedToApp {
+  @statusCode statusCode: 303;
+  @header location: string;
 }
 
 model SessionResponse {
@@ -93,6 +124,23 @@ interface Auth {
   @post
   @route("/auth/sign-in")
   signIn(@body body: SignInRequest): SignedIn | BadRequest | Unauthorized | Forbidden;
+
+  /**
+   * Receives the result of Sign in with Apple's web flow, which Android uses
+   * (BR-ACC-01), and sends it on to the app: a `303` to the app's link with
+   * `code`, `id_token`, `state`, and `error` in the query, whichever Apple
+   * sent. It checks nothing itself: the app checks `state`, and signs in with
+   * `POST /auth/sign-in` and its nonce. It is the `redirect_uri` registered
+   * for the Services ID.
+   */
+  @summary("Return Sign in with Apple's web result to the app")
+  @operationId("appleCallback")
+  @post
+  @route("/auth/apple/callback")
+  appleCallback(
+    @header contentType: "application/x-www-form-urlencoded",
+    @body body: AppleCallbackForm,
+  ): RedirectedToApp;
 
   /**
    * Exchanges a refresh token for a new access token and refresh token, and

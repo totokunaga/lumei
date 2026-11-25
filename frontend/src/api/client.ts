@@ -22,6 +22,9 @@ export const apiBaseUrl = (url: string | undefined, dev: boolean): string => {
 
 const baseUrl = apiBaseUrl(process.env.EXPO_PUBLIC_API_URL, __DEV__);
 
+/** The API's base URL, e.g. for a page the API serves to a browser. */
+export const API_URL = baseUrl;
+
 /** How `apiFetch` gets access tokens. Set by `configureAuth`. */
 interface AuthHooks {
   /**

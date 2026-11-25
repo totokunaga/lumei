@@ -202,6 +202,9 @@ type SyncWriter interface {
 	// the one with exceptID, archived or not but not deleted, has the name,
 	// ignoring case and surrounding spaces (BR-CAT-04).
 	CategoryNameTaken(ctx context.Context, name string, exceptID string) (bool, error)
+	// CategoryInUse reports whether any of the user's expenses that aren't
+	// deleted has the category (BR-CAT-05).
+	CategoryInUse(ctx context.Context, categoryID string) (bool, error)
 }
 
 // SyncRepository stores the users' synced records.
@@ -238,7 +241,9 @@ func NewSyncer(records SyncRepository, now func() time.Time) *SyncUsecase {
 }
 
 // Push applies the rows in one transaction, so a failure stores none of them
-// and the device pushes them all again (BR-OFF-03).
+// and the device pushes them all again (BR-OFF-03). Category deletions are
+// applied after the push's other rows, so an expense deleted in the same push
+// no longer keeps its category (BR-CAT-05).
 func (u *SyncUsecase) Push(ctx context.Context, rows []SyncRow) ([]PushResult, error) {
 	principal, ok := PrincipalFrom(ctx)
 	if !ok {
@@ -251,7 +256,8 @@ func (u *SyncUsecase) Push(ctx context.Context, rows []SyncRow) ([]PushResult, e
 	latest := u.now().Add(MaxClockSkew).UnixMilli()
 	results := make([]PushResult, len(rows))
 	err := u.records.Apply(ctx, principal.User.ID, func(ctx context.Context, w SyncWriter) error {
-		for i, row := range rows {
+		for _, i := range applyOrder(rows) {
+			row := rows[i]
 			outcome, code, err := u.apply(ctx, w, principal.User.ID, row, latest)
 			if err != nil {
 				return err
@@ -264,6 +270,21 @@ func (u *SyncUsecase) Push(ctx context.Context, rows []SyncRow) ([]PushResult, e
 		return nil, fmt.Errorf("failed to apply the pushed rows: %w", err)
 	}
 	return results, nil
+}
+
+// applyOrder returns the rows' indexes in the order to apply them: every
+// other row first, in the order pushed, then the category deletions.
+func applyOrder(rows []SyncRow) []int {
+	order := make([]int, 0, len(rows))
+	var deletions []int
+	for i, row := range rows {
+		if _, ok := row.Record.(CategoryRecord); ok && row.DeletedAt != nil {
+			deletions = append(deletions, i)
+		} else {
+			order = append(order, i)
+		}
+	}
+	return append(order, deletions...)
 }
 
 // apply validates one row, then stores it if it wins its conflict.
@@ -293,14 +314,84 @@ func (*SyncUsecase) apply(
 		return OutcomeSuperseded, "", nil
 	}
 
-	row, err = uniqueCategoryName(ctx, w, row)
+	row, err = keepUsedCategory(ctx, w, row)
 	if err != nil {
 		return "", "", err
 	}
-	if err := w.Save(ctx, row); err != nil {
-		return "", "", fmt.Errorf("failed to save %s %s: %w", row.Record.Table(), row.ID, err)
+	if err := saveCategoryAware(ctx, w, row); err != nil {
+		return "", "", err
+	}
+	if err := reviveCategory(ctx, w, userID, row); err != nil {
+		return "", "", err
 	}
 	return OutcomeApplied, "", nil
+}
+
+// saveCategoryAware stores the row, numbering a category's name first when
+// another category has it (BR-CAT-04).
+func saveCategoryAware(ctx context.Context, w SyncWriter, row SyncRow) error {
+	row, err := uniqueCategoryName(ctx, w, row)
+	if err != nil {
+		return err
+	}
+	if err := w.Save(ctx, row); err != nil {
+		return fmt.Errorf("failed to save %s %s: %w", row.Record.Table(), row.ID, err)
+	}
+	return nil
+}
+
+// keepUsedCategory turns the deletion of a category an expense still has
+// into archiving it (BR-CAT-05, BR-CAT-03): another device recorded the
+// expense before the deletion reached the API. The archive is dated when the
+// user deleted it, unless it was archived already. Other rows are returned
+// unchanged.
+func keepUsedCategory(ctx context.Context, w SyncWriter, row SyncRow) (SyncRow, error) {
+	category, ok := row.Record.(CategoryRecord)
+	if !ok || row.DeletedAt == nil {
+		return row, nil
+	}
+	used, err := w.CategoryInUse(ctx, row.ID)
+	if err != nil {
+		return SyncRow{}, fmt.Errorf("failed to check whether category %s is used: %w", row.ID, err)
+	}
+	if !used {
+		return row, nil
+	}
+	if category.ArchivedAt == nil {
+		category.ArchivedAt = row.DeletedAt
+	}
+	row.Record, row.DeletedAt = category, nil
+	return row, nil
+}
+
+// reviveCategory brings back, archived, the deleted category of an expense
+// that reaches the API after the deletion did (BR-CAT-05): its device
+// recorded it before it learned of the deletion. This is the one change that
+// undoes a deletion, so the expense keeps its category. The category is
+// stored as a new change, so every device pulls it back; its name is
+// numbered if another category has taken it since (BR-CAT-04).
+func reviveCategory(ctx context.Context, w SyncWriter, userID uuid.UUID, row SyncRow) error {
+	expense, ok := row.Record.(ExpenseRecord)
+	if !ok || row.DeletedAt != nil {
+		return nil
+	}
+	stored, err := w.Find(ctx, TableCategories, expense.CategoryID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return nil
+	case err != nil:
+		return fmt.Errorf("failed to find category %s: %w", expense.CategoryID, err)
+	case stored.UserID != userID || stored.Row.DeletedAt == nil:
+		return nil
+	}
+	revived := stored.Row
+	// Find on the categories table always returns a CategoryRecord.
+	category, _ := revived.Record.(CategoryRecord)
+	if category.ArchivedAt == nil {
+		category.ArchivedAt = revived.DeletedAt
+	}
+	revived.Record, revived.DeletedAt = category, nil
+	return saveCategoryAware(ctx, w, revived)
 }
 
 // numberedName matches a name that already ends in a number, e.g. "Coffee (2)".

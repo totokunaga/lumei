@@ -63,7 +63,12 @@
     "weekAllowance": "1週間の予算",
     "spentOfWeekAllowance": "今週の支出 / 1週間の予算",
     "spendingBudget": "使える予算",
-    "spentOfBudget": "これまでの支出 / 使える予算"
+    "spentOfBudget": "これまでの支出 / 使える予算",
+    "use": {
+      "low": "順調です",
+      "high": "上限に近づいています",
+      "critical": "上限間近か、超えています"
+    }
   },
   "account": {
     "title": "アカウント",
@@ -129,6 +134,7 @@
   },
   "signIn": {
     "tagline": "今日使える金額がわかるから、貯金目標も守れる。",
+    "apple": "Appleでサインイン",
     "google": "Google でサインイン",
     "devTitle": "開発用: 任意のメールアドレスでサインイン",
     "devEmail": "メールアドレス",
@@ -183,7 +189,12 @@
       "note": "メモ（任意）",
       "remove": "{{name}}を削除",
       "removeUnnamed": "この項目を削除",
-      "total": "合計 {{amount}}"
+      "total": "合計 {{amount}}",
+      "position": "{{count}}件中{{n}}件目",
+      "reorder": "並べ替え",
+      "reorderDone": "完了",
+      "reorderHint": "≡ をドラッグして並び順を変えられます。",
+      "unnamed": "名前のない項目"
     },
     "income": {
       "title": "収入",
@@ -325,7 +336,8 @@
     "labelPlain": "{{title}}、{{range}}。",
     "day": "{{date}}：{{spent}}を使い、累計{{soFar}}、上限{{limit}}",
     "dayAhead": "{{date}}：上限{{limit}}",
-    "stepHint": "上下にスワイプすると、1日ずつ金額を読み上げます。"
+    "stepHint": "上下にスワイプすると、1日ずつ金額を読み上げます。",
+    "openHint": "上下にスワイプすると1日ずつ読み上げ、ダブルタップでその日の支出を開きます。"
   },
   "categories": {
     "title": "カテゴリ",
@@ -351,8 +363,15 @@
     "archiveHint": "新しい支出には表示されなくなります。過去の支出はそのカテゴリのままです。",
     "unarchive": "アーカイブを解除",
     "unarchiveHint": "新しい支出に再び表示されます。リストの最後に追加されます。",
-    "lastActive": "最後の有効なカテゴリはアーカイブできません。",
-    "archivedMessage": "{{name}}をアーカイブしました"
+    "lastActive": "最後の有効なカテゴリはアーカイブも削除もできません。",
+    "archivedMessage": "{{name}}をアーカイブしました",
+    "moved": "{{name}}、{{count}}件中{{n}}番目",
+    "delete": "カテゴリを削除",
+    "inUse_one": "{{name}}には{{count}}件の支出があります",
+    "inUse_other": "{{name}}には{{count}}件の支出があります",
+    "inUseMessage": "支出のあるカテゴリは削除できません。代わりにアーカイブしますか？新しい支出には表示されなくなり、過去の支出はそのカテゴリのままです。",
+    "cancel": "キャンセル",
+    "deletedMessage": "{{name}}を削除しました"
   },
   "spending": {
     "title": "カテゴリ別の支出",
@@ -363,5 +382,13 @@
     "all": "すべて",
     "bigPurchases": "大きな買い物",
     "noMatch": "この期間にこの条件に合う支出はありません。"
+  },
+  "day": {
+    "spent": "この日の支出",
+    "soFar": "これまでの支出",
+    "limit": "この日までの上限",
+    "stat": "{{label}}：{{amount}}",
+    "noExpenses": "この日の支出はありません。",
+    "bigPurchaseShare": "この日の支出には、数日に分けた大きな買い物の分が含まれます。一覧には全額で表示されます。"
   }
 }

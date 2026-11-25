@@ -63,7 +63,12 @@
     "weekAllowance": "Weekly allowance",
     "spentOfWeekAllowance": "Spent this week / Weekly allowance",
     "spendingBudget": "Spending budget",
-    "spentOfBudget": "Spent so far / Spending budget"
+    "spentOfBudget": "Spent so far / Spending budget",
+    "use": {
+      "low": "on track",
+      "high": "getting close to the limit",
+      "critical": "near or over the limit"
+    }
   },
   "account": {
     "title": "Account",
@@ -129,6 +134,7 @@
   },
   "signIn": {
     "tagline": "See what you can spend today, and still hit your saving target.",
+    "apple": "Sign in with Apple",
     "google": "Sign in with Google",
     "devTitle": "Development only: sign in as any email",
     "devEmail": "Email address",
@@ -183,7 +189,12 @@
       "note": "Note (optional)",
       "remove": "Remove {{name}}",
       "removeUnnamed": "Remove this item",
-      "total": "Total {{amount}}"
+      "total": "Total {{amount}}",
+      "position": "Item {{n}} of {{count}}",
+      "reorder": "Reorder",
+      "reorderDone": "Done",
+      "reorderHint": "Drag ≡ to change the order.",
+      "unnamed": "Unnamed item"
     },
     "income": {
       "title": "Your income",
@@ -325,7 +336,8 @@
     "labelPlain": "{{title}}, {{range}}.",
     "day": "{{date}}: spent {{spent}}, {{soFar}} so far, limit {{limit}}",
     "dayAhead": "{{date}}: limit {{limit}}",
-    "stepHint": "Swipe up or down to hear each day."
+    "stepHint": "Swipe up or down to hear each day.",
+    "openHint": "Swipe up or down to hear each day, and double-tap to open its expenses."
   },
   "categories": {
     "title": "Categories",
@@ -351,8 +363,15 @@
     "archiveHint": "It won't be offered for new expenses. Past expenses keep it.",
     "unarchive": "Unarchive category",
     "unarchiveHint": "It will be offered for new expenses again, at the end of your list.",
-    "lastActive": "Your last active category can't be archived.",
-    "archivedMessage": "{{name}} archived"
+    "lastActive": "Your last active category can't be archived or deleted.",
+    "archivedMessage": "{{name}} archived",
+    "moved": "{{name}}, {{n}} of {{count}}",
+    "delete": "Delete category",
+    "inUse_one": "{{name}} has {{count}} expense",
+    "inUse_other": "{{name}} has {{count}} expenses",
+    "inUseMessage": "A category with expenses can't be deleted. Archive it instead? It won't be offered for new expenses, and past expenses keep it.",
+    "cancel": "Cancel",
+    "deletedMessage": "{{name}} deleted"
   },
   "spending": {
     "title": "Spending by category",
@@ -363,5 +382,13 @@
     "all": "All",
     "bigPurchases": "Big purchases",
     "noMatch": "No expenses match this filter in this period."
+  },
+  "day": {
+    "spent": "Spent this day",
+    "soFar": "Spent so far",
+    "limit": "Limit by this day",
+    "stat": "{{label}}: {{amount}}",
+    "noExpenses": "No expenses on this day.",
+    "bigPurchaseShare": "This day's spending includes its share of big purchases, which are spread over several days. They're listed at their full amount."
   }
 }

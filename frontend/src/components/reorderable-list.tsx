@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type AccessibilityActionEvent, View } from 'react-native';
+import { type AccessibilityActionEvent, AccessibilityInfo, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   ReduceMotion,
@@ -43,7 +43,8 @@ interface ReorderableListProps<T extends { id: string }> {
   renderItem: (item: T) => ReactNode;
   /** What screen readers say for a row, e.g. "☕ Coffee". */
   itemLabel: (item: T) => string;
-  onPressItem: (item: T) => void;
+  /** Opens a row; without it, rows only move. */
+  onPressItem?: (item: T) => void;
   /** Receives every row's ID in the new order, after the user moves one. */
   onReorder: (ids: string[]) => void;
 }
@@ -53,7 +54,7 @@ interface ReorderableListProps<T extends { id: string }> {
  * categories (BR-CAT-02). The held row lifts slightly and follows the
  * finger, and the others ease out of its way, with a haptic tick each time
  * it passes one; let go, it settles into its new place. Tapping a row
- * presses it. Screen readers move a row with its "Move up" and "Move down"
+ * presses it, when rows can be opened. Screen readers move a row with its "Move up" and "Move down"
  * actions instead. Rows have a fixed height, and only transforms and
  * opacity animate.
  */
@@ -64,6 +65,7 @@ export function ReorderableList<T extends { id: string }>({
   onPressItem,
   onReorder,
 }: ReorderableListProps<T>) {
+  const { t } = useTranslation();
   const ids = items.map((item) => item.id);
   const key = ids.join(',');
   const slots = useSharedValue<Slots>(slotsOf(ids));
@@ -72,11 +74,17 @@ export function ReorderableList<T extends { id: string }>({
     slots.set(slotsOf(key.split(',')));
   }, [key, slots]);
 
-  /** Moves a row one place, from a screen reader's action. */
+  /**
+   * Moves a row one place, from a screen reader's action, and says where it
+   * went, e.g. "Coffee, 2 of 8" (BR-NFR-07).
+   */
   const move = (index: number, by: number) => {
     const to = index + by;
     if (to >= 0 && to < ids.length) {
       onReorder(moveItem(ids, index, to));
+      AccessibilityInfo.announceForAccessibility(
+        t('categories.moved', { name: itemLabel(items[index]), n: to + 1, count: ids.length }),
+      );
     }
   };
 
@@ -90,7 +98,7 @@ export function ReorderableList<T extends { id: string }>({
           count={items.length}
           slots={slots}
           label={itemLabel(item)}
-          onPress={() => onPressItem(item)}
+          onPress={onPressItem && (() => onPressItem(item))}
           onMove={(by) => move(index, by)}
           onDrop={onReorder}
         >
@@ -109,7 +117,7 @@ interface RowProps {
   slots: SharedValue<Slots>;
   label: string;
   children: ReactNode;
-  onPress: () => void;
+  onPress?: () => void;
   /** Moves the row up (-1) or down (1) one place. */
   onMove: (by: number) => void;
   onDrop: (ids: string[]) => void;
@@ -192,6 +200,11 @@ function Row({ id, index, count, slots, label, children, onPress, onMove, onDrop
   // A soft shadow under the held row; only its opacity animates.
   const shadow = useAnimatedStyle(() => ({ opacity: lift.get() }));
 
+  const actions = [
+    ...(index > 0 ? [{ name: 'moveUp', label: t('categories.moveUp') }] : []),
+    ...(index < count - 1 ? [{ name: 'moveDown', label: t('categories.moveDown') }] : []),
+  ];
+
   /** Runs a screen reader's move action. */
   const act = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === 'moveUp') {
@@ -209,19 +222,28 @@ function Row({ id, index, count, slots, label, children, onPress, onMove, onDrop
         className="absolute inset-0 rounded-2xl bg-white shadow-lg shadow-black/20 dark:bg-gray-800"
       />
       <View className="h-full flex-row items-center rounded-2xl bg-gray-100 dark:bg-gray-900">
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          accessibilityActions={[
-            ...(index > 0 ? [{ name: 'moveUp', label: t('categories.moveUp') }] : []),
-            ...(index < count - 1 ? [{ name: 'moveDown', label: t('categories.moveDown') }] : []),
-          ]}
-          onAccessibilityAction={act}
-          onPress={onPress}
-          className="h-full flex-1 flex-row items-center gap-3 pl-4"
-        >
-          {children}
-        </PressableScale>
+        {onPress ? (
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityActions={actions}
+            onAccessibilityAction={act}
+            onPress={onPress}
+            className="h-full flex-1 flex-row items-center gap-3 pl-4"
+          >
+            {children}
+          </PressableScale>
+        ) : (
+          <View
+            accessible
+            accessibilityLabel={label}
+            accessibilityActions={actions}
+            onAccessibilityAction={act}
+            className="h-full flex-1 flex-row items-center gap-3 pl-4"
+          >
+            {children}
+          </View>
+        )}
         <GestureDetector gesture={pan}>
           <View
             accessibilityElementsHidden

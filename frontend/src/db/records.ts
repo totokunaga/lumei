@@ -1140,3 +1140,65 @@ export const reorderCategories = (db: Database, ids: readonly string[], now: num
   });
   notifyChange();
 };
+
+/**
+ * Counts the expenses that have a category, deleted ones left out, in every
+ * period: a category can be deleted only without any (BR-CAT-05).
+ * @returns e.g. 0 for a category no expense uses.
+ */
+export const countCategoryExpenses = (db: Database, id: string): number =>
+  db
+    .select({ n: count() })
+    .from(expenses)
+    .where(and(eq(expenses.categoryId, id), isNull(expenses.deletedAt)))
+    .get()?.n ?? 0;
+
+/**
+ * Deletes a category no expense uses (BR-CAT-05). The caller checks with
+ * `countCategoryExpenses`; if another device recorded an expense in it before
+ * the deletion synced, the API archives it instead, and the device pulls it
+ * back archived.
+ * @param now When the user deleted it, in milliseconds since the epoch.
+ * @returns The deleted category, to undo with `restoreCategory`; null if it
+ *   was already gone.
+ * @throws If the write fails; nothing is deleted then.
+ */
+export const deleteCategory = (db: Database, id: string, now: number): ManagedCategory | null => {
+  const stored = readManagedCategory(db, id);
+  if (!stored) {
+    return null;
+  }
+  db.update(categories)
+    .set({ deletedAt: now, ...changed(categories, now) })
+    .where(eq(categories.id, id))
+    .run();
+  notifyChange();
+  return stored;
+};
+
+/**
+ * Undoes a category's deletion (BR-CAT-05): saves it again in its old place,
+ * as a new record, since a deleted row can't come back (BR-OFF-05).
+ * @param deleted The category `deleteCategory` returned.
+ * @param id The new record's ID, from `newId()`.
+ * @param now When the user undid it, in milliseconds since the epoch.
+ * @throws If the write fails; nothing is saved then.
+ */
+export const restoreCategory = (
+  db: Database,
+  deleted: ManagedCategory,
+  id: string,
+  now: number,
+): void => {
+  db.insert(categories)
+    .values({
+      id,
+      name: deleted.name,
+      emoji: deleted.emoji,
+      position: deleted.position,
+      archivedAt: deleted.archivedAt,
+      ...created(now),
+    })
+    .run();
+  notifyChange();
+};

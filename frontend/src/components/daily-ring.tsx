@@ -181,7 +181,8 @@ export function DailyRing({ spent, allowance, money, labels }: DailyProps) {
       accessibilityLabel={`${t('home.pair', {
         first: t('home.labelled', { label: names.spent, value: money(spent) }),
         second: t('home.labelled', { label: names.allowance, value: money(allowance) }),
-      })}, ${share.text}`}
+        // The ring's color, in words (BR-NFR-07).
+      })}, ${share.text}, ${t(`home.use.${use}`)}`}
       style={{ width: SIZE, height: SIZE }}
       className="items-center justify-center"
     >

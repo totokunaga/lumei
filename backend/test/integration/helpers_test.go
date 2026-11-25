@@ -7,6 +7,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -253,8 +254,11 @@ func uniqueEmail() string {
 // The audiences the fake providers issue tokens for, which TestMain
 // configures as the server's client IDs.
 const (
-	testAppleClientID  = "com.example.lumei.test"
-	testGoogleClientID = "lumei-test.apps.googleusercontent.com"
+	testAppleClientID = "com.example.lumei.test"
+	// testAppleWebClientID is the Services ID of the Apple web flow, which
+	// Android uses (BR-ACC-01).
+	testAppleWebClientID = "com.example.lumei.test.web"
+	testGoogleClientID   = "lumei-test.apps.googleusercontent.com"
 	// testAppleTeamID and testAppleKeyID name the Apple key the server signs
 	// client secrets with; testGoogleClientSecret is the Google web client's
 	// secret. The fake providers accept only these (BR-ACC-05).
@@ -422,10 +426,11 @@ func writeOAuthError(w http.ResponseWriter, status int, code string) {
 // env returns the variables that point the server's verification at p.
 func (p *fakeIdentityProvider) env() map[string]string {
 	return map[string]string{
-		"AUTH_APPLE_JWKS_URL":    p.server.URL,
-		"AUTH_APPLE_CLIENT_IDS":  testAppleClientID,
-		"AUTH_GOOGLE_JWKS_URL":   p.server.URL,
-		"AUTH_GOOGLE_CLIENT_IDS": testGoogleClientID,
+		"AUTH_APPLE_JWKS_URL":       p.server.URL,
+		"AUTH_APPLE_CLIENT_IDS":     testAppleClientID,
+		"AUTH_APPLE_WEB_CLIENT_IDS": testAppleWebClientID,
+		"AUTH_GOOGLE_JWKS_URL":      p.server.URL,
+		"AUTH_GOOGLE_CLIENT_IDS":    testGoogleClientID,
 
 		"AUTH_APPLE_TEAM_ID":        testAppleTeamID,
 		"AUTH_APPLE_KEY_ID":         testAppleKeyID,
@@ -462,6 +467,42 @@ func appleToken(subject, email string) idToken {
 		issuer: "https://appleid.apple.com", audience: testAppleClientID,
 		subject: subject, email: email, emailVerified: "true",
 		expiresAt: time.Now().Add(10 * time.Minute),
+	}
+}
+
+// appleWebToken returns a valid ID token of Sign in with Apple's web flow
+// for email, carrying the hash of nonce, as Apple returns it to Android.
+func appleWebToken(subject, email, nonce string) idToken {
+	token := appleToken(subject, email)
+	token.audience = testAppleWebClientID
+	token.extra = map[string]any{"nonce": nonceHash(nonce)}
+	return token
+}
+
+// nonceHash returns the SHA-256 hash of nonce in hex, which the app gives
+// Apple and the ID token carries.
+func nonceHash(nonce string) string {
+	sum := sha256.Sum256([]byte(nonce))
+	return hex.EncodeToString(sum[:])
+}
+
+// signInWithNonceReq builds a POST /auth/sign-in request with the app's nonce.
+func signInWithNonceReq(provider generated.SignInProvider, idToken, nonce string) req {
+	return req{
+		method: http.MethodPost,
+		path:   "/auth/sign-in",
+		body:   generated.SignInRequest{Provider: provider, IdToken: idToken, Nonce: &nonce},
+	}
+}
+
+// appleCallbackReq builds the form post Apple's web flow makes to
+// POST /auth/apple/callback.
+func appleCallbackReq(form url.Values) req {
+	return req{
+		method:  http.MethodPost,
+		path:    "/auth/apple/callback",
+		headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		rawBody: form.Encode(),
 	}
 }
 

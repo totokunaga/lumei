@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, useColorScheme, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -60,7 +60,7 @@ export default function SignInScreen() {
     try {
       const credential = await getCredential();
       if (credential) {
-        await signIn(provider, credential.idToken, credential.authorizationCode);
+        await signIn(provider, credential.idToken, credential.authorizationCode, credential.nonce);
       }
     } catch (e) {
       setError(e instanceof SignInError ? e.code : 'unknown');
@@ -96,7 +96,22 @@ export default function SignInScreen() {
           </ErrorText>
         )}
 
-        {appleAvailable && (
+        {appleAvailable && Platform.OS !== 'ios' && (
+          // Apple's own button is iOS only; Android gets one in its colors (BR-ACC-01).
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() => run('apple', signInWithApple)}
+            className="min-h-[52px] items-center justify-center rounded-2xl bg-black dark:bg-white"
+          >
+            <Text className="text-lg font-semibold text-white dark:text-black">
+              {t('signIn.apple')}
+            </Text>
+          </PressableScale>
+        )}
+
+        {appleAvailable && Platform.OS === 'ios' && (
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
             buttonStyle={

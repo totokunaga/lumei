@@ -109,6 +109,55 @@ func pushCategoriesThenPull(
 	}
 }
 
+// pushCategoryBatches builds the rows of a case, sends each batch in its own
+// push, as separate syncs would, then pulls every change, requiring the
+// latest version of the category with the ID build returns to have want's
+// fields (BR-CAT-05).
+func pushCategoryBatches(
+	build func() (batches [][]syncRow, categoryID string),
+	want syncRow,
+) func(*testing.T, *TestServer) (req, func(*testing.T, response)) {
+
+	return func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
+		t.Helper()
+
+		session := newGoogleSession(t, ts)
+		batches, id := build()
+		for _, batch := range batches {
+			push(t, ts, session.AccessToken, batch...)
+		}
+		return pullReq(session.AccessToken, 0), assertPulledRow(id, want)
+	}
+}
+
+// assertPulledRow builds an assertFunc requiring the pulled row with the ID,
+// whose latest version comes last, to have want's fields.
+func assertPulledRow(id string, want syncRow) func(*testing.T, response) {
+	return func(t *testing.T, resp response) {
+		t.Helper()
+
+		var got syncRow
+		for _, row := range decodePull(t, resp.body).Rows {
+			if row["id"] == id {
+				got = row
+			}
+		}
+		require.NotNil(t, got, "no row %s pulled", id)
+		for field, value := range want {
+			assert.EqualValues(t, value, got[field], field)
+		}
+	}
+}
+
+// usedCategory returns a category with an ID no other case uses, an expense
+// in it, and the category's deletion, later than both.
+func usedCategory() (category, expense, deleted syncRow) {
+	category = namedCategory("Coffee", syncBaseTime)
+	expense = expenseSyncRow(newRowID(), category["id"].(string), syncBaseTime)
+	deleted = category.with(syncRow{"updated_at": syncBaseTime + 500, "deleted_at": syncBaseTime + 500})
+	return category, expense, deleted
+}
+
 // namedCategory builds a category row with an ID no other case uses.
 func namedCategory(name string, updatedAt int64) syncRow {
 	return categorySyncRow(newRowID(), updatedAt).with(syncRow{"name": name})
@@ -522,6 +571,69 @@ func TestPullChanges(t *testing.T) {
 				return pullReq(session.AccessToken, 0), assertBody(pulled{
 					Rows: normalized(t, edited), Cursor: 2,
 				})
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 archives instead of deleting a category an expense has (BR-CAT-05)",
+			prepare: pushCategoryBatches(func() ([][]syncRow, string) {
+				category, expense, deleted := usedCategory()
+				return [][]syncRow{{category, expense}, {deleted}}, category["id"].(string)
+			}, syncRow{"deleted_at": nil, "archived_at": syncBaseTime + 500, "name": "Coffee"}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 keeps the archive date of an archived category an expense has (BR-CAT-05)",
+			prepare: pushCategoryBatches(func() ([][]syncRow, string) {
+				category, expense, deleted := usedCategory()
+				at := syncBaseTime + 100
+				archived := category.with(syncRow{"archived_at": at, "updated_at": at})
+				gone := deleted.with(syncRow{"archived_at": at})
+				return [][]syncRow{{category, expense}, {archived}, {gone}}, category["id"].(string)
+			}, syncRow{"deleted_at": nil, "archived_at": syncBaseTime + 100}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 deletes a category whose last expense is deleted in the same push (BR-CAT-05)",
+			prepare: pushCategoryBatches(func() ([][]syncRow, string) {
+				category, expense, deleted := usedCategory()
+				at := syncBaseTime + 400
+				expenseGone := expense.with(syncRow{"updated_at": at, "deleted_at": at})
+				// The category's deletion comes first, but is applied after the expense's.
+				return [][]syncRow{{category, expense}, {deleted, expenseGone}}, category["id"].(string)
+			}, syncRow{"deleted_at": syncBaseTime + 500}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 brings back, archived, the deleted category of an expense pushed later (BR-CAT-05)",
+			prepare: pushCategoryBatches(func() ([][]syncRow, string) {
+				category, expense, deleted := usedCategory()
+				return [][]syncRow{{category}, {deleted}, {expense}}, category["id"].(string)
+			}, syncRow{"deleted_at": nil, "archived_at": syncBaseTime + 500, "name": "Coffee"}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 numbers the name of a category brought back once another took it (BR-CAT-05)",
+			prepare: pushCategoryBatches(func() ([][]syncRow, string) {
+				category, expense, deleted := usedCategory()
+				another := namedCategory("Coffee", syncBaseTime+600)
+				return [][]syncRow{{category}, {deleted}, {another}, {expense}}, category["id"].(string)
+			}, syncRow{"deleted_at": nil, "name": "Coffee (2)"}),
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "200 leaves another user's deleted category deleted (BR-ACC-02, BR-CAT-05)",
+			prepare: func(t *testing.T, ts *TestServer) (req, func(*testing.T, response)) {
+				t.Helper()
+
+				category, expense, deleted := usedCategory()
+				owner := newGoogleSession(t, ts)
+				push(t, ts, owner.AccessToken, category)
+				push(t, ts, owner.AccessToken, deleted)
+				other := newGoogleSession(t, ts)
+				push(t, ts, other.AccessToken, expense)
+				return pullReq(owner.AccessToken, 0),
+					assertPulledRow(category["id"].(string), syncRow{"deleted_at": syncBaseTime + 500})
 			},
 			expectedStatus: http.StatusOK,
 		},

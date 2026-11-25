@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './appleCallbackForm';
 export * from './basicHealthResponse';
 export * from './categoryRow';
 export * from './categoryRowTable';

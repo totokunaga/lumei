@@ -65,7 +65,8 @@ import { useScrollRoom } from '@/lib/scroll-room';
  * the button that records an expense (BR-EXP-09). For a past period: its
  * result (BR-HIS-02) as it stood at its end, editable (BR-HIS-03). Under
  * either, the chart (BR-CHT-01) and, swiped to beside it, the period's
- * spending by category (BR-HIS-04), and its expenses
+ * spending by category (BR-HIS-04), its last 5 days opening to their numbers and
+ * expenses (BR-CHT-04), and its expenses
  * by day, newest first, each day with its total (BR-DSH-06), filtered by
  * categories or to the big purchases (BR-EXP-10); tapping a category’s
  * spending filters to it. The filter resets on another period. Every number is worked out on the device from the
@@ -202,6 +203,8 @@ export default function HomeScreen() {
     [t],
   );
   const openIncome = useCallback((id: string) => router.push(`/income/${id}`), [router]);
+  /** Opens a day of the chart: its numbers and its expenses (BR-CHT-04). */
+  const openDay = useCallback((date: IsoDate) => router.push(`/day/${date}`), [router]);
   const removeIncome = useCallback(
     (id: string) => void deleteIncomeWithUndo(id, t('undo.incomeDeleted')),
     [t],
@@ -278,7 +281,14 @@ export default function HomeScreen() {
                   {
                     key: 'chart',
                     label: t('home.chartCard'),
-                    card: <ProgressChart chart={data.chart} money={money} ended={!data.current} />,
+                    card: (
+                      <ProgressChart
+                        chart={data.chart}
+                        money={money}
+                        ended={!data.current}
+                        onOpenDay={openDay}
+                      />
+                    ),
                   },
                   {
                     key: 'spending',
@@ -294,7 +304,12 @@ export default function HomeScreen() {
                 ]}
               />
             ) : (
-              <ProgressChart chart={data.chart} money={money} ended={!data.current} />
+              <ProgressChart
+                chart={data.chart}
+                money={money}
+                ended={!data.current}
+                onOpenDay={openDay}
+              />
             ))}
           <View className="gap-4 pt-2">
             <FloatingToggle

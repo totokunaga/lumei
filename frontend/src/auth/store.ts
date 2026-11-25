@@ -48,7 +48,12 @@ interface AuthState {
    * when there is one, lets the API revoke the sign-in when the account is
    * deleted (BR-ACC-05).
    */
-  signIn: (provider: SignInProvider, idToken: string, authorizationCode?: string) => Promise<void>;
+  signIn: (
+    provider: SignInProvider,
+    idToken: string,
+    authorizationCode?: string,
+    nonce?: string,
+  ) => Promise<void>;
   /** Signs out on the device after the account was deleted, forgetting its data (BR-ACC-05). */
   forgetDeleted: () => Promise<void>;
   /** Ends the session on the server and on the device. */
@@ -127,13 +132,15 @@ export const useAuth = create<AuthState>()((set, get) => ({
    * @throws SignInError with the API's error code, `network` if the API
    *   can't be reached, or `unknown`.
    */
-  signIn: async (provider, idToken, authorizationCode) => {
+  signIn: async (provider, idToken, authorizationCode, nonce) => {
     let res;
     try {
       res = await requestSignIn({
         provider,
         id_token: idToken,
         ...(authorizationCode ? { authorization_code: authorizationCode } : {}),
+        // The token of Apple's web flow is accepted only with its nonce (BR-ACC-01).
+        ...(nonce ? { nonce } : {}),
       });
     } catch {
       throw new SignInError('network');

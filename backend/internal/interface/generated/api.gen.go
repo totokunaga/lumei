@@ -198,6 +198,24 @@ func (e SignInProvider) Valid() bool {
 	}
 }
 
+// AppleCallbackForm What Sign in with Apple's web flow posts back (`response_mode=form_post`).
+type AppleCallbackForm struct {
+	// Code The authorization code, on success.
+	Code *string `json:"code,omitempty"`
+
+	// Error Why the sign-in didn't finish, e.g. `user_cancelled_authorize`.
+	Error *string `json:"error,omitempty"`
+
+	// IdToken The ID token, on success.
+	IdToken *string `json:"id_token,omitempty"`
+
+	// State The value the app sent, which it checks to be sure the answer is its own.
+	State *string `json:"state,omitempty"`
+
+	// User The user's name, on the first sign-in only. Not used.
+	User *string `json:"user,omitempty"`
+}
+
 // BasicHealthResponse Minimal health payload returned by the basic health check.
 type BasicHealthResponse struct {
 	Status string `json:"status"`
@@ -577,7 +595,12 @@ type SignInRequest struct {
 
 	// IdToken The ID token Sign in with Apple or Google returned to the app. For `dev`,
 	// the email address to sign in as.
-	IdToken  string         `json:"id_token"`
+	IdToken string `json:"id_token"`
+
+	// Nonce The random secret the app made for this sign-in, whose SHA-256 hash (in
+	// hex) it gave the provider. The ID token must then carry that hash.
+	// Required for Sign in with Apple's web flow, on Android (BR-ACC-01).
+	Nonce    *string        `json:"nonce,omitempty"`
 	Provider SignInProvider `json:"provider"`
 }
 
@@ -600,6 +623,9 @@ type bearerAuthContextKey string
 type PullChangesParams struct {
 	Since int64 `form:"since" json:"since"`
 }
+
+// AppleCallbackFormdataRequestBody defines body for AppleCallback for application/x-www-form-urlencoded ContentType.
+type AppleCallbackFormdataRequestBody = AppleCallbackForm
 
 // RefreshSessionJSONRequestBody defines body for RefreshSession for application/json ContentType.
 type RefreshSessionJSONRequestBody = RefreshSessionRequest
@@ -881,6 +907,9 @@ func (t *SyncRow) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Return Sign in with Apple's web result to the app
+	// (POST /auth/apple/callback)
+	AppleCallback(c *gin.Context)
 	// Refresh the tokens
 	// (POST /auth/refresh)
 	RefreshSession(c *gin.Context)
@@ -921,6 +950,19 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// AppleCallback operation middleware
+func (siw *ServerInterfaceWrapper) AppleCallback(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AppleCallback(c)
+}
 
 // RefreshSession operation middleware
 func (siw *ServerInterfaceWrapper) RefreshSession(c *gin.Context) {
@@ -1105,6 +1147,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.POST(options.BaseURL+"/auth/apple/callback", wrapper.AppleCallback)
 	router.POST(options.BaseURL+"/auth/refresh", wrapper.RefreshSession)
 	router.POST(options.BaseURL+"/auth/sign-in", wrapper.SignIn)
 	router.POST(options.BaseURL+"/auth/sign-out", wrapper.SignOut)

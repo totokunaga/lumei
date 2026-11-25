@@ -157,7 +157,7 @@ describe('HomeScreen', () => {
     expectShown('Remaining this period (16 days)', '¥144,000');
     expectShown('Spending budget', '¥150,000');
     // Its dots switch between them, today first.
-    expect(screen.getByRole('button', { name: 'Show Today' })).toBeSelected();
+    expect(screen.getByRole('tab', { name: 'Show Today' })).toBeSelected();
 
     const toggle = screen.getByRole('button', { name: 'Period details' });
     expect(screen.queryByText('Planned income')).toBeNull();
@@ -178,11 +178,11 @@ describe('HomeScreen', () => {
     await openUserDatabase(testUser.id);
     await renderHome();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Show This period' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Show This period' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Period details' }));
     expectShown('Planned income', '¥300,000');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Show Today' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Show Today' }));
     expect(screen.queryByText('Planned income')).toBeNull();
   });
 

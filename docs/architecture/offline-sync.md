@@ -2,7 +2,7 @@
 
 How the mobile app saves changes on the device first and syncs them with the Go API, so the app works offline (BR-OFF-01 to BR-OFF-06, BR-NFR-04, BR-NFR-05).
 
-- **Status:** implemented: the on-device database (`frontend/src/db/`), the sync engine (`frontend/src/sync/`), and the two sync endpoints with their PostgreSQL tables. Screens update after every write through a change notifier (`frontend/src/db/changes.ts`) rather than SQLite live queries, and the engine's writes go through it too. Not implemented yet: the category deletion rule in [Conflict rules](#conflict-rules) (BR-CAT-05), which comes with deleting categories, since nothing can delete one before then.
+- **Status:** implemented: the on-device database (`frontend/src/db/`), the sync engine (`frontend/src/sync/`), and the two sync endpoints with their PostgreSQL tables. Screens update after every write through a change notifier (`frontend/src/db/changes.ts`) rather than SQLite live queries, and the engine's writes go through it too.
 - **Stack:** the app keeps every record in SQLite on the device (`expo-sqlite` with Drizzle). Screens read and write only that database. A sync engine in the app pushes local changes to the API and pulls changes from other devices. The API stores the records in PostgreSQL on RDS and resolves conflicts. The sync protocol is our own: two endpoints, no third-party sync service.
 - **Scope:** all user data: settings, categories, periods, planned income, fixed expenses, targets, expenses, and extra income. Each one uses the same mechanism, so BR-OFF-06 comes with BR-OFF-01. Signing in, account deletion, and the network layout are out of scope; see [`authentication.md`](authentication.md) and [`aws-infrastructure.md`](aws-infrastructure.md).
 - **Code paths:**
@@ -150,7 +150,7 @@ A device that signs in for the first time starts with cursor 0 and so pulls ever
 
 The API and the device apply the same rules, so they always agree on which change wins:
 
-1. **A deletion wins over any edit,** whenever either was made (BR-OFF-05). A deleted row is never changed back.
+1. **A deletion wins over any edit,** whenever either was made (BR-OFF-05). A deleted row is never changed back, except a category an expense still needs (BR-CAT-05, below).
 2. **Otherwise the most recent change wins:** the one with the later `updated_at`, which is when the user made the change by the device's clock, not when it reached the API (BR-OFF-05). The whole row wins, not single fields. A device whose clock is wrong can still win when it shouldn't, but only by up to 5 minutes: a row dated further ahead than that is `rejected`.
 3. **On a tie, the version the API already has wins,** so pushing again never changes the result.
 
@@ -161,7 +161,7 @@ Some rules come from requirements, not timestamps:
 | A push changes the account currency (BR-SET-04) | That row is `rejected` |
 | A row's `updated_at` is more than 5 minutes ahead of the API's clock (BR-OFF-05) | That row is `rejected` |
 | Two devices create a category with the same name offline, or rename one to it (BR-CAT-04) | The API keeps the first one it receives and adds the next free number to the later one's name, e.g. "Coffee (2)", or "Coffee (3)" for a clashing "Coffee (2)". Names compare without case or surrounding spaces; archived categories count, deleted ones don't. The push answers `applied`, and the renamed row is stored as a new change, so every device pulls the new name, the pushing one too. A unique index on `categories (user_id, lower(btrim(name)))` backs the rule up. |
-| An expense uses a category that another device deleted (BR-CAT-05) | The API archives the category instead of deleting it (BR-CAT-03), so the expense keeps its category. The archived row is stored as a new change, so the deleting device pulls it back. |
+| An expense uses a category that another device deleted (BR-CAT-05) | The API archives the category instead of deleting it (BR-CAT-03), so the expense keeps its category, whichever reaches it first. A deletion that arrives while an expense that isn't deleted has the category is stored as an archive instead, dated when it was deleted. An expense that arrives after the deletion brings the category back, archived, as the one exception to rule 1; its name gets a number if another category took it since (BR-CAT-04). Either way the archived row is stored as a new change, so every device pulls it back, the deleting one too. Within one push, category deletions are applied after the other rows, so an expense deleted in the same push no longer keeps its category. The device deletes only a category none of its expenses use. |
 
 ### When a step fails
 

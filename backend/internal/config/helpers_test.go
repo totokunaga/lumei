@@ -76,6 +76,7 @@ func environWith(extra map[string]string) map[string]string {
 		"RDB_PASSWORD":              "secret",
 		"AUTH_JWT_SIGNING_KEY":      "-----BEGIN PRIVATE KEY-----",
 		"AUTH_TOKEN_ENCRYPTION_KEY": "a2V5",
+		"APP_ENV":                   "development",
 	}
 	for k, v := range extra {
 		environ[k] = v
