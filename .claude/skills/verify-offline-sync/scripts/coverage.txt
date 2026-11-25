@@ -1,0 +1,36 @@
+# Code the model in ../model/LumeiSync.tla describes, one function per line:
+# <path from the repo root> <function or const name>
+# fingerprint.sh hashes each function's text; coverage.lock holds the hashes
+# last confirmed against the model.
+backend/internal/application/sync.go Push
+backend/internal/application/sync.go applyOrder
+backend/internal/application/sync.go apply
+backend/internal/application/sync.go saveCategoryAware
+backend/internal/application/sync.go keepUsedCategory
+backend/internal/application/sync.go reviveCategory
+backend/internal/application/sync.go Pull
+backend/internal/application/sync.go Wins
+backend/internal/infrastructure/database/rdb/repository/sync.go Apply
+backend/internal/infrastructure/database/rdb/repository/sync.go Changes
+backend/internal/infrastructure/database/rdb/repository/sync.go changesOf
+backend/internal/infrastructure/database/rdb/repository/sync.go Save
+backend/internal/infrastructure/database/rdb/repository/sync.go CategoryInUse
+frontend/src/domain/sync.ts wins
+frontend/src/sync/engine.ts readOutgoing
+frontend/src/sync/engine.ts push
+frontend/src/sync/engine.ts applyPulled
+frontend/src/sync/engine.ts pull
+frontend/src/sync/engine.ts syncOnce
+frontend/src/sync/scheduler.ts requestSync
+frontend/src/db/records.ts created
+frontend/src/db/records.ts changed
+frontend/src/db/records.ts addExpense
+frontend/src/db/records.ts updateExpense
+frontend/src/db/records.ts deleteExpense
+frontend/src/db/records.ts readCategories
+frontend/src/db/records.ts addCategory
+frontend/src/db/records.ts updateCategory
+frontend/src/db/records.ts setCategoryArchived
+frontend/src/db/records.ts reorderCategories
+frontend/src/db/records.ts countCategoryExpenses
+frontend/src/db/records.ts deleteCategory

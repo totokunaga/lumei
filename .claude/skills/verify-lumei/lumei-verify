@@ -1,0 +1,680 @@
+#!/usr/bin/env python3
+"""lumei-verify: launch, inspect, drive, and tear down an isolated Lumei stack.
+
+The stack is: a throwaway Postgres container, the Go API built from backend/
+and run on the host, a Metro server for frontend/, and a private Android
+emulator instance (its own AVD, wiped at every boot) running the debug APK. Every process and
+container it starts is recorded in the state file, and `down` stops only
+those. It never touches the user's own lumei-api / lumei-postgres
+containers, their Metro on :8081, or emulators it didn't start.
+
+LOCAL ONLY: the API runs with APP_ENV=development and AUTH_DEV_SIGN_IN=true,
+and a JWT signing key generated for this run. These settings exist only for
+local verification and must never be enabled in any deployed environment.
+
+Usage: lumei-verify <command> [args]   (run `lumei-verify help`)
+"""
+
+import json
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[3]
+FRONTEND = REPO / "frontend"
+BACKEND = REPO / "backend"
+
+API_PORT = 18090
+PG_PORT = 18091
+METRO_PORT = 18092
+EMU_PORT = 5584  # console port; adb serial is emulator-5584, adb uses 5585
+SERIAL = f"emulator-{EMU_PORT}"
+PACKAGE = "com.anonymous.lumei"
+APK = FRONTEND / "android/app/build/outputs/apk/debug/app-debug.apk"
+DEFAULT_AVD = "lumei-verify"  # our own AVD, created under HOME/avd, wiped every run
+SDK = Path(os.environ.get("ANDROID_HOME", Path.home() / "Library/Android/sdk"))
+
+HOME = Path(os.environ.get("LUMEI_VERIFY_HOME", Path.home() / ".cache/lumei-verify"))
+SCRATCH = HOME / "run"            # removed file by file on `down`
+METRO_TMP = HOME / "metro-tmp"     # Metro's cache, kept across runs on purpose
+AVD_HOME = HOME / "avd"           # our AVD, kept across runs (wiped at each boot)
+EVIDENCE_ROOT = HOME / "evidence"  # never removed by this script
+STATE = SCRATCH / "state.json"
+
+ADB = shutil.which("adb") or str(Path.home() / "Library/Android/sdk/platform-tools/adb")
+EMULATOR = shutil.which("emulator") or str(Path.home() / "Library/Android/sdk/emulator/emulator")
+
+
+# ---------------------------------------------------------------- utilities
+
+def log(msg):
+    print(f"[lumei-verify] {msg}", flush=True)
+
+
+def die(msg, code=1):
+    print(f"[lumei-verify] ERROR: {msg}", file=sys.stderr, flush=True)
+    sys.exit(code)
+
+
+def run(cmd, check=True, capture=True, **kw):
+    r = subprocess.run(cmd, capture_output=capture, text=True, **kw)
+    if check and r.returncode != 0:
+        die(f"command failed ({r.returncode}): {' '.join(map(str, cmd))}\n{r.stdout}\n{r.stderr}")
+    return r
+
+
+def load_state():
+    if not STATE.exists():
+        return None
+    return json.loads(STATE.read_text())
+
+
+def save_state(st):
+    SCRATCH.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(st, indent=2))
+
+
+def need_state():
+    st = load_state()
+    if not st:
+        die(f"no running verification stack (no {STATE}); run `lumei-verify up` first")
+    return st
+
+
+def port_in_use(port):
+    with socket.socket() as s:
+        s.settimeout(0.3)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
+def http_get(url, timeout=3):
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except Exception as e:  # noqa: BLE001
+        return None, str(e)
+
+
+def wait_for(desc, fn, timeout, interval=2):
+    log(f"waiting for {desc} (up to {timeout}s)")
+    end = time.time() + timeout
+    while time.time() < end:
+        v = fn()
+        if v:
+            return v
+        time.sleep(interval)
+    die(f"timed out waiting for {desc}")
+
+
+def spawn(name, cmd, cwd, env, st):
+    """Starts a background process in its own session and records its PID."""
+    logf = open(SCRATCH / f"{name}.log", "w")
+    p = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=logf, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, start_new_session=True)
+    st["pids"][name] = p.pid
+    save_state(st)
+    log(f"started {name} (pid {p.pid}), log {SCRATCH / (name + '.log')}")
+    return p
+
+
+def evidence_dir(st):
+    d = Path(st["evidence"])
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def adb(*args, check=True):
+    return run([ADB, "-s", SERIAL, *args], check=check)
+
+
+# ------------------------------------------------------------------- launch
+
+def cmd_up(args):
+    avd = DEFAULT_AVD
+    headless = "--window" not in args
+    if "--avd" in args:
+        avd = args[args.index("--avd") + 1]
+    if load_state():
+        die(f"a stack is already recorded in {STATE}; run `lumei-verify doctor` or `lumei-verify down` first")
+    for port, what in [(API_PORT, "API"), (PG_PORT, "Postgres"), (METRO_PORT, "Metro"),
+                       (EMU_PORT, "emulator console"), (EMU_PORT + 1, "emulator adb")]:
+        if port_in_use(port):
+            die(f"port {port} ({what}) is already in use by something this script didn't start; refusing to share it")
+    devices = run([ADB, "devices"]).stdout
+    if SERIAL in devices:
+        die(f"{SERIAL} already exists and wasn't started by this script")
+    if not APK.exists():
+        die(f"no debug APK at {APK}. Build one with `cd frontend && bunx expo run:android` "
+            "(builds into the generated android/ dir) and run `up` again")
+
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    st = {"run_id": run_id, "pids": {}, "container": None, "avd": avd,
+          "evidence": str(EVIDENCE_ROOT / run_id), "started": time.time()}
+    SCRATCH.mkdir(parents=True, exist_ok=True)
+    METRO_TMP.mkdir(parents=True, exist_ok=True)
+    save_state(st)
+    ev = evidence_dir(st)
+    tree = run(["git", "-C", str(REPO), "status", "--porcelain"]).stdout
+    (ev / "build.txt").write_text(
+        f"run {run_id}\nHEAD {run(['git', '-C', str(REPO), 'rev-parse', 'HEAD']).stdout.strip()}\n"
+        f"uncommitted entries: {len(tree.splitlines())}\n"
+        f"sync files diff:\n{run(['git', '-C', str(REPO), 'diff', '--stat', '--', 'frontend/src/sync', 'backend/internal/application/sync.go']).stdout}\n"
+        f"apk mtime {datetime.fromtimestamp(APK.stat().st_mtime).isoformat()}\n")
+
+    # 1. Postgres: throwaway, in RAM, our own name and label.
+    name = f"lumei-verify-pg-{run_id}"
+    run(["docker", "run", "-d", "--rm", "--name", name, "--label", f"lumei-verify={run_id}",
+         "--tmpfs", "/var/lib/postgresql/data", "-p", f"127.0.0.1:{PG_PORT}:5432",
+         "-e", "POSTGRES_USER=postgres", "-e", "POSTGRES_PASSWORD=verify", "-e", "POSTGRES_DB=lumei",
+         "postgres:17-alpine"])
+    st["container"] = name
+    save_state(st)
+    log(f"started container {name}")
+    # pg_isready over TCP: the image's init server listens on the socket only,
+    # so this passes only once the real server is up after initdb.
+    wait_for("Postgres to accept TCP connections",
+             lambda: run(["docker", "exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "lumei"],
+                         check=False).returncode == 0, 60)
+
+    # 2. Migrate, build, and start the API.
+    rdb = {"RDB_HOST": "127.0.0.1", "RDB_PORT": str(PG_PORT), "RDB_USER": "postgres",
+           "RDB_PASSWORD": "verify", "RDB_NAME": "lumei", "RDB_SSL_MODE": "disable"}
+    env = {**os.environ, **rdb, "MIGRATIONS_PATH": str(BACKEND / "migration")}
+    log("applying migrations (go run ./cmd/migrate up)")
+    r = run(["go", "run", "./cmd/migrate", "up"], cwd=BACKEND, env=env, check=False)
+    (SCRATCH / "migrate.log").write_text(r.stdout + r.stderr)
+    if r.returncode != 0:
+        die(f"migration failed, see {SCRATCH / 'migrate.log'}")
+    log("building the API (go build ./cmd)")
+    run(["go", "build", "-o", str(SCRATCH / "lumei-api"), "./cmd"], cwd=BACKEND)
+    # Keys generated for this run only, held in memory, never written to disk.
+    jwt_key = run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256"]).stdout
+    enc_key = run(["openssl", "rand", "-base64", "32"]).stdout.strip()
+    api_env = {**os.environ, **rdb, "SERVER_PORT": str(API_PORT), "GIN_MODE": "release",
+               "APP_ENV": "development", "AUTH_DEV_SIGN_IN": "true", "LOG_FORMAT": "json",
+               "AUTH_JWT_SIGNING_KEY": jwt_key, "AUTH_TOKEN_ENCRYPTION_KEY": enc_key}
+    spawn("api", [str(SCRATCH / "lumei-api")], SCRATCH, api_env, st)
+    wait_for("API /health/full", lambda: http_get(f"http://127.0.0.1:{API_PORT}/health/full")[0] == 200, 60)
+    # /category-sets needs a signed-in user, so check the seed rows directly.
+    seeded = run(["docker", "exec", name, "psql", "-h", "127.0.0.1", "-U", "postgres", "-d", "lumei", "-tAc",
+                  "SELECT count(*) FROM category_sets"], check=False).stdout.strip()
+    if not seeded.isdigit() or int(seeded) == 0:
+        die(f"migrations ran but category_sets is empty ({seeded!r}); setup's region step would fail")
+    log(f"seed data present: {seeded} category sets")
+
+    # 3. A private emulator instance on its own console port.
+    emu_env = os.environ.copy()
+    if avd == DEFAULT_AVD:
+        # Our own AVD: fresh data every boot, no lock screen, no app from before.
+        _ensure_avd()
+        emu_env["ANDROID_AVD_HOME"] = str(AVD_HOME)
+        emu_cmd = [EMULATOR, "-avd", avd, "-port", str(EMU_PORT), "-wipe-data", "-no-snapshot",
+                   "-no-boot-anim", "-no-audio"]
+    else:
+        # A user's AVD: -read-only discards every change on exit. It must have
+        # no lock screen, or the app can't start (the user stays locked).
+        emu_cmd = [EMULATOR, "-avd", avd, "-port", str(EMU_PORT), "-read-only", "-no-snapshot-save",
+                   "-no-boot-anim", "-no-audio"]
+    if headless:
+        emu_cmd.append("-no-window")
+    spawn("emulator", emu_cmd, SCRATCH, emu_env, st)
+    wait_for(f"{SERIAL} to boot",
+             lambda: run([ADB, "-s", SERIAL, "shell", "getprop", "sys.boot_completed"], check=False).stdout.strip() == "1",
+             300, 5)
+    locked = run([ADB, "-s", SERIAL, "shell", "dumpsys", "user"], check=False).stdout
+    if "RUNNING_LOCKED" in locked:
+        adb("shell", "input", "keyevent", "224", check=False)
+        adb("shell", "wm", "dismiss-keyguard", check=False)
+        time.sleep(3)
+        if "RUNNING_LOCKED" in run([ADB, "-s", SERIAL, "shell", "dumpsys", "user"], check=False).stdout:
+            die(f"AVD {avd} boots to a lock screen (PIN/pattern), so apps can't start. "
+                "Use the default AVD (omit --avd) or an AVD without a screen lock")
+    log("installing the debug APK")
+    adb("install", "-r", str(APK))
+    # On an emulator the debug app loads its bundle from 10.0.2.2:8081, the
+    # host's 8081, which is the user's own Metro. Point it at ours instead
+    # with React Native's dev-server setting (debug builds are run-as-able).
+    # Use device-localhost plus `adb reverse`, not 10.0.2.2: Android 16+ gates
+    # an app's access to private addresses behind the "nearby devices"
+    # (local network) permission, which `up` denies, and loopback is exempt.
+    adb("reverse", f"tcp:{METRO_PORT}", f"tcp:{METRO_PORT}")
+    adb("reverse", f"tcp:{API_PORT}", f"tcp:{API_PORT}")
+    _set_bundler_host()
+
+    # 4. Metro, with the API URL the emulator reaches the host at.
+    metro_env = {**os.environ, "EXPO_PUBLIC_API_URL": f"http://localhost:{API_PORT}",
+                 "TMPDIR": str(METRO_TMP), "BROWSER": "none", "EXPO_NO_TELEMETRY": "1"}
+    # EXPO_PUBLIC_* values are inlined at transform time; clear our own cache
+    # (only ours: TMPDIR is METRO_TMP) whenever the inlined values change.
+    stamp = METRO_TMP / "lumei-verify-env.txt"
+    want = f"EXPO_PUBLIC_API_URL={metro_env['EXPO_PUBLIC_API_URL']}\n"
+    metro_cmd = ["bunx", "expo", "start", "--port", str(METRO_PORT)]
+    if not stamp.exists() or stamp.read_text() != want:
+        metro_cmd.append("--clear")
+        stamp.write_text(want)
+    spawn("metro", metro_cmd, FRONTEND, metro_env, st)
+    wait_for("Metro /status",
+             lambda: "packager-status:running" in (http_get(f"http://127.0.0.1:{METRO_PORT}/status")[1] or ""), 120)
+
+    # 5. Launch the app and wait until a real screen is drawn.
+    # Right after install the package manager may not resolve the activity yet.
+    wait_for("the app's activity to start",
+             lambda: "Error" not in (lambda r: r.stdout + r.stderr)(
+                 adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.MainActivity", check=False)), 60, 3)
+    wait_for("the app to show the sign-in or home screen",
+             lambda: _screen_ready(), 300, 5)
+    log(f"READY. Evidence dir: {st['evidence']}")
+
+
+BUNDLER_HOST = f"localhost:{METRO_PORT}"
+PREFS = f"shared_prefs/{PACKAGE}_preferences.xml"
+
+
+def _set_bundler_host():
+    """Writes debug_http_host into the app's preferences while it isn't running."""
+    adb("shell", "am", "force-stop", PACKAGE, check=False)
+    xml = ("<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map>\n"
+           f'    <string name="debug_http_host">{BUNDLER_HOST}</string>\n</map>\n')
+    # exec-in feeds stdin to the device command, so the XML needs no shell quoting.
+    subprocess.run([ADB, "-s", SERIAL, "exec-in",
+                    f"run-as {PACKAGE} sh -c 'mkdir -p shared_prefs && cat > {PREFS}'"],
+                   input=xml, text=True, check=True)
+    # exec-in can return before the device side has finished writing.
+    got = ""
+    for _ in range(10):
+        got = adb("shell", "run-as", PACKAGE, "cat", PREFS, check=False).stdout
+        if BUNDLER_HOST in got:
+            break
+        time.sleep(1)
+    if f'"debug_http_host">{BUNDLER_HOST}<' not in got:
+        die(f"couldn't set the app's bundler host (prefs: {got!r})")
+
+
+def _ensure_avd():
+    """Creates HOME/avd/lumei-verify.avd from the newest arm64 system image, once."""
+    ini = AVD_HOME / f"{DEFAULT_AVD}.ini"
+    if ini.exists():
+        return
+    images = sorted((SDK / "system-images").glob("android-*/*/arm64-v8a"))
+    if not images:
+        die(f"no arm64 system image under {SDK / 'system-images'}; install one with Android Studio's SDK Manager")
+    img = images[-1]
+    rel = img.relative_to(SDK)
+    target, tag = rel.parts[1], rel.parts[2]
+    d = AVD_HOME / f"{DEFAULT_AVD}.avd"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "config.ini").write_text("\n".join([
+        f"AvdId={DEFAULT_AVD}", f"avd.ini.displayname={DEFAULT_AVD}", "avd.ini.encoding=UTF-8",
+        "abi.type=arm64-v8a", "hw.cpu.arch=arm64", "hw.cpu.ncore=4", "hw.ramSize=4096",
+        f"image.sysdir.1={rel}/", f"tag.id={tag}", f"target={target}",
+        f"PlayStore.enabled={'true' if 'playstore' in tag else 'false'}",
+        "hw.lcd.width=1280", "hw.lcd.height=2856", "hw.lcd.density=480",
+        "hw.keyboard=yes", "hw.mainKeys=no", "hw.gpu.enabled=yes", "hw.gpu.mode=auto",
+        "hw.gps=yes", "hw.initialOrientation=portrait", "disk.dataPartition.size=6G",
+        "fastboot.forceColdBoot=yes", ""]))
+    ini.write_text(f"avd.ini.encoding=UTF-8\npath={d}\ntarget={target}\n")
+    log(f"created AVD {DEFAULT_AVD} from {rel} in {AVD_HOME}")
+
+
+def _screen_ready():
+    nodes = _dump_nodes(quiet=True)
+    # A system permission prompt (Android asks for "nearby devices" on first
+    # launch of this debug build) blocks the app: deny it and look again.
+    for n in nodes:
+        if "permission_deny" in n["id"]:
+            x1, y1, x2, y2 = n["bounds"]
+            adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2), check=False)
+            log(f"denied a system permission prompt: {[m['text'] for m in nodes if m['id'].endswith('permission_message')]}")
+            return False
+    texts = " ".join((n["text"] + " " + n["desc"]) for n in nodes)
+    return any(k in texts for k in ("Development only: sign in as any email", "Remaining today",
+                                    "Where do you live?"))
+
+
+# ------------------------------------------------------------------- doctor
+
+def cmd_doctor(_args):
+    st = load_state()
+    ok = True
+
+    def check(label, cond, detail=""):
+        nonlocal ok
+        ok = ok and bool(cond)
+        print(f"{'OK  ' if cond else 'FAIL'} {label}{(' - ' + detail) if detail else ''}")
+
+    if not st:
+        print(f"FAIL no stack recorded ({STATE} missing). Run `lumei-verify up`.")
+        sys.exit(1)
+    print(f"run {st['run_id']}, evidence {st['evidence']}")
+    for name, pid in st["pids"].items():
+        check(f"process {name} (pid {pid}) alive", pid_alive(pid))
+    c = run(["docker", "inspect", "-f", "{{.State.Running}} {{index .Config.Labels \"lumei-verify\"}}",
+             st["container"] or "-"], check=False)
+    check(f"container {st['container']} running with our label",
+          c.returncode == 0 and c.stdout.strip() == f"true {st['run_id']}", c.stdout.strip() or c.stderr.strip())
+    lsof = run(["lsof", "-nP", f"-iTCP:{API_PORT}", "-sTCP:LISTEN", "-t"], check=False).stdout.split()
+    check(f"API port {API_PORT} owned by our api pid", str(st["pids"].get("api")) in lsof, " ".join(lsof))
+    s, b = http_get(f"http://127.0.0.1:{API_PORT}/health/full")
+    check("API /health/full is 200", s == 200, (b or "")[:120])
+    s, b = http_get(f"http://127.0.0.1:{METRO_PORT}/status")
+    check(f"Metro on {METRO_PORT} running", "packager-status:running" in (b or ""))
+    devs = run([ADB, "devices"], check=False).stdout
+    check(f"{SERIAL} attached", f"{SERIAL}\tdevice" in devs)
+    avd = run([ADB, "-s", SERIAL, "emu", "avd", "name"], check=False).stdout.split()
+    check(f"{SERIAL} runs AVD {st['avd']}", bool(avd) and avd[0] == st["avd"], avd[0] if avd else "")
+    prefs = run([ADB, "-s", SERIAL, "shell", "run-as", PACKAGE, "cat", PREFS], check=False).stdout
+    check(f"app's bundler host is our Metro ({BUNDLER_HOST}), not the user's :8081", BUNDLER_HOST in prefs)
+    rev = run([ADB, "-s", SERIAL, "reverse", "--list"], check=False).stdout
+    for port in (METRO_PORT, API_PORT):
+        check(f"device tcp:{port} -> host tcp:{port}", f"tcp:{port} tcp:{port}" in rev)
+    ver = run([ADB, "-s", SERIAL, "shell", "dumpsys", "package", PACKAGE], check=False).stdout
+    m = re.search(r"versionName=(\S+)", ver)
+    check(f"{PACKAGE} installed", bool(m), m.group(1) if m else "")
+    pid = run([ADB, "-s", SERIAL, "shell", "pidof", PACKAGE], check=False).stdout.strip()
+    check(f"{PACKAGE} process running on device", bool(pid), pid)
+    sys.exit(0 if ok else 1)
+
+
+# -------------------------------------------------------------------- drive
+
+def _dump_nodes(quiet=False):
+    r = run([ADB, "-s", SERIAL, "exec-out", "uiautomator", "dump", "/dev/tty"], check=False)
+    xml = r.stdout
+    i, j = xml.find("<?xml"), xml.rfind("</hierarchy>")
+    if i < 0 or j < 0:
+        if not quiet:
+            die(f"uiautomator dump failed: {r.stdout[-300:]} {r.stderr[-300:]}")
+        return []
+    root = ET.fromstring(xml[i:j + len("</hierarchy>")])
+    nodes = []
+    for n in root.iter("node"):
+        b = [int(x) for x in re.findall(r"\d+", n.get("bounds", "[0,0][0,0]"))]
+        nodes.append({"text": n.get("text", ""), "desc": n.get("content-desc", ""),
+                      "id": n.get("resource-id", ""), "cls": n.get("class", "").split(".")[-1],
+                      "clickable": n.get("clickable") == "true", "checked": n.get("checked") == "true",
+                      "selected": n.get("selected") == "true", "enabled": n.get("enabled") == "true",
+                      "focused": n.get("focused") == "true", "bounds": b, "raw": xml[i:j + 12]})
+    return nodes
+
+
+def _fmt(n):
+    flags = "".join(f for f, v in [("C", n["clickable"]), ("x", n["checked"]), ("s", n["selected"]),
+                                   ("F", n["focused"]), ("-", not n["enabled"])] if v)
+    parts = [n["cls"]]
+    if n["text"]:
+        parts.append(f'text="{n["text"]}"')
+    if n["desc"]:
+        parts.append(f'desc="{n["desc"]}"')
+    if n["id"]:
+        parts.append(f'id="{n["id"]}"')
+    return f'{" ".join(parts)} [{flags}] {n["bounds"]}'
+
+
+def _match(args):
+    """Parses --text/--desc/--id/--any VALUE [--exact] [--index N]."""
+    key = val = None
+    for k in ("--text", "--desc", "--id", "--any"):
+        if k in args:
+            key, val = k[2:], args[args.index(k) + 1]
+    if key is None:
+        die("give one of --text, --desc, --id, --any")
+    exact = "--exact" in args
+    index = int(args[args.index("--index") + 1]) if "--index" in args else 0
+
+    def ok(n):
+        fields = [n["text"], n["desc"]] if key == "any" else [n[key]]
+        return any((f == val) if exact else (val in f) for f in fields if f)
+
+    return ok, index, f"{key}{'=' if exact else '~'}{val!r}"
+
+
+def _find(args, timeout):
+    ok, index, label = _match(args)
+    end = time.time() + timeout
+    while True:
+        hits = [n for n in _dump_nodes() if ok(n)]
+        if len(hits) > index:
+            return hits[index], label
+        if time.time() >= end:
+            die(f"no node matching {label} (index {index}) after {timeout}s; run `lumei-verify ui` to see the screen")
+        time.sleep(1)
+
+
+def cmd_ui(args):
+    nodes = _dump_nodes()
+    lines = [_fmt(n) for n in nodes if n["text"] or n["desc"] or n["id"] or n["clickable"]]
+    print("\n".join(lines))
+    if "--save" in args:
+        st = need_state()
+        name = args[args.index("--save") + 1]
+        d = evidence_dir(st)
+        (d / f"{name}.ui.txt").write_text("\n".join(lines) + "\n")
+        (d / f"{name}.ui.xml").write_text(nodes[0]["raw"] if nodes else "")
+        log(f"saved {d / (name + '.ui.txt')} and .ui.xml")
+
+
+def cmd_tap(args):
+    timeout = int(args[args.index("--timeout") + 1]) if "--timeout" in args else 15
+    n, label = _find(args, timeout)
+    x1, y1, x2, y2 = n["bounds"]
+    x, y = (x1 + x2) // 2, (y1 + y2) // 2
+    adb("shell", "input", "tap", str(x), str(y))
+    print(f"tapped {label} at {x},{y}: {_fmt(n)}")
+
+
+def cmd_wait(args):
+    timeout = int(args[args.index("--timeout") + 1]) if "--timeout" in args else 30
+    n, label = _find(args, timeout)
+    print(f"found {label}: {_fmt(n)}")
+
+
+def cmd_gone(args):
+    timeout = int(args[args.index("--timeout") + 1]) if "--timeout" in args else 30
+    ok, _, label = _match(args)
+    end = time.time() + timeout
+    while time.time() < end:
+        if not any(ok(n) for n in _dump_nodes()):
+            print(f"gone: {label}")
+            return
+        time.sleep(1)
+    die(f"{label} still on screen after {timeout}s")
+
+
+def cmd_type(args):
+    if not args:
+        die("usage: lumei-verify type TEXT")
+    text = args[0]
+    # `input text` treats spaces specially; %s is a space.
+    adb("shell", "input", "text", text.replace(" ", "%s").replace("'", "\\'"))
+    print(f"typed {text!r}")
+
+
+def cmd_key(args):
+    keys = {"BACK": "4", "ENTER": "66", "HOME": "3", "DEL": "67", "TAB": "61"}
+    for k in args:
+        adb("shell", "input", "keyevent", keys.get(k.upper(), k))
+    print(f"pressed {' '.join(args)}")
+
+
+def cmd_swipe(args):
+    if len(args) < 4:
+        die("usage: lumei-verify swipe X1 Y1 X2 Y2 [MS]")
+    adb("shell", "input", "swipe", *args[:5])
+    print(f"swiped {' '.join(args)}")
+
+
+def cmd_shot(args):
+    st = need_state()
+    if not args:
+        die("usage: lumei-verify shot NAME")
+    path = evidence_dir(st) / f"{args[0]}.png"
+    with open(path, "wb") as f:
+        subprocess.run([ADB, "-s", SERIAL, "exec-out", "screencap", "-p"], stdout=f, check=True)
+    print(f"saved {path}")
+
+
+def cmd_sql(args):
+    st = need_state()
+    if not args:
+        die('usage: lumei-verify sql "SELECT ..." [--save NAME]')
+    r = run(["docker", "exec", st["container"], "psql", "-h", "127.0.0.1", "-U", "postgres", "-d", "lumei",
+             "-v", "ON_ERROR_STOP=1", "-c", args[0]], check=False)
+    out = r.stdout + r.stderr
+    print(out, end="")
+    if "--save" in args:
+        name = args[args.index("--save") + 1]
+        p = evidence_dir(st) / f"{name}.sql.txt"
+        p.write_text(f"-- {args[0]}\n{out}")
+        log(f"saved {p}")
+    sys.exit(r.returncode)
+
+
+def cmd_device_sql(args):
+    """Reads the app's on-device SQLite (debug build only: run-as)."""
+    need_state()
+    if not args:
+        die('usage: lumei-verify device-sql "SELECT ..." [--save NAME]')
+    ls = adb("shell", "run-as", PACKAGE, "ls", "files/SQLite", check=False).stdout.split()
+    dbs = [f for f in ls if f.endswith(".db")]
+    if not dbs:
+        die(f"no account database on the device yet (files/SQLite: {ls})")
+    out = ""
+    for db in dbs:
+        # Copy the db (and its WAL) out, then query it on the host with sqlite3.
+        local = SCRATCH / db
+        for suffix in ("", "-wal", "-shm"):
+            data = subprocess.run([ADB, "-s", SERIAL, "exec-out", "run-as", PACKAGE, "cat",
+                                   f"files/SQLite/{db}{suffix}"], capture_output=True)
+            target = Path(str(local) + suffix)
+            if data.returncode == 0 and data.stdout:
+                target.write_bytes(data.stdout)
+            elif target.exists():
+                target.unlink()
+        r = run(["sqlite3", "-header", "-column", str(local), args[0]], check=False)
+        out += f"== {db}\n{r.stdout}{r.stderr}"
+    print(out, end="")
+    if "--save" in args:
+        st = need_state()
+        name = args[args.index("--save") + 1]
+        p = evidence_dir(st) / f"{name}.device-sql.txt"
+        p.write_text(f"-- {args[0]}\n{out}")
+        log(f"saved {p}")
+
+
+def cmd_note(args):
+    st = need_state()
+    p = evidence_dir(st) / "steps.md"
+    with open(p, "a") as f:
+        f.write(f"- {datetime.now().strftime('%H:%M:%S')} {' '.join(args)}\n")
+    print(f"noted in {p}")
+
+
+# ------------------------------------------------------------------ cleanup
+
+def cmd_down(_args):
+    st = load_state()
+    if not st:
+        log("nothing recorded; nothing to stop")
+        return
+    ev = evidence_dir(st)
+    # Keep the logs with the evidence before scratch goes.
+    for name in ("api", "metro", "emulator", "migrate"):
+        f = SCRATCH / f"{name}.log"
+        if f.exists():
+            shutil.copy(f, ev / f"{name}.log")
+    # No `adb emu kill`: in one run the user's other emulator shut down at the
+    # same moment as that command. Signal only the PID we recorded.
+    others_before = _other_emulators()
+    containers_before = _other_containers(st)
+    for name, pid in st["pids"].items():
+        if not pid_alive(pid):
+            continue
+        try:
+            os.killpg(pid, signal.SIGTERM)  # its own session: kills Metro's children too
+        except ProcessLookupError:
+            pass
+        for _ in range(30):
+            if not pid_alive(pid):
+                break
+            time.sleep(1)
+        if pid_alive(pid):
+            os.killpg(pid, signal.SIGKILL)
+        log(f"stopped {name} (pid {pid})")
+    if st.get("container"):
+        run(["docker", "rm", "-f", st["container"]], check=False)
+        log(f"removed container {st['container']}")
+    for f in SCRATCH.iterdir():
+        if f.is_file():
+            f.unlink()
+    SCRATCH.rmdir()
+    lost = sorted(set(others_before) - set(_other_emulators()))
+    lost_c = sorted(set(containers_before) - set(_other_containers(st)))
+    if lost or lost_c:
+        log(f"WARNING: these were running before `down` and are gone now: {lost + lost_c}. "
+            "Tell the user; don't restart them yourself.")
+    log(f"done. Evidence kept at {ev}")
+
+
+def _other_emulators():
+    """Lists the serials of emulators this run didn't start."""
+    out = []
+    for line in run([ADB, "devices"], check=False).stdout.splitlines()[1:]:
+        if line.startswith("emulator-") and not line.startswith(SERIAL + "\t"):
+            out.append(line.split()[0])  # serial only: send nothing to emulators we don't own
+    return out
+
+
+def _other_containers(st):
+    names = run(["docker", "ps", "--format", "{{.Names}}"], check=False).stdout.split()
+    return [n for n in names if n != st.get("container")]
+
+
+def cmd_help(_args):
+    print(__doc__)
+    print("""Commands:
+  up [--avd NAME] [--window]   start Postgres, API, emulator, Metro, app; waits until usable
+  doctor                       read-only health check of the recorded stack (exit 1 on any FAIL)
+  ui [--save NAME]             list on-screen nodes: class text= desc= id= [C=clickable x=checked
+                               s=selected F=focused -=disabled] bounds
+  tap  (--text|--desc|--id|--any) VALUE [--exact] [--index N] [--timeout S]   taps the node centre
+  wait (--text|--desc|--id|--any) VALUE [--exact] [--index N] [--timeout S]
+  gone (--text|--desc|--id|--any) VALUE [--exact] [--timeout S]
+  type TEXT                    type into the focused field
+  key BACK|ENTER|DEL|TAB|HOME  press keys
+  swipe X1 Y1 X2 Y2 [MS]       raw swipe (pixels)
+  shot NAME                    screenshot to <evidence>/NAME.png
+  sql "QUERY" [--save NAME]    query the verification Postgres
+  device-sql "QUERY" [--save NAME]  query the app's on-device SQLite (debug build)
+  note TEXT                    append a step line to <evidence>/steps.md
+  down                         stop everything this run started; keeps evidence""")
+
+
+COMMANDS = {"up": cmd_up, "doctor": cmd_doctor, "ui": cmd_ui, "tap": cmd_tap, "wait": cmd_wait,
+            "gone": cmd_gone, "type": cmd_type, "key": cmd_key, "swipe": cmd_swipe, "shot": cmd_shot,
+            "sql": cmd_sql, "device-sql": cmd_device_sql, "note": cmd_note, "down": cmd_down,
+            "help": cmd_help}
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
+        cmd_help([])
+        sys.exit(2)
+    COMMANDS[sys.argv[1]](sys.argv[2:])
